@@ -1,26 +1,136 @@
 @import "tailwindcss";
 
+/* ==========================================================================
+   SYNAPSE-LAB DESIGN SYSTEM COLOR PALETTE & TOKENS
+   Primary:   #3D568F (Deep Slate Blue)
+   Secondary: #9FBAF1 (Soft Sky / Periwinkle)
+   Tertiary:  #EAF3B2 (Pale Lime Accent)
+   Neutral:   #FDFDF5 / #F4F6F9 (Clean, elegant, light theme)
+   ========================================================================== */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Core Brand Colors */
+  --primary: #3D568F;
+  --primary-hover: #2F4371;
+  --primary-active: #243355;
+  --primary-foreground: #FFFFFF;
+
+  --secondary: #9FBAF1;
+  --secondary-hover: #86A5E8;
+  --secondary-foreground: #1E2D4A;
+
+  --tertiary: #EAF3B2;
+  --tertiary-hover: #DFEB9B;
+  --tertiary-foreground: #344015;
+  --tertiary-dark: #4C5922;
+
+  --neutral: #FDFDF5;
+  --neutral-foreground: #1E232E;
+
+  /* Theme Backgrounds & Surfaces (FORCED LIGHT THEME - NO UNINTENDED BLACK SCREEN) */
+  --background: #F4F6F9;
+  --foreground: #1E293B;
+  --surface: #FFFFFF;
+  --surface-hover: #F8FAFC;
+  --surface-muted: #F1F5F9;
+
+  --border: #E2E8F0;
+  --border-strong: #CBD5E1;
+
+  --card: #FFFFFF;
+  --card-foreground: #1E293B;
+
+  --input: #F8FAFC;
+  --ring: #3D568F;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-full: 9999px;
 }
 
-@theme inline {
+@theme {
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-foreground: var(--primary-foreground);
+
+  --color-secondary: var(--secondary);
+  --color-secondary-hover: var(--secondary-hover);
+  --color-secondary-foreground: var(--secondary-foreground);
+
+  --color-tertiary: var(--tertiary);
+  --color-tertiary-hover: var(--tertiary-hover);
+  --color-tertiary-foreground: var(--tertiary-foreground);
+  --color-tertiary-dark: var(--tertiary-dark);
+
+  --color-neutral: var(--neutral);
+  --color-neutral-foreground: var(--neutral-foreground);
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-surface: var(--surface);
+  --color-surface-hover: var(--surface-hover);
+  --color-surface-muted: var(--surface-muted);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+
+  --font-headline: var(--font-headline), sans-serif;
+  --font-body: var(--font-body), sans-serif;
+  --font-mono: var(--font-label), monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* Base Body Styles */
+html, body {
+  background-color: var(--background) !important;
+  color: var(--foreground) !important;
+  font-family: var(--font-body), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-body {
-  background: var(--background);
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-headline), sans-serif;
+  letter-spacing: -0.02em;
+}
+
+/* Button Classes */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-md);
+  transition: all 150ms ease-in-out;
+  cursor: pointer;
+}
+
+.btn-primary {
+  background-color: var(--primary);
+  color: #FFFFFF;
+  border: 1px solid transparent;
+}
+.btn-primary:hover {
+  background-color: var(--primary-hover);
+}
+
+.btn-secondary {
+  background-color: var(--surface-muted);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  border: 1px solid var(--border);
+}
+.btn-secondary:hover {
+  background-color: var(--surface-hover);
+}
+
+.btn-outlined {
+  background-color: #FFFFFF;
+  color: var(--foreground);
+  border: 1px solid var(--border-strong);
+}
+.btn-outlined:hover {
+  background-color: var(--surface-hover);
 }
