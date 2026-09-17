@@ -10,6 +10,8 @@ import { RequestBanner } from "@/components/courses/RequestBanner";
 import { DashboardOverview } from "@/components/dashboard/DashboardOverview";
 import { AlgorithmDetailView } from "@/components/courses/AlgorithmDetailView";
 import { AlgorithmSimulationView } from "@/components/simulation/AlgorithmSimulationView";
+import { MedicalDetailView } from "@/components/courses/MedicalDetailView";
+import { MedicalSimulationView } from "@/components/medical/MedicalSimulationView";
 
 export default function Home() {
   const [activeNavTab, setActiveNavTab] = useState("overview");
@@ -20,6 +22,10 @@ export default function Home() {
   const [selectedLevel, setSelectedLevel] = useState("all");
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+
+  const selectedCourse = useMemo(() => {
+    return COURSES_DATA.find((c) => c.id === selectedCourseId) || null;
+  }, [selectedCourseId]);
 
   // Filter courses based on domain, search, level, and tag
   const filteredCourses = useMemo(() => {
@@ -108,15 +114,29 @@ export default function Home() {
         {/* Content Area */}
         <main className="flex-1 p-6 md:p-8 max-w-7xl mx-auto w-full flex flex-col gap-6">
           {activeSimulationLessonId ? (
-            <AlgorithmSimulationView
-              lessonId={activeSimulationLessonId}
-              onBack={() => setActiveSimulationLessonId(null)}
-            />
+            activeSimulationLessonId.startsWith("med-") ? (
+              <MedicalSimulationView
+                lessonId={activeSimulationLessonId}
+                onBack={() => setActiveSimulationLessonId(null)}
+              />
+            ) : (
+              <AlgorithmSimulationView
+                lessonId={activeSimulationLessonId}
+                onBack={() => setActiveSimulationLessonId(null)}
+              />
+            )
           ) : selectedCourseId ? (
-            <AlgorithmDetailView
-              onBack={() => setSelectedCourseId(null)}
-              onOpenSimulation={(lessonId) => setActiveSimulationLessonId(lessonId)}
-            />
+            selectedCourse?.category === "med" ? (
+              <MedicalDetailView
+                onBack={() => setSelectedCourseId(null)}
+                onOpenSimulation={(lessonId) => setActiveSimulationLessonId(lessonId)}
+              />
+            ) : (
+              <AlgorithmDetailView
+                onBack={() => setSelectedCourseId(null)}
+                onOpenSimulation={(lessonId) => setActiveSimulationLessonId(lessonId)}
+              />
+            )
           ) : activeNavTab === "overview" ? (
             <DashboardOverview
               onNavigateToCourses={handleNavigateToCourses}

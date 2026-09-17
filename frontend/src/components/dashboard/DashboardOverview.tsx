@@ -512,7 +512,9 @@ export function DashboardOverview({ onNavigateToCourses, onOpenCourseDetail }: P
                 </span>
                 <button
                   type="button"
-                  onClick={() => onNavigateToCourses("med")}
+                  onClick={() =>
+                    onOpenCourseDetail ? onOpenCourseDetail("med-201") : onNavigateToCourses("med")
+                  }
                   className="px-3.5 py-1.5 rounded-lg bg-[#3D568F] hover:bg-[#2F4371] text-white text-xs font-bold shadow-2xs hover:shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
                 >
                   <span>Tiếp tục học ngay</span>
