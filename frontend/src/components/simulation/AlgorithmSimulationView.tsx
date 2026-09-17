@@ -20,8 +20,15 @@ import {
   PlayCircleFill,
   Check2Circle,
   EyeFill,
+  ImageFill,
+  GearFill,
+  X,
+  TerminalFill,
+  ArrowRepeat,
+  Stars,
 } from "react-bootstrap-icons";
 import { DIJKSTRA_SIMULATION_DATA, SimulationStep, GraphNode, GraphEdge } from "@/data/simulations";
+import { REAL_WORLD_APPS_DATA, RealWorldAppItem } from "@/data/realWorldAlgorithms";
 
 interface Props {
   lessonId?: string;
@@ -41,10 +48,43 @@ export function AlgorithmSimulationView({ lessonId, onBack }: Props) {
   const [userChatInput, setUserChatInput] = useState("");
   const [chatMessages, setChatMessages] = useState<{ role: "user" | "ai"; text: string }[]>([]);
 
+  // Real-world practical application interactive state
+  const [selectedRealWorldApp, setSelectedRealWorldApp] = useState<RealWorldAppItem | null>(null);
+  const [illustratedAppModal, setIllustratedAppModal] = useState<RealWorldAppItem | null>(null);
+  const [terminalLogs, setTerminalLogs] = useState<string[]>([]);
+  const [isExecutingAppCode, setIsExecutingAppCode] = useState<boolean>(false);
+  const [floatingMenu, setFloatingMenu] = useState<{
+    x: number;
+    y: number;
+    text: string;
+    appId: string;
+  } | null>(null);
+
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const cardRef = useRef<HTMLDivElement | null>(null);
 
   const totalSteps = data.steps.length;
   const currentStep: SimulationStep = data.steps[currentStepIndex - 1] || data.steps[0];
+
+  // Click-outside listener for floating action menu
+  useEffect(() => {
+    const handleDocumentMouseDown = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest("[data-floating-menu]")) {
+        setTimeout(() => {
+          const sel = window.getSelection();
+          if (!sel || sel.isCollapsed) {
+            setFloatingMenu(null);
+          }
+        }, 150);
+      }
+    };
+
+    document.addEventListener("mousedown", handleDocumentMouseDown);
+    return () => {
+      document.removeEventListener("mousedown", handleDocumentMouseDown);
+    };
+  }, []);
 
   // Robust auto-play timer
   useEffect(() => {
@@ -105,6 +145,102 @@ export function AlgorithmSimulationView({ lessonId, onBack }: Props) {
     setIsPlaying(false);
     setCurrentStepIndex(stepNum);
     setDisplayMode("interactive");
+  };
+
+  // Real-world practical application handlers
+  const handleDetectTextSelection = () => {
+    setTimeout(() => {
+      const selection = window.getSelection();
+      if (!selection || selection.isCollapsed || !selection.toString().trim()) {
+        return;
+      }
+
+      const selectedText = selection.toString().trim();
+      if (selectedText.length >= 2) {
+        const lower = selectedText.toLowerCase();
+        let matchedId = "ospf";
+        if (
+          lower.includes("gps") ||
+          lower.includes("map") ||
+          lower.includes("bản đồ") ||
+          lower.includes("vệ tinh") ||
+          lower.includes("tắc nghẽn")
+        ) {
+          matchedId = "gps";
+        } else if (
+          lower.includes("logistics") ||
+          lower.includes("grab") ||
+          lower.includes("shopee") ||
+          lower.includes("giao") ||
+          lower.includes("hàng không") ||
+          lower.includes("hành trình")
+        ) {
+          matchedId = "logistics";
+        } else if (
+          lower.includes("điện") ||
+          lower.includes("grid") ||
+          lower.includes("lưới") ||
+          lower.includes("truyền tải")
+        ) {
+          matchedId = "smartgrid";
+        } else if (
+          lower.includes("ospf") ||
+          lower.includes("router") ||
+          lower.includes("mạng") ||
+          lower.includes("gói tin") ||
+          lower.includes("định tuyến")
+        ) {
+          matchedId = "ospf";
+        }
+
+        try {
+          const range = selection.getRangeAt(0);
+          const rect = range.getBoundingClientRect();
+          setFloatingMenu({
+            x: Math.max(120, rect.left + rect.width / 2),
+            y: Math.max(10, rect.top - 8),
+            text: selectedText,
+            appId: matchedId,
+          });
+        } catch {
+          // ignore range error
+        }
+      }
+    }, 20);
+  };
+
+  const handleGenerateIllustration = (appId: string) => {
+    const app = REAL_WORLD_APPS_DATA[appId] || REAL_WORLD_APPS_DATA.ospf;
+    setIllustratedAppModal(app);
+    setFloatingMenu(null);
+  };
+
+  const handleRunPracticalAlgorithm = (appId: string) => {
+    const app = REAL_WORLD_APPS_DATA[appId] || REAL_WORLD_APPS_DATA.ospf;
+    setSelectedRealWorldApp(app);
+    setActiveSidebarTab("code");
+    setFloatingMenu(null);
+    setIsExecutingAppCode(true);
+    setTerminalLogs([]);
+
+    // Simulate animated terminal logs
+    let logIdx = 0;
+    const interval = setInterval(() => {
+      if (logIdx < app.terminalOutput.length) {
+        const nextLog = app.terminalOutput[logIdx];
+        setTerminalLogs((prev) => [...prev, nextLog]);
+        logIdx++;
+      } else {
+        clearInterval(interval);
+        setIsExecutingAppCode(false);
+      }
+    }, 250);
+  };
+
+  const handleResetToStandardAlgorithm = () => {
+    setSelectedRealWorldApp(null);
+    setTerminalLogs([]);
+    setIsExecutingAppCode(false);
   };
 
   const handleSendMessage = (e?: React.FormEvent) => {
@@ -879,7 +1015,12 @@ export function AlgorithmSimulationView({ lessonId, onBack }: Props) {
               </div>
 
               {/* Card 2: Ứng Dụng Thực Tế Của Thuật Toán */}
-              <div className="bg-gradient-to-br from-[#FDFDF7] to-[#F3F7DC] p-5 rounded-3xl border border-[#D9E69B] shadow-2xs flex flex-col justify-between">
+              <div
+                ref={cardRef}
+                onMouseUp={handleDetectTextSelection}
+                onTouchEnd={handleDetectTextSelection}
+                className="bg-gradient-to-br from-[#FDFDF7] to-[#F3F7DC] p-5 rounded-3xl border border-[#D9E69B] shadow-2xs flex flex-col justify-between relative select-text"
+              >
                 <div>
                   <div className="flex items-center justify-between mb-2.5">
                     <h3 className="text-xs font-mono font-bold text-[#243355] uppercase tracking-wider">
@@ -889,12 +1030,14 @@ export function AlgorithmSimulationView({ lessonId, onBack }: Props) {
                       {data.realWorldApp.badge}
                     </span>
                   </div>
+
                   <p className="text-xs text-stone-700 font-[family-name:var(--font-body)] leading-relaxed mb-2.5">
                     {data.realWorldApp.description}
                   </p>
+
                   <ul className="flex flex-col gap-1.5 text-xs text-stone-600 font-[family-name:var(--font-body)]">
                     {data.realWorldApp.useCases.map((useCase, idx) => (
-                      <li key={idx} className="flex items-start gap-1.5">
+                      <li key={idx} className="flex items-start gap-1.5 leading-relaxed">
                         <span className="text-[#3D568F] font-bold">•</span>
                         <span>{useCase}</span>
                       </li>
@@ -902,7 +1045,7 @@ export function AlgorithmSimulationView({ lessonId, onBack }: Props) {
                   </ul>
                 </div>
 
-                <div className="mt-4 pt-3 border-t border-[#D9E69B]/60">
+                <div className="mt-4 pt-3 border-t border-[#D9E69B]/60 flex items-center justify-between">
                   <a
                     href="#application-guide"
                     className="inline-flex items-center gap-1.5 text-xs font-bold text-[#243355] hover:text-[#3D568F] transition-colors"
@@ -910,6 +1053,17 @@ export function AlgorithmSimulationView({ lessonId, onBack }: Props) {
                     <span>{data.realWorldApp.linkText}</span>
                     <BoxArrowUpRight className="w-3 h-3" />
                   </a>
+
+                  {selectedRealWorldApp && (
+                    <button
+                      type="button"
+                      onClick={handleResetToStandardAlgorithm}
+                      className="text-xs font-bold text-[#3D568F] hover:underline flex items-center gap-1 cursor-pointer font-mono"
+                    >
+                      <ArrowRepeat className="w-3 h-3" />
+                      <span>Đặt lại ban đầu</span>
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -1062,6 +1216,35 @@ export function AlgorithmSimulationView({ lessonId, onBack }: Props) {
               {/* TAB CONTENT 2: Code & Mã Giả */}
               {activeSidebarTab === "code" && (
                 <div className="p-4 flex-1 flex flex-col gap-3">
+                  {/* Real-World Code Notice Banner & Reset Button */}
+                  {selectedRealWorldApp ? (
+                    <div className="p-3 bg-[#EAF3B2]/50 border border-[#D9E69B] rounded-2xl flex items-center justify-between gap-3 animate-fadeIn">
+                      <div className="flex items-center gap-2">
+                        <Stars className="w-4 h-4 text-[#3D568F] shrink-0" />
+                        <div>
+                          <div className="text-[10px] font-mono text-stone-500 uppercase font-bold">
+                            Thuật toán thực tế đang chạy:
+                          </div>
+                          <div className="text-xs font-bold text-[#243355] leading-tight">
+                            {selectedRealWorldApp.title}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* NÚT ĐẶT LẠI VỀ BAN ĐẦU */}
+                      <button
+                        type="button"
+                        onClick={handleResetToStandardAlgorithm}
+                        className="px-3 py-1.5 rounded-xl bg-white hover:bg-stone-100 text-[#243355] text-xs font-mono font-bold border border-stone-300 transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer shrink-0"
+                        title="Reset về code Dijkstra mẫu"
+                      >
+                        <ArrowRepeat className="w-3.5 h-3.5 text-[#3D568F]" />
+                        <span>Đặt lại ban đầu</span>
+                      </button>
+                    </div>
+                  ) : null}
+
+                  {/* Language Selector */}
                   <div className="flex items-center justify-between pb-2 border-b border-stone-200">
                     <div className="flex items-center gap-1.5 font-mono text-xs">
                       <button
@@ -1089,18 +1272,29 @@ export function AlgorithmSimulationView({ lessonId, onBack }: Props) {
                     </div>
 
                     <span className="text-[10px] font-mono text-stone-400">
-                      Active: Dòng {activeCodeLang === "cpp" ? currentStep.activeCodeLineCpp : currentStep.activeCodeLinePy}
+                      {selectedRealWorldApp
+                        ? `Module: ${selectedRealWorldApp.keyword}`
+                        : `Active: Dòng ${activeCodeLang === "cpp" ? currentStep.activeCodeLineCpp : currentStep.activeCodeLinePy}`}
                     </span>
                   </div>
 
-                  <div className="flex-1 bg-[#182133] rounded-2xl p-3.5 font-mono text-[11px] leading-relaxed overflow-x-auto text-slate-200 border border-slate-700 shadow-inner max-h-[460px]">
-                    {(activeCodeLang === "cpp" ? data.codeCpp : data.codePy).map((line, idx) => {
+                  {/* Code Editor Container */}
+                  <div className="flex-1 bg-[#182133] rounded-2xl p-3.5 font-mono text-[11px] leading-relaxed overflow-x-auto text-slate-200 border border-slate-700 shadow-inner max-h-[380px]">
+                    {(selectedRealWorldApp
+                      ? activeCodeLang === "cpp"
+                        ? selectedRealWorldApp.codeCpp
+                        : selectedRealWorldApp.codePy
+                      : activeCodeLang === "cpp"
+                      ? data.codeCpp
+                      : data.codePy
+                    ).map((line, idx) => {
                       const lineNum = idx + 1;
                       const isActiveLine =
+                        !selectedRealWorldApp &&
                         lineNum ===
-                        (activeCodeLang === "cpp"
-                          ? currentStep.activeCodeLineCpp
-                          : currentStep.activeCodeLinePy);
+                          (activeCodeLang === "cpp"
+                            ? currentStep.activeCodeLineCpp
+                            : currentStep.activeCodeLinePy);
 
                       return (
                         <div
@@ -1120,12 +1314,306 @@ export function AlgorithmSimulationView({ lessonId, onBack }: Props) {
                     })}
                   </div>
 
+                  {/* Simulated Terminal Output Box for Practical Code */}
+                  {selectedRealWorldApp && (
+                    <div className="bg-[#0B1120] rounded-2xl p-3.5 border border-slate-800 text-xs font-mono text-emerald-400 flex flex-col gap-1.5 shadow-md max-h-48 overflow-y-auto animate-fadeIn">
+                      <div className="flex items-center justify-between text-[10px] text-slate-400 pb-1.5 border-b border-slate-800">
+                        <span className="flex items-center gap-1.5 font-bold text-slate-200">
+                          <TerminalFill className="w-3 h-3 text-emerald-400" />
+                          <span>Console Thực Thi Thuật Toán Thực Tế</span>
+                        </span>
+                        {isExecutingAppCode ? (
+                          <span className="text-amber-400 flex items-center gap-1 font-bold animate-pulse">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                            Đang chạy...
+                          </span>
+                        ) : (
+                          <span className="text-emerald-400 font-bold">✓ Hoàn tất (100% OK)</span>
+                        )}
+                      </div>
+
+                      <div className="space-y-1 pt-1 text-[11px]">
+                        {terminalLogs.map((log, lIdx) => (
+                          <div key={lIdx} className="leading-relaxed">
+                            {log}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Bottom Status Ribbon */}
                   <div className="p-3 bg-stone-50 rounded-xl border border-stone-200 text-xs font-mono text-stone-600 flex items-center justify-between">
-                    <span>Dòng đang thực thi: Relaxation</span>
+                    <span>
+                      {selectedRealWorldApp
+                        ? `Trạng thái: Đang áp dụng cho ${selectedRealWorldApp.keyword}`
+                        : "Dòng đang thực thi: Relaxation (Min-Heap)"}
+                    </span>
                     <span className="text-emerald-600 font-bold">● Running</span>
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+      {/* 5. FLOATING ACTION MENU WHEN USER HIGHLIGHTS TEXT */}
+      {floatingMenu && (
+        <div
+          data-floating-menu="true"
+          className="fixed z-[9999] bg-[#1E293B] text-white p-1.5 rounded-2xl shadow-2xl border border-slate-700 flex items-center gap-1.5 font-mono text-xs animate-fadeIn pointer-events-auto select-none"
+          style={{
+            left: `${floatingMenu.x}px`,
+            top: `${floatingMenu.y}px`,
+            transform: "translate(-50%, -100%)",
+          }}
+        >
+          {/* Downward triangle caret */}
+          <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-[#1E293B] border-r border-b border-slate-700 transform rotate-45 pointer-events-none" />
+
+          <div className="px-2 text-[10px] text-stone-300 font-sans border-r border-slate-700 max-w-[140px] truncate">
+            "{floatingMenu.text}"
+          </div>
+
+          <button
+            type="button"
+            onClick={() => handleGenerateIllustration(floatingMenu.appId)}
+            className="px-2.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+          >
+            <ImageFill className="w-3.5 h-3.5" />
+            <span>Sinh hình minh họa</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleRunPracticalAlgorithm(floatingMenu.appId)}
+            className="px-2.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+          >
+            <GearFill className="w-3.5 h-3.5" />
+            <span>Thuật toán minh họa</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setFloatingMenu(null)}
+            className="p-1 hover:bg-white/20 rounded-lg text-stone-400 hover:text-white transition-colors cursor-pointer"
+            title="Đóng menu"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* 6. ILLUSTRATION MODAL (KHI BẤM SINH HÌNH MINH HỌA) */}
+      {illustratedAppModal && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-white rounded-3xl border border-stone-200 shadow-2xl max-w-2xl w-full overflow-hidden flex flex-col max-h-[90vh]">
+            {/* Modal Header */}
+            <div className="p-4 sm:p-5 border-b border-stone-100 flex items-center justify-between bg-stone-50/70">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-2xl bg-indigo-50 border border-indigo-200 text-[#3D568F] flex items-center justify-center">
+                  <ImageFill className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-mono px-2 py-0.2 rounded bg-indigo-100 text-[#3D568F] font-bold">
+                      {illustratedAppModal.badge}
+                    </span>
+                    <span className="text-xs text-stone-400 font-mono">• Đồ thị thực tế</span>
+                  </div>
+                  <h3 className="text-base font-bold text-stone-900 font-display mt-0.5">
+                    {illustratedAppModal.title}
+                  </h3>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIllustratedAppModal(null)}
+                className="w-8 h-8 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-600 flex items-center justify-center transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body: Rich SVG Graphic Diagram */}
+            <div className="p-6 flex flex-col gap-4 overflow-y-auto">
+              <div className="w-full h-72 bg-[#0B1120] rounded-2xl border border-slate-800 flex items-center justify-center relative overflow-hidden p-4 select-none">
+                {/* Background grid */}
+                <div
+                  className="absolute inset-0 opacity-20 pointer-events-none"
+                  style={{
+                    backgroundImage: "radial-gradient(#9FBAF1 1px, transparent 1px)",
+                    backgroundSize: "20px 20px",
+                  }}
+                />
+
+                {/* SVG Graphics by Diagram Type */}
+                {illustratedAppModal.diagramType === "ospf" && (
+                  <svg width="100%" height="100%" viewBox="0 0 500 240" className="drop-shadow-lg">
+                    {/* Network Links */}
+                    <line x1="80" y1="120" x2="200" y2="60" stroke="#475569" strokeWidth="2.5" />
+                    <line x1="80" y1="120" x2="200" y2="180" stroke="#475569" strokeWidth="2.5" />
+                    <line x1="200" y1="60" x2="340" y2="60" stroke="#38BDF8" strokeWidth="4" strokeDasharray="4, 4" className="animate-pulse" />
+                    <line x1="200" y1="180" x2="340" y2="180" stroke="#475569" strokeWidth="2.5" />
+                    <line x1="200" y1="60" x2="340" y2="180" stroke="#475569" strokeWidth="2" strokeDasharray="2, 2" />
+                    <line x1="340" y1="60" x2="430" y2="120" stroke="#38BDF8" strokeWidth="4" strokeDasharray="4, 4" className="animate-pulse" />
+                    <line x1="340" y1="180" x2="430" y2="120" stroke="#475569" strokeWidth="2.5" />
+
+                    {/* Edge weights (Latency in ms) */}
+                    <text x="135" y="80" fill="#94A3B8" fontSize="10" fontFamily="monospace">4ms</text>
+                    <text x="135" y="165" fill="#94A3B8" fontSize="10" fontFamily="monospace">9ms</text>
+                    <text x="260" y="50" fill="#38BDF8" fontSize="11" fontWeight="bold" fontFamily="monospace">2ms (Optimal)</text>
+                    <text x="260" y="195" fill="#94A3B8" fontSize="10" fontFamily="monospace">12ms</text>
+                    <text x="390" y="80" fill="#38BDF8" fontSize="11" fontWeight="bold" fontFamily="monospace">3ms</text>
+
+                    {/* Router Nodes */}
+                    <g transform="translate(80, 120)">
+                      <circle r="22" fill="#3B82F6" stroke="#FFFFFF" strokeWidth="2" />
+                      <text textAnchor="middle" y="4" fill="#FFFFFF" fontSize="10" fontWeight="bold" fontFamily="monospace">R_A</text>
+                    </g>
+                    <g transform="translate(200, 60)">
+                      <circle r="20" fill="#1E293B" stroke="#38BDF8" strokeWidth="2" />
+                      <text textAnchor="middle" y="4" fill="#38BDF8" fontSize="10" fontWeight="bold" fontFamily="monospace">R_B</text>
+                    </g>
+                    <g transform="translate(200, 180)">
+                      <circle r="20" fill="#1E293B" stroke="#64748B" strokeWidth="2" />
+                      <text textAnchor="middle" y="4" fill="#94A3B8" fontSize="10" fontWeight="bold" fontFamily="monospace">R_C</text>
+                    </g>
+                    <g transform="translate(340, 60)">
+                      <circle r="20" fill="#1E293B" stroke="#38BDF8" strokeWidth="2" />
+                      <text textAnchor="middle" y="4" fill="#38BDF8" fontSize="10" fontWeight="bold" fontFamily="monospace">R_D</text>
+                    </g>
+                    <g transform="translate(340, 180)">
+                      <circle r="20" fill="#1E293B" stroke="#64748B" strokeWidth="2" />
+                      <text textAnchor="middle" y="4" fill="#94A3B8" fontSize="10" fontWeight="bold" fontFamily="monospace">R_E</text>
+                    </g>
+                    <g transform="translate(430, 120)">
+                      <circle r="22" fill="#10B981" stroke="#FFFFFF" strokeWidth="2" />
+                      <text textAnchor="middle" y="4" fill="#FFFFFF" fontSize="10" fontWeight="bold" fontFamily="monospace">DEST</text>
+                    </g>
+                  </svg>
+                )}
+
+                {illustratedAppModal.diagramType === "gps" && (
+                  <svg width="100%" height="100%" viewBox="0 0 500 240" className="drop-shadow-lg">
+                    {/* Street Grid Map */}
+                    <rect x="50" y="40" width="80" height="60" rx="6" fill="#1E293B" stroke="#334155" />
+                    <rect x="160" y="40" width="90" height="60" rx="6" fill="#1E293B" stroke="#334155" />
+                    <rect x="280" y="40" width="100" height="60" rx="6" fill="#1E293B" stroke="#334155" />
+                    <rect x="50" y="130" width="80" height="70" rx="6" fill="#1E293B" stroke="#334155" />
+                    <rect x="160" y="130" width="90" height="70" rx="6" fill="#1E293B" stroke="#334155" />
+                    <rect x="280" y="130" width="100" height="70" rx="6" fill="#1E293B" stroke="#334155" />
+
+                    {/* Congested red road */}
+                    <line x1="140" y1="30" x2="140" y2="210" stroke="#EF4444" strokeWidth="5" strokeLinecap="round" />
+                    <text x="148" y="90" fill="#EF4444" fontSize="9" fontFamily="monospace">Kẹt xe x2.8</text>
+
+                    {/* Clear green route */}
+                    <path d="M 40 115 L 260 115 L 260 30 L 420 30" fill="none" stroke="#10B981" strokeWidth="5" strokeLinecap="round" />
+                    <text x="270" y="70" fill="#10B981" fontSize="9" fontWeight="bold" fontFamily="monospace">Tuyến nhanh nhất (18 ph)</text>
+
+                    {/* Start & End Pins */}
+                    <circle cx="40" cy="115" r="10" fill="#3B82F6" stroke="#FFFFFF" strokeWidth="2" />
+                    <text x="40" y="135" fill="#93C5FD" fontSize="9" textAnchor="middle" fontFamily="monospace">Bắt đầu</text>
+
+                    <circle cx="420" cy="30" r="10" fill="#EF4444" stroke="#FFFFFF" strokeWidth="2" />
+                    <text x="420" y="50" fill="#FCA5A5" fontSize="9" textAnchor="middle" fontFamily="monospace">Điểm đến</text>
+                  </svg>
+                )}
+
+                {illustratedAppModal.diagramType === "logistics" && (
+                  <svg width="100%" height="100%" viewBox="0 0 500 240" className="drop-shadow-lg">
+                    {/* Warehouse Hub Center */}
+                    <circle cx="90" cy="120" r="24" fill="#F59E0B" stroke="#FFFFFF" strokeWidth="2" />
+                    <text x="90" y="124" fill="#FFFFFF" fontSize="10" fontWeight="bold" textAnchor="middle" fontFamily="monospace">HUB</text>
+
+                    {/* Multi-stop optimized route */}
+                    <path d="M 90 120 L 190 60 L 290 80 L 390 150 L 250 180 Z" fill="none" stroke="#F59E0B" strokeWidth="3" strokeDasharray="5, 5" className="animate-pulse" />
+
+                    {/* Delivery Stop Pins */}
+                    <circle cx="190" cy="60" r="14" fill="#10B981" stroke="#FFFFFF" strokeWidth="2" />
+                    <text x="190" y="64" fill="#FFFFFF" fontSize="9" fontWeight="bold" textAnchor="middle" fontFamily="monospace">#1</text>
+
+                    <circle cx="290" cy="80" r="14" fill="#10B981" stroke="#FFFFFF" strokeWidth="2" />
+                    <text x="290" y="84" fill="#FFFFFF" fontSize="9" fontWeight="bold" textAnchor="middle" fontFamily="monospace">#2</text>
+
+                    <circle cx="390" cy="150" r="14" fill="#10B981" stroke="#FFFFFF" strokeWidth="2" />
+                    <text x="390" y="154" fill="#FFFFFF" fontSize="9" fontWeight="bold" textAnchor="middle" fontFamily="monospace">#3</text>
+
+                    <circle cx="250" cy="180" r="14" fill="#10B981" stroke="#FFFFFF" strokeWidth="2" />
+                    <text x="250" y="184" fill="#FFFFFF" fontSize="9" fontWeight="bold" textAnchor="middle" fontFamily="monospace">#4</text>
+
+                    <text x="280" y="215" fill="#FDE68A" fontSize="11" fontWeight="bold" textAnchor="middle" fontFamily="monospace">
+                      Hành trình tối ưu Dijkstra: Tiết kiệm 32% nhiên liệu
+                    </text>
+                  </svg>
+                )}
+
+                {illustratedAppModal.diagramType === "smartgrid" && (
+                  <svg width="100%" height="100%" viewBox="0 0 500 240" className="drop-shadow-lg">
+                    {/* Power Plant */}
+                    <rect x="50" y="90" width="70" height="60" rx="8" fill="#EF4444" stroke="#FFFFFF" strokeWidth="2" />
+                    <text x="85" y="125" fill="#FFFFFF" fontSize="10" fontWeight="bold" textAnchor="middle" fontFamily="monospace">NHÀ MÁY</text>
+
+                    {/* Power Grid Lines */}
+                    <line x1="120" y1="120" x2="220" y2="70" stroke="#FBBF24" strokeWidth="4" />
+                    <line x1="120" y1="120" x2="220" y2="170" stroke="#475569" strokeWidth="2" />
+                    <line x1="220" y1="70" x2="350" y2="100" stroke="#FBBF24" strokeWidth="4" />
+                    <line x1="220" y1="170" x2="350" y2="100" stroke="#475569" strokeWidth="2" />
+                    <line x1="350" y1="100" x2="440" y2="120" stroke="#10B981" strokeWidth="4" />
+
+                    {/* Substations */}
+                    <circle cx="220" cy="70" r="18" fill="#1E293B" stroke="#FBBF24" strokeWidth="2" />
+                    <text x="220" y="74" fill="#FBBF24" fontSize="9" fontWeight="bold" textAnchor="middle" fontFamily="monospace">S1 (500kV)</text>
+
+                    <circle cx="220" cy="170" r="18" fill="#1E293B" stroke="#64748B" strokeWidth="2" />
+                    <text x="220" y="174" fill="#94A3B8" fontSize="9" textAnchor="middle" fontFamily="monospace">S2 (220kV)</text>
+
+                    <circle cx="350" cy="100" r="18" fill="#1E293B" stroke="#FBBF24" strokeWidth="2" />
+                    <text x="350" y="104" fill="#FBBF24" fontSize="9" fontWeight="bold" textAnchor="middle" fontFamily="monospace">S3</text>
+
+                    {/* Load Center */}
+                    <circle cx="440" cy="120" r="22" fill="#10B981" stroke="#FFFFFF" strokeWidth="2" />
+                    <text x="440" y="124" fill="#FFFFFF" fontSize="9" fontWeight="bold" textAnchor="middle" fontFamily="monospace">TẢI ĐÔ THỊ</text>
+                  </svg>
+                )}
+              </div>
+
+              {/* Caption & Explanation */}
+              <div className="bg-stone-50 border border-stone-200 p-4 rounded-2xl flex flex-col gap-1.5 text-xs text-stone-700 leading-relaxed font-sans">
+                <div className="font-bold text-stone-900 flex items-center gap-1.5 font-mono text-[11px]">
+                  <Stars className="w-3.5 h-3.5 text-[#3D568F]" />
+                  <span>Cơ Chế Ứng Dụng Thực Tế:</span>
+                </div>
+                <p>{illustratedAppModal.description}</p>
+                <div className="text-[11px] text-stone-500 font-mono mt-1 pt-1 border-t border-stone-200">
+                  {illustratedAppModal.imageCaption}
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-stone-100 font-mono text-xs">
+                <button
+                  type="button"
+                  onClick={() => setIllustratedAppModal(null)}
+                  className="px-4 py-2 rounded-xl border border-stone-200 bg-white hover:bg-stone-50 text-stone-700 font-bold transition-colors cursor-pointer"
+                >
+                  Đóng lại
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const appId = illustratedAppModal.id;
+                    setIllustratedAppModal(null);
+                    handleRunPracticalAlgorithm(appId);
+                  }}
+                  className="px-4 py-2 rounded-xl bg-[#243355] hover:bg-[#1A253D] text-white font-bold transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                >
+                  <GearFill className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Chuyển sang xem & chạy code thuật toán này →</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
