@@ -1,3 +1,4 @@
+'use client';
 import React, { useState, useEffect, useRef } from "react";
 import {
   ArrowLeft,
@@ -29,16 +30,62 @@ import {
 } from "react-bootstrap-icons";
 import type { AlgoDetail } from "@/lib/algo-api";
 
-// --- Inline types (will be populated from Django backend later) ---
 export interface GraphNode { id: string; label: string; x: number; y: number; distance: number; visited: boolean; isSource?: boolean; isTarget?: boolean; }
 export interface GraphEdge { from: string; to: string; weight: number; isHighlighted?: boolean; }
-export interface SimulationStep { stepNumber: number; title: string; actionExplanation: string; activeNodeId?: string; visitedNodeIds?: string[]; highlightedEdges?: { from: string; to: string }[]; distances?: Record<string, number>; heapState?: { nodeId: string; dist: number }[]; codeHighlightLines?: { cpp?: number[]; python?: number[] }; aiAnalysis?: { greeting: string; confidence: number; keyInsight: string; warning?: string; tip?: string; }; quickQuestions?: string[]; }
+export interface SimulationStep {
+  stepIndex: number;
+  activeNode: string;
+  minDist: number | string;
+  statusText?: string;
+  shortSummary: string;
+  actionExplanation: string;
+  visitedNodes: string[];
+  relaxingEdge?: { from: string; to: string } | null;
+  activePathEdges: { from: string; to: string }[];
+  distances: Record<string, number | string>;
+  heapItems: { node: string; dist: number | string; isNew?: boolean }[];
+  activeCodeLineCpp: number;
+  activeCodeLinePy: number;
+  aiAnalysis: {
+    title: string;
+    greeting: string;
+    highlightTitle?: string;
+    highlightContent?: string;
+    quickQuestions: { q: string; a: string }[];
+  };
+}
 export interface RealWorldAppItem { icon: string; title: string; description: string; metric: string; }
 
 const PLACEHOLDER_STEPS: SimulationStep[] = [];
 const PLACEHOLDER_NODES: GraphNode[] = [];
 const PLACEHOLDER_EDGES: GraphEdge[] = [];
-const PLACEHOLDER_APPS: RealWorldAppItem[] = [];
+const PLACEHOLDER_APPS: any[] = [];
+
+const FALLBACK_STEP: SimulationStep = {
+  stepIndex: 1,
+  activeNode: "—",
+  minDist: "—",
+  statusText: "Chưa có dữ liệu mô phỏng",
+  shortSummary: "Chưa có dữ liệu mô phỏng cho thuật toán này",
+  actionExplanation: "Xem mã nguồn ở tab Code & Mã Giả.",
+  visitedNodes: [],
+  relaxingEdge: null,
+  activePathEdges: [],
+  distances: {},
+  heapItems: [],
+  activeCodeLineCpp: 1,
+  activeCodeLinePy: 1,
+  aiAnalysis: {
+    title: "TỔNG QUAN",
+    greeting: "Dữ liệu mô phỏng từng bước sẽ được bổ sung sau.",
+    highlightTitle: "Trực quan hóa",
+    highlightContent: "Mã nguồn thật của thuật toán đang hiển thị ở tab bên cạnh.",
+    quickQuestions: [
+      { q: "Thuật toán này hoạt động như thế nào?", a: "Nội dung đang được admin bổ sung." },
+      { q: "Độ phức tạp thời gian là bao nhiêu?", a: "Nội dung đang được admin bổ sung." },
+    ],
+  },
+};
 
 interface Props {
   algorithmDetail?: AlgoDetail | null;
@@ -46,36 +93,54 @@ interface Props {
 }
 
 export function AlgorithmSimulationView({ algorithmDetail, onBack }: Props) {
-  const data = { steps: PLACEHOLDER_STEPS, nodes: PLACEHOLDER_NODES, edges: PLACEHOLDER_EDGES, title: algorithmDetail?.algorithmName || "Thuật toán", description: algorithmDetail?.description || "" };
+  const data = {
+    badge: algorithmDetail?.categoryName?.toUpperCase() || "ALGORITHM",
+    sessionCode: algorithmDetail ? `${algorithmDetail.categoryKey}/${algorithmDetail.algorithmKey}` : "",
+    title: algorithmDetail?.algorithmName || "Thuật toán",
+    description: algorithmDetail?.description || "",
+    steps: [] as SimulationStep[],
+    nodes: [] as GraphNode[],
+    edges: [] as GraphEdge[],
+    theory: {
+      title: "Lý thuyết thuật toán",
+      paradigm: algorithmDetail?.categoryName || "",
+      description: algorithmDetail?.description || "Chưa có nội dung, admin sẽ bổ sung.",
+      timeComplexity: "—",
+      spaceComplexity: "—",
+    },
+    realWorldApp: {
+      title: "Ứng dụng thực tế", badge: "Sắp có",
+      description: "Nội dung ứng dụng thực tế sẽ được admin bổ sung.",
+      useCases: [] as string[], linkText: "Tìm hiểu thêm",
+    },
+    codeCpp: [] as string[],
+    codePy: [] as string[],
+  };
 
-  const [currentStepIndex, setCurrentStepIndex] = useState(4); // Default to Step 4 as in reference
+  const [currentStepIndex, setCurrentStepIndex] = useState(1);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [playbackSpeed, setPlaybackSpeed] = useState<number>(1.0); // 1.0x
+  const [playbackSpeed, setPlaybackSpeed] = useState<number>(1.0);
   const [viewMode, setViewMode] = useState<"2d" | "3d">("3d");
   const [displayMode, setDisplayMode] = useState<"interactive" | "gallery">("interactive");
-  const [activeSidebarTab, setActiveSidebarTab] = useState<"ai-tutor" | "code">("ai-tutor");
+  const [activeSidebarTab, setActiveSidebarTab] = useState<"ai-tutor" | "code">("code");
+  const [activeFileIndex, setActiveFileIndex] = useState<number>(0);
   const [activeCodeLang, setActiveCodeLang] = useState<"cpp" | "py">("cpp");
   const [selectedQuickQuestion, setSelectedQuickQuestion] = useState<number | null>(null);
   const [userChatInput, setUserChatInput] = useState("");
   const [chatMessages, setChatMessages] = useState<{ role: "user" | "ai"; text: string }[]>([]);
 
-  // Real-world practical application interactive state
-  const [selectedRealWorldApp, setSelectedRealWorldApp] = useState<RealWorldAppItem | null>(null);
-  const [illustratedAppModal, setIllustratedAppModal] = useState<RealWorldAppItem | null>(null);
+  const [selectedRealWorldApp, setSelectedRealWorldApp] = useState<any>(null);
+  const [illustratedAppModal, setIllustratedAppModal] = useState<any>(null);
   const [terminalLogs, setTerminalLogs] = useState<string[]>([]);
-  const [isExecutingAppCode, setIsExecutingAppCode] = useState<boolean>(false);
-  const [floatingMenu, setFloatingMenu] = useState<{
-    x: number;
-    y: number;
-    text: string;
-    appId: string;
-  } | null>(null);
+  const [isExecutingAppCode, setIsExecutingAppCode] = useState(false);
+  const [floatingMenu, setFloatingMenu] = useState<{ x: number; y: number; text: string; appId: string } | null>(null);
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const cardRef = useRef<HTMLDivElement | null>(null);
 
-  const totalSteps = data.steps.length;
-  const currentStep: SimulationStep = data.steps[currentStepIndex - 1] || data.steps[0];
+  const totalSteps = data.steps.length || 1;
+  const currentStep: SimulationStep = data.steps[currentStepIndex - 1] ?? FALLBACK_STEP;
+
 
   // Click-outside listener for floating action menu
   useEffect(() => {
@@ -214,7 +279,6 @@ export function AlgorithmSimulationView({ algorithmDetail, onBack }: Props) {
             appId: matchedId,
           });
         } catch {
-          // ignore range error
         }
       }
     }, 20);
@@ -222,7 +286,7 @@ export function AlgorithmSimulationView({ algorithmDetail, onBack }: Props) {
 
   const handleGenerateIllustration = (appId: string) => {
     const app = PLACEHOLDER_APPS.find(a => a.title === appId) || null;
-    if (app) { setIllustratedAppModal(app); setFloatingMenu(null); }
+    if (!app) { setIllustratedAppModal(app); setFloatingMenu(null); }
   };
 
   const handleRunPracticalAlgorithm = (appId: string) => {
@@ -279,7 +343,7 @@ export function AlgorithmSimulationView({ algorithmDetail, onBack }: Props) {
   };
 
   // Helper to render mini SVG graph snapshot for any step
-  const renderMiniGraph = (step: SimulationStep, width = 320, height = 180) => {
+  const renderMiniGraph = (step: SimulationStep) => {
     return (
       <svg viewBox="0 0 700 440" className="w-full h-full">
         {/* Edges */}
@@ -334,7 +398,7 @@ export function AlgorithmSimulationView({ algorithmDetail, onBack }: Props) {
           return (
             <g key={node.id}>
               {isActive && (
-                <circle cx={node.x} cy={node.y} r="32" fill="none" stroke="#3D568F" strokeWidth="3" opacity="0.4" />
+                <circle cx={node.x} cy={node.y} r="32" fill="none" stroke="#1E3F82" strokeWidth="3" opacity="0.4" />
               )}
               {isVisited && (
                 <circle cx={node.x} cy={node.y} r="26" fill="none" stroke="#10B981" strokeWidth="2.5" strokeDasharray="3 3" />
@@ -343,8 +407,8 @@ export function AlgorithmSimulationView({ algorithmDetail, onBack }: Props) {
                 cx={node.x}
                 cy={node.y}
                 r="22"
-                fill={isActive ? "#243355" : isVisited ? "#EAF3B2" : "white"}
-                stroke={isActive ? "#3D568F" : isVisited ? "#10B981" : "#94A3B8"}
+                fill={isActive ? "#243355" : isVisited ? "#E8F0FB" : "white"}
+                stroke={isActive ? "#1E3F82" : isVisited ? "#10B981" : "#94A3B8"}
                 strokeWidth={isActive ? 3.5 : 2.5}
               />
               <text
@@ -365,7 +429,7 @@ export function AlgorithmSimulationView({ algorithmDetail, onBack }: Props) {
                 width="44"
                 height="18"
                 rx="6"
-                fill={isActive ? "#EAF3B2" : isVisited ? "#F0FDF4" : "white"}
+                fill={isActive ? "#E8F0FB" : isVisited ? "#F0FDF4" : "white"}
                 stroke={isActive ? "#D9E69B" : isVisited ? "#86EFAC" : "#E2E8F0"}
                 strokeWidth="1.2"
               />
@@ -401,20 +465,20 @@ export function AlgorithmSimulationView({ algorithmDetail, onBack }: Props) {
             <ArrowLeft className="w-4 h-4" />
           </button>
 
-          <div className="w-11 h-11 rounded-2xl bg-[#9FBAF1]/25 text-[#3D568F] flex items-center justify-center font-bold shrink-0 border border-[#9FBAF1]/40">
+          <div className="w-11 h-11 rounded-2xl bg-[#5B8FD8]/25 text-[#1E3F82] flex items-center justify-center font-bold shrink-0 border border-[#5B8FD8]/40">
             <Diagram3Fill className="w-6 h-6" />
           </div>
 
           <div>
             <div className="flex items-center gap-2 mb-0.5 text-[11px] font-mono font-bold">
-              <span className="px-2 py-0.2 rounded-md bg-[#EAF3B2] text-[#243355] border border-[#D9E69B]">
+              <span className="px-2 py-0.2 rounded-md bg-[#E8F0FB] text-[#243355] border border-[#D9E69B]">
                 {data.badge}
               </span>
               <span className="text-stone-400">•</span>
               <span className="text-stone-500">{data.sessionCode}</span>
             </div>
 
-            <h1 className="text-base sm:text-lg font-bold text-stone-900 font-[family-name:var(--font-headline)] leading-tight">
+            <h1 className="text-base sm:text-lg font-bold text-stone-900 leading-tight">
               {data.title}
             </h1>
           </div>
@@ -426,13 +490,12 @@ export function AlgorithmSimulationView({ algorithmDetail, onBack }: Props) {
             <button
               type="button"
               onClick={() => setDisplayMode("interactive")}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                displayMode === "interactive"
-                  ? "bg-white text-[#243355] shadow-xs"
-                  : "text-stone-600 hover:text-stone-900"
-              }`}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${displayMode === "interactive"
+                ? "bg-white text-[#243355] shadow-xs"
+                : "text-stone-600 hover:text-stone-900"
+                }`}
             >
-              <PlayCircleFill className="w-3.5 h-3.5 text-[#3D568F]" />
+              <PlayCircleFill className="w-3.5 h-3.5 text-[#1E3F82]" />
               <span>Mô Phỏng Trực Quan</span>
             </button>
 
@@ -442,11 +505,10 @@ export function AlgorithmSimulationView({ algorithmDetail, onBack }: Props) {
                 setIsPlaying(false);
                 setDisplayMode("gallery");
               }}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                displayMode === "gallery"
-                  ? "bg-[#243355] text-[#EAF3B2] shadow-xs"
-                  : "text-stone-600 hover:text-stone-900"
-              }`}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${displayMode === "gallery"
+                ? "bg-[#243355] text-[#E8F0FB] shadow-xs"
+                : "text-stone-600 hover:text-stone-900"
+                }`}
             >
               <GridFill className="w-3.5 h-3.5" />
               <span>Sơ Đồ Từng Bước (Grid)</span>
@@ -471,14 +533,14 @@ export function AlgorithmSimulationView({ algorithmDetail, onBack }: Props) {
           {/* Gallery Header Intro */}
           <div className="bg-white p-6 rounded-3xl border border-stone-200/90 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#EAF3B2]/70 text-[#243355] text-xs font-mono font-bold mb-2 border border-[#D9E69B]">
-                <GridFill className="w-3 h-3 text-[#3D568F]" />
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#E8F0FB]/70 text-[#243355] text-xs font-mono font-bold mb-2 border border-[#D9E69B]">
+                <GridFill className="w-3 h-3 text-[#1E3F82]" />
                 <span>CHẾ ĐỘ XEM TRỰC QUAN TỪNG BƯỚC (STEP BREAKDOWN)</span>
               </div>
-              <h2 className="text-xl font-extrabold text-stone-900 font-[family-name:var(--font-headline)]">
+              <h2 className="text-xl font-extrabold text-stone-900">
                 Bản Đồ Tuần Tự Toàn Bộ Các Bước Chạy Của Thuật Toán
               </h2>
-              <p className="text-xs text-stone-500 font-[family-name:var(--font-body)] mt-1 max-w-2xl leading-relaxed">
+              <p className="text-xs text-stone-500 mt-1 max-w-2xl leading-relaxed">
                 Quan sát đồng thời từng trạng thái đồ thị từ Bước 1 đến khi tìm ra đường đi ngắn nhất. Nhấp vào bất kỳ bước nào để mở mô phỏng chi tiết.
               </p>
             </div>
@@ -486,7 +548,7 @@ export function AlgorithmSimulationView({ algorithmDetail, onBack }: Props) {
             <button
               type="button"
               onClick={() => setDisplayMode("interactive")}
-              className="px-4 py-2.5 rounded-2xl bg-[#243355] hover:bg-[#1A253D] text-[#EAF3B2] text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shadow-xs shrink-0 self-start md:self-center"
+              className="px-4 py-2.5 rounded-2xl bg-[#243355] hover:bg-[#1A253D] text-[#E8F0FB] text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shadow-xs shrink-0 self-start md:self-center"
             >
               <PlayFill className="w-4 h-4" />
               <span>Quay Lại Mô Phỏng Trực Quan</span>
@@ -502,17 +564,16 @@ export function AlgorithmSimulationView({ algorithmDetail, onBack }: Props) {
                 <div
                   key={step.stepIndex}
                   onClick={() => handleSelectStepFromGallery(step.stepIndex)}
-                  className={`group bg-white rounded-3xl border p-4.5 flex flex-col justify-between transition-all duration-300 cursor-pointer shadow-[0_2px_12px_rgba(0,0,0,0.02)] hover:shadow-lg hover:-translate-y-1 ${
-                    isCurrent
-                      ? "border-[#3D568F] ring-2 ring-[#3D568F]/20"
-                      : "border-stone-200/90 hover:border-[#3D568F]/50"
-                  }`}
+                  className={`group bg-white rounded-3xl border p-4.5 flex flex-col justify-between transition-all duration-300 cursor-pointer shadow-[0_2px_12px_rgba(0,0,0,0.02)] hover:shadow-lg hover:-translate-y-1 ${isCurrent
+                    ? "border-[#1E3F82] ring-2 ring-[#1E3F82]/20"
+                    : "border-stone-200/90 hover:border-[#1E3F82]/50"
+                    }`}
                 >
                   <div>
                     {/* Step Card Header */}
                     <div className="flex items-center justify-between mb-2.5">
                       <div className="flex items-center gap-2">
-                        <span className="w-8 h-8 rounded-xl bg-[#243355] text-[#EAF3B2] font-mono font-black text-xs flex items-center justify-center shadow-2xs">
+                        <span className="w-8 h-8 rounded-xl bg-[#243355] text-[#E8F0FB] font-mono font-black text-xs flex items-center justify-center shadow-2xs">
                           {step.stepIndex < 10 ? `0${step.stepIndex}` : step.stepIndex}
                         </span>
                         <span className="text-xs font-bold font-mono text-stone-800">
@@ -532,16 +593,16 @@ export function AlgorithmSimulationView({ algorithmDetail, onBack }: Props) {
                     </div>
 
                     {/* Step Mini Snapshot Graphic */}
-                    <div className="w-full h-44 rounded-2xl bg-[#F8FAFC] border border-stone-200/80 p-1 flex items-center justify-center overflow-hidden relative group-hover:border-[#3D568F]/30 transition-colors">
+                    <div className="w-full h-44 rounded-2xl bg-[#F8FAFC] border border-stone-200/80 p-1 flex items-center justify-center overflow-hidden relative group-hover:border-[#1E3F82]/30 transition-colors">
                       {renderMiniGraph(step)}
                     </div>
 
                     {/* Short Summary (1-2 sentences simple explanation) */}
                     <div className="mt-3.5">
-                      <div className="text-xs font-bold text-stone-900 font-[family-name:var(--font-headline)] leading-snug">
+                      <div className="text-xs font-bold text-stone-900 leading-snug">
                         ↳ {step.shortSummary}
                       </div>
-                      <p className="text-xs text-stone-500 font-[family-name:var(--font-body)] mt-1 leading-relaxed">
+                      <p className="text-xs text-stone-500 mt-1 leading-relaxed">
                         {step.actionExplanation}
                       </p>
                     </div>
@@ -553,13 +614,12 @@ export function AlgorithmSimulationView({ algorithmDetail, onBack }: Props) {
                         {Object.entries(step.distances).map(([node, dist]) => (
                           <span
                             key={node}
-                            className={`px-1 rounded ${
-                              node === step.activeNode
-                                ? "bg-[#EAF3B2] text-[#243355]"
-                                : step.visitedNodes.includes(node)
+                            className={`px-1 rounded ${node === step.activeNode
+                              ? "bg-[#E8F0FB] text-[#243355]"
+                              : step.visitedNodes.includes(node)
                                 ? "text-emerald-700"
                                 : "text-stone-400"
-                            }`}
+                              }`}
                           >
                             {node}:{dist}
                           </span>
@@ -575,7 +635,7 @@ export function AlgorithmSimulationView({ algorithmDetail, onBack }: Props) {
                     </span>
                     <button
                       type="button"
-                      className="text-xs font-bold text-[#3D568F] group-hover:text-[#243355] flex items-center gap-1 transition-colors"
+                      className="text-xs font-bold text-[#1E3F82] group-hover:text-[#243355] flex items-center gap-1 transition-colors"
                     >
                       <span>Mở bước này</span>
                       <span>→</span>
@@ -618,18 +678,16 @@ export function AlgorithmSimulationView({ algorithmDetail, onBack }: Props) {
                     <button
                       type="button"
                       onClick={() => setViewMode("2d")}
-                      className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition-all cursor-pointer ${
-                        viewMode === "2d" ? "bg-white text-stone-900 shadow-2xs" : "text-stone-500 hover:text-stone-800"
-                      }`}
+                      className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition-all cursor-pointer ${viewMode === "2d" ? "bg-white text-stone-900 shadow-2xs" : "text-stone-500 hover:text-stone-800"
+                        }`}
                     >
                       Ortho 2D
                     </button>
                     <button
                       type="button"
                       onClick={() => setViewMode("3d")}
-                      className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition-all cursor-pointer ${
-                        viewMode === "3d" ? "bg-[#243355] text-white shadow-2xs" : "text-stone-500 hover:text-stone-800"
-                      }`}
+                      className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition-all cursor-pointer ${viewMode === "3d" ? "bg-[#243355] text-white shadow-2xs" : "text-stone-500 hover:text-stone-800"
+                        }`}
                     >
                       Iso 3D
                     </button>
@@ -638,25 +696,24 @@ export function AlgorithmSimulationView({ algorithmDetail, onBack }: Props) {
               </div>
 
               {/* Interactive SVG Graph Area with Floating HUD Cards */}
-              <div className="relative w-full h-[400px] sm:h-[430px] flex items-center justify-center select-none overflow-hidden bg-gradient-to-b from-[#FDFCFA] to-[#F5F8F2]">
+              <div className="relative w-full h-100 sm:h-107.5 flex items-center justify-center select-none overflow-hidden bg-linear-to-b from-[#FDFCFA] to-[#F5F8F2]">
                 {/* Floating Widget 1: Priority Queue (Min-Heap) */}
-                <div className="absolute top-4 left-4 z-20 bg-white/95 backdrop-blur-md p-3 rounded-2xl border border-stone-200/90 shadow-md flex flex-col gap-1.5 max-w-[280px]">
+                <div className="absolute top-4 left-4 z-20 bg-white/95 backdrop-blur-md p-3 rounded-2xl border border-stone-200/90 shadow-md flex flex-col gap-1.5 max-w-70">
                   <div className="flex items-center justify-between text-[11px] font-mono font-bold text-stone-500">
                     <span>PRIORITY QUEUE (MIN-HEAP)</span>
-                    <span className="px-1.5 py-0.2 rounded bg-indigo-50 text-[#3D568F]">O(log V)</span>
+                    <span className="px-1.5 py-0.2 rounded bg-indigo-50 text-[#1E3F82]">O(log V)</span>
                   </div>
                   <div className="flex items-center gap-1.5 flex-wrap">
                     {currentStep.heapItems.length > 0 ? (
                       currentStep.heapItems.map((item, idx) => (
                         <span
                           key={idx}
-                          className={`text-xs font-mono font-bold px-2 py-1 rounded-xl border transition-all ${
-                            idx === 0
-                              ? "bg-[#EAF3B2] text-[#243355] border-[#D9E69B] shadow-2xs ring-2 ring-[#3D568F]/20"
-                              : item.isNew
+                          className={`text-xs font-mono font-bold px-2 py-1 rounded-xl border transition-all ${idx === 0
+                            ? "bg-[#E8F0FB] text-[#243355] border-[#D9E69B] shadow-2xs ring-2 ring-[#1E3F82]/20"
+                            : item.isNew
                               ? "bg-amber-50 text-amber-800 border-amber-200 animate-bounce"
                               : "bg-stone-50 text-stone-600 border-stone-200"
-                          }`}
+                            }`}
                         >
                           ({item.node}, {item.dist}) {idx === 0 && "▲"}
                         </span>
@@ -680,13 +737,12 @@ export function AlgorithmSimulationView({ algorithmDetail, onBack }: Props) {
                       return (
                         <div
                           key={node}
-                          className={`flex flex-col items-center px-2 py-1 rounded-lg border text-center transition-all ${
-                            isActive
-                              ? "bg-[#EAF3B2] border-[#D9E69B] text-[#243355] font-extrabold shadow-xs"
-                              : isVisited
+                          className={`flex flex-col items-center px-2 py-1 rounded-lg border text-center transition-all ${isActive
+                            ? "bg-[#E8F0FB] border-[#D9E69B] text-[#243355] font-extrabold shadow-xs"
+                            : isVisited
                               ? "bg-emerald-50 border-emerald-200 text-emerald-800 font-semibold"
                               : "bg-stone-50 border-stone-200/80 text-stone-500"
-                          }`}
+                            }`}
                         >
                           <span className="text-[10px] text-stone-400">{node}</span>
                           <span className="font-bold">{dist}</span>
@@ -699,9 +755,8 @@ export function AlgorithmSimulationView({ algorithmDetail, onBack }: Props) {
                 {/* The SVG Graph Renderer */}
                 <svg
                   viewBox="0 0 700 440"
-                  className={`w-full h-full transition-transform duration-500 ${
-                    viewMode === "3d" ? "perspective-3d" : ""
-                  }`}
+                  className={`w-full h-full transition-transform duration-500 ${viewMode === "3d" ? "perspective-3d" : ""
+                    }`}
                 >
                   <defs>
                     <filter id="glow-halo" x="-30%" y="-30%" width="160%" height="160%">
@@ -760,7 +815,7 @@ export function AlgorithmSimulationView({ algorithmDetail, onBack }: Props) {
                               width="52"
                               height="18"
                               rx="5"
-                              fill="#EAF3B2"
+                              fill="#E8F0FB"
                               stroke="#D9E69B"
                               strokeWidth="1"
                             />
@@ -795,7 +850,7 @@ export function AlgorithmSimulationView({ algorithmDetail, onBack }: Props) {
                             cy={node.y}
                             r="32"
                             fill="none"
-                            stroke="#3D568F"
+                            stroke="#1E3F82"
                             strokeWidth="2.5"
                             opacity="0.4"
                             className="animate-ping"
@@ -818,8 +873,8 @@ export function AlgorithmSimulationView({ algorithmDetail, onBack }: Props) {
                           cx={node.x}
                           cy={node.y}
                           r="22"
-                          fill={isActive ? "#243355" : isVisited ? "#EAF3B2" : "white"}
-                          stroke={isActive ? "#3D568F" : isVisited ? "#10B981" : "#94A3B8"}
+                          fill={isActive ? "#243355" : isVisited ? "#E8F0FB" : "white"}
+                          stroke={isActive ? "#1E3F82" : isVisited ? "#10B981" : "#94A3B8"}
                           strokeWidth={isActive ? 3.5 : 2.5}
                           filter={isActive ? "url(#glow-halo)" : undefined}
                         />
@@ -843,7 +898,7 @@ export function AlgorithmSimulationView({ algorithmDetail, onBack }: Props) {
                             width="44"
                             height="18"
                             rx="6"
-                            fill={isActive ? "#EAF3B2" : isVisited ? "#F0FDF4" : "white"}
+                            fill={isActive ? "#E8F0FB" : isVisited ? "#F0FDF4" : "white"}
                             stroke={isActive ? "#D9E69B" : isVisited ? "#86EFAC" : "#E2E8F0"}
                             strokeWidth="1.2"
                           />
@@ -884,11 +939,10 @@ export function AlgorithmSimulationView({ algorithmDetail, onBack }: Props) {
                     <button
                       type="button"
                       onClick={handleTogglePlay}
-                      className={`px-4 h-10 rounded-2xl font-bold text-xs flex items-center gap-2 transition-all cursor-pointer shadow-sm hover:scale-[1.02] active:scale-[0.98] ${
-                        isPlaying
-                          ? "bg-amber-500 text-stone-900 ring-2 ring-amber-400/50"
-                          : "bg-[#243355] hover:bg-[#1A253D] text-[#EAF3B2]"
-                      }`}
+                      className={`px-4 h-10 rounded-2xl font-bold text-xs flex items-center gap-2 transition-all cursor-pointer shadow-sm hover:scale-[1.02] active:scale-[0.98] ${isPlaying
+                        ? "bg-amber-500 text-stone-900 ring-2 ring-amber-400/50"
+                        : "bg-[#243355] hover:bg-[#1A253D] text-[#E8F0FB]"
+                        }`}
                     >
                       {isPlaying ? (
                         <>
@@ -907,7 +961,7 @@ export function AlgorithmSimulationView({ algorithmDetail, onBack }: Props) {
                     <button
                       type="button"
                       onClick={handleStepForward}
-                      className="px-4 h-10 rounded-2xl bg-[#EAF3B2] hover:bg-[#DFEB9B] text-[#243355] font-extrabold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs hover:scale-[1.02] active:scale-[0.98] border border-[#D9E69B]"
+                      className="px-4 h-10 rounded-2xl bg-[#E8F0FB] hover:bg-[#DFEB9B] text-[#243355] font-extrabold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs hover:scale-[1.02] active:scale-[0.98] border border-[#D9E69B]"
                       title="Bấm để chuyển sang bước kế tiếp"
                     >
                       <span>⏭ Đi từng bước</span>
@@ -930,7 +984,7 @@ export function AlgorithmSimulationView({ algorithmDetail, onBack }: Props) {
                     <button
                       type="button"
                       onClick={() => setDisplayMode("gallery")}
-                      className="hidden sm:inline-flex items-center gap-1 text-xs font-mono font-bold text-stone-500 hover:text-[#3D568F] px-3 py-2 rounded-xl border border-stone-200 hover:border-stone-300 transition-colors"
+                      className="hidden sm:inline-flex items-center gap-1 text-xs font-mono font-bold text-stone-500 hover:text-[#1E3F82] px-3 py-2 rounded-xl border border-stone-200 hover:border-stone-300 transition-colors"
                     >
                       <GridFill className="w-3 h-3" />
                       <span>Xem lưới các bước</span>
@@ -954,7 +1008,7 @@ export function AlgorithmSimulationView({ algorithmDetail, onBack }: Props) {
 
                     <div className="flex items-center gap-1.5">
                       <span className="text-stone-500">TIẾN TRÌNH:</span>
-                      <span className="px-2 py-0.5 rounded bg-indigo-50 text-[#3D568F] font-bold border border-indigo-200">
+                      <span className="px-2 py-0.5 rounded bg-indigo-50 text-[#1E3F82] font-bold border border-indigo-200">
                         Bước {currentStepIndex} / {totalSteps}
                       </span>
                     </div>
@@ -982,13 +1036,12 @@ export function AlgorithmSimulationView({ algorithmDetail, onBack }: Props) {
                           setIsPlaying(false);
                           setCurrentStepIndex(step.stepIndex);
                         }}
-                        className={`h-2.5 rounded-full flex-1 transition-all cursor-pointer ${
-                          step.stepIndex === currentStepIndex
-                            ? "bg-[#243355] ring-2 ring-[#3D568F]/40 scale-y-125"
-                            : step.stepIndex < currentStepIndex
+                        className={`h-2.5 rounded-full flex-1 transition-all cursor-pointer ${step.stepIndex === currentStepIndex
+                          ? "bg-[#243355] ring-2 ring-[#1E3F82]/40 scale-y-125"
+                          : step.stepIndex < currentStepIndex
                             ? "bg-emerald-500"
                             : "bg-stone-200 hover:bg-stone-300"
-                        }`}
+                          }`}
                         title={`Bước ${step.stepIndex}: ${step.shortSummary}`}
                       />
                     ))}
@@ -1006,11 +1059,11 @@ export function AlgorithmSimulationView({ algorithmDetail, onBack }: Props) {
                     <h3 className="text-xs font-mono font-bold text-stone-900 uppercase tracking-wider">
                       {data.theory.title}
                     </h3>
-                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-[#3D568F] border border-indigo-200">
+                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-[#1E3F82] border border-indigo-200">
                       {data.theory.paradigm}
                     </span>
                   </div>
-                  <p className="text-xs text-stone-600 font-[family-name:var(--font-body)] leading-relaxed">
+                  <p className="text-xs text-stone-600 leading-relaxed">
                     {data.theory.description}
                   </p>
                 </div>
@@ -1030,26 +1083,26 @@ export function AlgorithmSimulationView({ algorithmDetail, onBack }: Props) {
                 ref={cardRef}
                 onMouseUp={handleDetectTextSelection}
                 onTouchEnd={handleDetectTextSelection}
-                className="bg-gradient-to-br from-[#FDFDF7] to-[#F3F7DC] p-5 rounded-3xl border border-[#D9E69B] shadow-2xs flex flex-col justify-between relative select-text"
+                className="bg-linear-to-br from-[#FDFDF7] to-[#F3F7DC] p-5 rounded-3xl border border-[#D9E69B] shadow-2xs flex flex-col justify-between relative select-text"
               >
                 <div>
                   <div className="flex items-center justify-between mb-2.5">
                     <h3 className="text-xs font-mono font-bold text-[#243355] uppercase tracking-wider">
                       {data.realWorldApp.title}
                     </h3>
-                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-[#EAF3B2] text-[#243355] border border-[#D9E69B]">
+                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-[#E8F0FB] text-[#243355] border border-[#D9E69B]">
                       {data.realWorldApp.badge}
                     </span>
                   </div>
 
-                  <p className="text-xs text-stone-700 font-[family-name:var(--font-body)] leading-relaxed mb-2.5">
+                  <p className="text-xs text-stone-700 leading-relaxed mb-2.5">
                     {data.realWorldApp.description}
                   </p>
 
-                  <ul className="flex flex-col gap-1.5 text-xs text-stone-600 font-[family-name:var(--font-body)]">
+                  <ul className="flex flex-col gap-1.5 text-xs text-stone-600">
                     {data.realWorldApp.useCases.map((useCase, idx) => (
                       <li key={idx} className="flex items-start gap-1.5 leading-relaxed">
-                        <span className="text-[#3D568F] font-bold">•</span>
+                        <span className="text-[#1E3F82] font-bold">•</span>
                         <span>{useCase}</span>
                       </li>
                     ))}
@@ -1059,7 +1112,7 @@ export function AlgorithmSimulationView({ algorithmDetail, onBack }: Props) {
                 <div className="mt-4 pt-3 border-t border-[#D9E69B]/60 flex items-center justify-between">
                   <a
                     href="#application-guide"
-                    className="inline-flex items-center gap-1.5 text-xs font-bold text-[#243355] hover:text-[#3D568F] transition-colors"
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-[#243355] hover:text-[#1E3F82] transition-colors"
                   >
                     <span>{data.realWorldApp.linkText}</span>
                     <BoxArrowUpRight className="w-3 h-3" />
@@ -1069,7 +1122,7 @@ export function AlgorithmSimulationView({ algorithmDetail, onBack }: Props) {
                     <button
                       type="button"
                       onClick={handleResetToStandardAlgorithm}
-                      className="text-xs font-bold text-[#3D568F] hover:underline flex items-center gap-1 cursor-pointer font-mono"
+                      className="text-xs font-bold text-[#1E3F82] hover:underline flex items-center gap-1 cursor-pointer font-mono"
                     >
                       <ArrowRepeat className="w-3 h-3" />
                       <span>Đặt lại ban đầu</span>
@@ -1083,32 +1136,30 @@ export function AlgorithmSimulationView({ algorithmDetail, onBack }: Props) {
           {/* Right Column (4 Cols): AI Tutor Trợ Giảng & Code / Mã Giả */}
           <div className="lg:col-span-4 flex flex-col gap-5">
             {/* Main Interactive Tab Container */}
-            <div className="bg-white rounded-3xl border border-stone-200/90 shadow-2xs overflow-hidden flex flex-col min-h-[580px]">
+            <div className="bg-white rounded-3xl border border-stone-200/90 shadow-2xs overflow-hidden flex flex-col min-h-145">
               {/* Top Sidebar Tab Switcher */}
               <div className="p-3 bg-stone-50 border-b border-stone-200/70 flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setActiveSidebarTab("ai-tutor")}
-                  className={`flex-1 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                    activeSidebarTab === "ai-tutor"
-                      ? "bg-white text-[#243355] shadow-xs border border-stone-200/80"
-                      : "text-stone-500 hover:text-stone-900"
-                  }`}
+                  className={`flex-1 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${activeSidebarTab === "ai-tutor"
+                    ? "bg-white text-[#243355] shadow-xs border border-stone-200/80"
+                    : "text-stone-500 hover:text-stone-900"
+                    }`}
                 >
-                  <ChatDotsFill className="w-3.5 h-3.5 text-[#3D568F]" />
+                  <ChatDotsFill className="w-3.5 h-3.5 text-[#1E3F82]" />
                   <span>AI Tutor Trợ Giảng</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setActiveSidebarTab("code")}
-                  className={`flex-1 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                    activeSidebarTab === "code"
-                      ? "bg-white text-[#243355] shadow-xs border border-stone-200/80"
-                      : "text-stone-500 hover:text-stone-900"
-                  }`}
+                  className={`flex-1 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${activeSidebarTab === "code"
+                    ? "bg-white text-[#243355] shadow-xs border border-stone-200/80"
+                    : "text-stone-500 hover:text-stone-900"
+                    }`}
                 >
-                  <CodeSlash className="w-3.5 h-3.5 text-[#3D568F]" />
+                  <CodeSlash className="w-3.5 h-3.5 text-[#1E3F82]" />
                   <span>Code & Mã Giả</span>
                 </button>
               </div>
@@ -1119,7 +1170,7 @@ export function AlgorithmSimulationView({ algorithmDetail, onBack }: Props) {
                   <div className="flex flex-col gap-4">
                     {/* AI Status Banner */}
                     <div className="p-3 rounded-2xl bg-indigo-50/70 border border-indigo-100 flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-xl bg-[#3D568F] text-white flex items-center justify-center font-bold shrink-0 shadow-xs">
+                      <div className="w-9 h-9 rounded-xl bg-[#1E3F82] text-white flex items-center justify-center font-bold shrink-0 shadow-xs">
                         <Cpu className="w-5 h-5" />
                       </div>
                       <div>
@@ -1136,7 +1187,7 @@ export function AlgorithmSimulationView({ algorithmDetail, onBack }: Props) {
                     {/* Active Step Analysis Box */}
                     <div className="p-4 rounded-2xl bg-[#F8FAFC] border border-stone-200/80 flex flex-col gap-2.5">
                       <div className="flex items-center justify-between text-xs font-mono font-bold text-stone-500">
-                        <span className="text-[#3D568F]">{currentStep.aiAnalysis.title}</span>
+                        <span className="text-[#1E3F82]">{currentStep.aiAnalysis.title}</span>
                         <span className="text-[10px] text-stone-400 font-normal">vừa xong</span>
                       </div>
 
@@ -1145,7 +1196,7 @@ export function AlgorithmSimulationView({ algorithmDetail, onBack }: Props) {
                         💡 {currentStep.shortSummary}
                       </div>
 
-                      <p className="text-xs text-stone-700 leading-relaxed font-[family-name:var(--font-body)]">
+                      <p className="text-xs text-stone-700 leading-relaxed">
                         {currentStep.aiAnalysis.greeting}
                       </p>
 
@@ -1155,7 +1206,7 @@ export function AlgorithmSimulationView({ algorithmDetail, onBack }: Props) {
                           <div className="font-bold text-[#243355] mb-1">
                             {currentStep.aiAnalysis.highlightTitle}
                           </div>
-                          <p className="text-[11px] text-stone-600 whitespace-pre-line font-[family-name:var(--font-body)]">
+                          <p className="text-[11px] text-stone-600 whitespace-pre-line">
                             {currentStep.aiAnalysis.highlightContent}
                           </p>
                         </div>
@@ -1172,14 +1223,14 @@ export function AlgorithmSimulationView({ algorithmDetail, onBack }: Props) {
                           <button
                             type="button"
                             onClick={() => handleQuickQuestionClick(qIdx)}
-                            className="text-left text-xs font-medium text-stone-700 hover:text-[#3D568F] bg-stone-50 hover:bg-[#EAF3B2]/30 p-2.5 rounded-xl border border-stone-200/70 transition-all flex items-center justify-between gap-2 cursor-pointer"
+                            className="text-left text-xs font-medium text-stone-700 hover:text-[#1E3F82] bg-stone-50 hover:bg-[#E8F0FB]/30 p-2.5 rounded-xl border border-stone-200/70 transition-all flex items-center justify-between gap-2 cursor-pointer"
                           >
                             <span className="leading-snug">{q.q}</span>
-                            <span className="text-[#3D568F] font-bold shrink-0">→</span>
+                            <span className="text-[#1E3F82] font-bold shrink-0">→</span>
                           </button>
                           {selectedQuickQuestion === qIdx && (
                             <div className="mt-1.5 p-3 rounded-xl bg-white border border-stone-200 text-xs text-stone-600 leading-relaxed animate-fadeIn">
-                              <strong className="text-[#3D568F]">Trả lời:</strong> {q.a}
+                              <strong className="text-[#1E3F82]">Trả lời:</strong> {q.a}
                             </div>
                           )}
                         </div>
@@ -1192,11 +1243,10 @@ export function AlgorithmSimulationView({ algorithmDetail, onBack }: Props) {
                         {chatMessages.map((msg, mIdx) => (
                           <div
                             key={mIdx}
-                            className={`p-2.5 rounded-xl text-xs leading-relaxed ${
-                              msg.role === "user"
-                                ? "bg-[#243355] text-white self-end max-w-[85%]"
-                                : "bg-stone-100 text-stone-800 self-start max-w-[90%]"
-                            }`}
+                            className={`p-2.5 rounded-xl text-xs leading-relaxed ${msg.role === "user"
+                              ? "bg-[#243355] text-white self-end max-w-[85%]"
+                              : "bg-stone-100 text-stone-800 self-start max-w-[90%]"
+                              }`}
                           >
                             {msg.text}
                           </div>
@@ -1212,11 +1262,11 @@ export function AlgorithmSimulationView({ algorithmDetail, onBack }: Props) {
                       value={userChatInput}
                       onChange={(e) => setUserChatInput(e.target.value)}
                       placeholder="Hỏi AI bất kỳ điều gì về bước này..."
-                      className="flex-1 bg-stone-100 hover:bg-white focus:bg-white text-xs px-3.5 py-2.5 rounded-xl border border-stone-200 focus:border-[#3D568F] outline-none transition-all"
+                      className="flex-1 bg-stone-100 hover:bg-white focus:bg-white text-xs px-3.5 py-2.5 rounded-xl border border-stone-200 focus:border-[#1E3F82] outline-none transition-all"
                     />
                     <button
                       type="submit"
-                      className="w-10 h-10 rounded-xl bg-[#243355] hover:bg-[#1A253D] text-[#EAF3B2] flex items-center justify-center transition-all cursor-pointer shadow-xs shrink-0"
+                      className="w-10 h-10 rounded-xl bg-[#243355] hover:bg-[#1A253D] text-[#E8F0FB] flex items-center justify-center transition-all cursor-pointer shadow-xs shrink-0"
                     >
                       <SendFill className="w-3.5 h-3.5" />
                     </button>
@@ -1229,9 +1279,9 @@ export function AlgorithmSimulationView({ algorithmDetail, onBack }: Props) {
                 <div className="p-4 flex-1 flex flex-col gap-3">
                   {/* Real-World Code Notice Banner & Reset Button */}
                   {selectedRealWorldApp ? (
-                    <div className="p-3 bg-[#EAF3B2]/50 border border-[#D9E69B] rounded-2xl flex items-center justify-between gap-3 animate-fadeIn">
+                    <div className="p-3 bg-[#E8F0FB]/50 border border-[#D9E69B] rounded-2xl flex items-center justify-between gap-3 animate-fadeIn">
                       <div className="flex items-center gap-2">
-                        <Stars className="w-4 h-4 text-[#3D568F] shrink-0" />
+                        <Stars className="w-4 h-4 text-[#1E3F82] shrink-0" />
                         <div>
                           <div className="text-[10px] font-mono text-stone-500 uppercase font-bold">
                             Thuật toán thực tế đang chạy:
@@ -1249,7 +1299,7 @@ export function AlgorithmSimulationView({ algorithmDetail, onBack }: Props) {
                         className="px-3 py-1.5 rounded-xl bg-white hover:bg-stone-100 text-[#243355] text-xs font-mono font-bold border border-stone-300 transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer shrink-0"
                         title="Reset về code Dijkstra mẫu"
                       >
-                        <ArrowRepeat className="w-3.5 h-3.5 text-[#3D568F]" />
+                        <ArrowRepeat className="w-3.5 h-3.5 text-[#1E3F82]" />
                         <span>Đặt lại ban đầu</span>
                       </button>
                     </div>
@@ -1261,22 +1311,20 @@ export function AlgorithmSimulationView({ algorithmDetail, onBack }: Props) {
                       <button
                         type="button"
                         onClick={() => setActiveCodeLang("cpp")}
-                        className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                          activeCodeLang === "cpp"
-                            ? "bg-[#243355] text-white shadow-2xs"
-                            : "text-stone-500 hover:text-stone-800"
-                        }`}
+                        className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${activeCodeLang === "cpp"
+                          ? "bg-[#243355] text-white shadow-2xs"
+                          : "text-stone-500 hover:text-stone-800"
+                          }`}
                       >
                         C++ (STL)
                       </button>
                       <button
                         type="button"
                         onClick={() => setActiveCodeLang("py")}
-                        className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                          activeCodeLang === "py"
-                            ? "bg-[#243355] text-white shadow-2xs"
-                            : "text-stone-500 hover:text-stone-800"
-                        }`}
+                        className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${activeCodeLang === "py"
+                          ? "bg-[#243355] text-white shadow-2xs"
+                          : "text-stone-500 hover:text-stone-800"
+                          }`}
                       >
                         Python 3
                       </button>
@@ -1289,41 +1337,44 @@ export function AlgorithmSimulationView({ algorithmDetail, onBack }: Props) {
                     </span>
                   </div>
 
-                  {/* Code Editor Container */}
-                  <div className="flex-1 bg-[#182133] rounded-2xl p-3.5 font-mono text-[11px] leading-relaxed overflow-x-auto text-slate-200 border border-slate-700 shadow-inner max-h-[380px]">
-                    {(selectedRealWorldApp
-                      ? activeCodeLang === "cpp"
-                        ? selectedRealWorldApp.codeCpp
-                        : selectedRealWorldApp.codePy
-                      : activeCodeLang === "cpp"
-                      ? data.codeCpp
-                      : data.codePy
-                    ).map((line, idx) => {
-                      const lineNum = idx + 1;
-                      const isActiveLine =
-                        !selectedRealWorldApp &&
-                        lineNum ===
-                          (activeCodeLang === "cpp"
-                            ? currentStep.activeCodeLineCpp
-                            : currentStep.activeCodeLinePy);
+                  {/* File selector tabs if algorithmDetail files available */}
+                  {algorithmDetail?.files && algorithmDetail.files.length > 0 ? (
+                    <div className="flex flex-col gap-3">
+                      <div className="flex items-center gap-1.5 flex-wrap border-b border-stone-200 pb-2">
+                        {algorithmDetail.files.map((file, idx) => (
+                          <button
+                            key={file.name}
+                            type="button"
+                            onClick={() => setActiveFileIndex(idx)}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer ${activeFileIndex === idx
+                              ? "bg-[#1E3F82] text-white shadow-xs"
+                              : "bg-stone-100 text-stone-600 hover:bg-stone-200"
+                              }`}
+                          >
+                            {file.name}
+                          </button>
+                        ))}
+                      </div>
 
-                      return (
-                        <div
-                          key={idx}
-                          className={`flex items-center gap-3 px-2 py-0.5 rounded transition-colors ${
-                            isActiveLine
-                              ? "bg-[#EAF3B2]/25 text-[#EAF3B2] font-bold border-l-2 border-[#EAF3B2]"
-                              : "hover:bg-slate-800/50"
-                          }`}
-                        >
-                          <span className="w-5 text-slate-500 text-right select-none text-[10px]">
-                            {lineNum}
-                          </span>
+                      <div className="flex-1 bg-[#182133] rounded-2xl p-4 font-mono text-[11px] leading-relaxed overflow-x-auto text-slate-200 border border-slate-700 shadow-inner max-h-105">
+                        {(algorithmDetail.files[activeFileIndex]?.content || "").split("\n").map((line, idx) => (
+                          <div key={idx} className="flex items-center gap-3 px-2 py-0.5 hover:bg-slate-800/50 rounded">
+                            <span className="w-6 text-slate-500 text-right select-none text-[10px] shrink-0">{idx + 1}</span>
+                            <pre className="flex-1 overflow-visible">{line || " "}</pre>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex-1 bg-[#182133] rounded-2xl p-3.5 font-mono text-[11px] leading-relaxed overflow-x-auto text-slate-200 border border-slate-700 shadow-inner max-h-95">
+                      {(activeCodeLang === "cpp" ? data.codeCpp : data.codePy).map((line, idx) => (
+                        <div key={idx} className="flex items-center gap-3 px-2 py-0.5 rounded transition-colors hover:bg-slate-800/50">
+                          <span className="w-5 text-slate-500 text-right select-none text-[10px]">{idx + 1}</span>
                           <pre className="flex-1 overflow-visible">{line || " "}</pre>
                         </div>
-                      );
-                    })}
-                  </div>
+                      ))}
+                    </div>
+                  )}
 
                   {/* Simulated Terminal Output Box for Practical Code */}
                   {selectedRealWorldApp && (
@@ -1372,7 +1423,7 @@ export function AlgorithmSimulationView({ algorithmDetail, onBack }: Props) {
       {floatingMenu && (
         <div
           data-floating-menu="true"
-          className="fixed z-[9999] bg-[#1E293B] text-white p-1.5 rounded-2xl shadow-2xl border border-slate-700 flex items-center gap-1.5 font-mono text-xs animate-fadeIn pointer-events-auto select-none"
+          className="fixed z-9999 bg-[#1E293B] text-white p-1.5 rounded-2xl shadow-2xl border border-slate-700 flex items-center gap-1.5 font-mono text-xs animate-fadeIn pointer-events-auto select-none"
           style={{
             left: `${floatingMenu.x}px`,
             top: `${floatingMenu.y}px`,
@@ -1382,7 +1433,7 @@ export function AlgorithmSimulationView({ algorithmDetail, onBack }: Props) {
           {/* Downward triangle caret */}
           <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-[#1E293B] border-r border-b border-slate-700 transform rotate-45 pointer-events-none" />
 
-          <div className="px-2 text-[10px] text-stone-300 font-sans border-r border-slate-700 max-w-[140px] truncate">
+          <div className="px-2 text-[10px] text-stone-300 font-sans border-r border-slate-700 max-w-35 truncate">
             "{floatingMenu.text}"
           </div>
 
@@ -1422,12 +1473,12 @@ export function AlgorithmSimulationView({ algorithmDetail, onBack }: Props) {
             {/* Modal Header */}
             <div className="p-4 sm:p-5 border-b border-stone-100 flex items-center justify-between bg-stone-50/70">
               <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-2xl bg-indigo-50 border border-indigo-200 text-[#3D568F] flex items-center justify-center">
+                <div className="w-9 h-9 rounded-2xl bg-indigo-50 border border-indigo-200 text-[#1E3F82] flex items-center justify-center">
                   <ImageFill className="w-4 h-4" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-mono px-2 py-0.2 rounded bg-indigo-100 text-[#3D568F] font-bold">
+                    <span className="text-[10px] font-mono px-2 py-0.2 rounded bg-indigo-100 text-[#1E3F82] font-bold">
                       {illustratedAppModal.badge}
                     </span>
                     <span className="text-xs text-stone-400 font-mono">• Đồ thị thực tế</span>
@@ -1454,7 +1505,7 @@ export function AlgorithmSimulationView({ algorithmDetail, onBack }: Props) {
                 <div
                   className="absolute inset-0 opacity-20 pointer-events-none"
                   style={{
-                    backgroundImage: "radial-gradient(#9FBAF1 1px, transparent 1px)",
+                    backgroundImage: "radial-gradient(#5B8FD8 1px, transparent 1px)",
                     backgroundSize: "20px 20px",
                   }}
                 />
@@ -1594,7 +1645,7 @@ export function AlgorithmSimulationView({ algorithmDetail, onBack }: Props) {
               {/* Caption & Explanation */}
               <div className="bg-stone-50 border border-stone-200 p-4 rounded-2xl flex flex-col gap-1.5 text-xs text-stone-700 leading-relaxed font-sans">
                 <div className="font-bold text-stone-900 flex items-center gap-1.5 font-mono text-[11px]">
-                  <Stars className="w-3.5 h-3.5 text-[#3D568F]" />
+                  <Stars className="w-3.5 h-3.5 text-[#1E3F82]" />
                   <span>Cơ Chế Ứng Dụng Thực Tế:</span>
                 </div>
                 <p>{illustratedAppModal.description}</p>

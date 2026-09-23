@@ -43,7 +43,7 @@ export function CourseCard({ course, onSelect }: Props) {
   return (
     <article
       onClick={() => onSelect?.(course.id)}
-      className="group bg-white rounded-2xl border border-stone-200/90 hover:border-[#3D568F]/50 p-3.5 flex flex-col justify-between shadow-[0_2px_12px_rgba(0,0,0,0.03)] hover:shadow-[0_16px_36px_-6px_rgba(36,51,85,0.12)] hover:-translate-y-1.5 transition-all duration-300 cursor-pointer"
+      className="group bg-white rounded-2xl border border-stone-200/90 hover:border-[#1E3F82]/50 p-3.5 flex flex-col justify-between shadow-[0_2px_12px_rgba(0,0,0,0.03)] hover:shadow-[0_16px_36px_-6px_rgba(36,51,85,0.12)] hover:-translate-y-1.5 transition-all duration-300 cursor-pointer"
     >
       <div>
         {/* Top 3D Simulation Viewport with interactive overlay */}
@@ -72,12 +72,12 @@ export function CourseCard({ course, onSelect }: Props) {
           </div>
 
           {/* Title with balanced 2 lines */}
-          <h3 className="text-[15px] sm:text-base font-bold text-stone-900 group-hover:text-[#3D568F] transition-colors line-clamp-2 min-h-[2.8rem] leading-snug font-[family-name:var(--font-headline)]">
+          <h3 className="text-[15px] sm:text-base font-bold text-stone-900 group-hover:text-[#1E3F82] transition-colors line-clamp-2 min-h-[2.8rem] leading-snug">
             {course.title}
           </h3>
 
           {/* Description */}
-          <p className="text-xs text-stone-500 mt-1.5 line-clamp-2 leading-relaxed font-[family-name:var(--font-body)] min-h-[2.5rem]">
+          <p className="text-xs text-stone-500 mt-1.5 line-clamp-2 leading-relaxed min-h-[2.5rem]">
             {course.description}
           </p>
 
@@ -86,7 +86,7 @@ export function CourseCard({ course, onSelect }: Props) {
             {course.tags.map((tag, i) => (
               <span
                 key={i}
-                className="text-[11px] font-mono px-2 py-0.5 rounded-md bg-[#F4F6F9] hover:bg-[#EAF3B2]/40 text-stone-600 hover:text-[#243355] border border-stone-200/70 transition-colors"
+                className="text-[11px] font-mono px-2 py-0.5 rounded-md bg-[#F4F6F9] hover:bg-[#E8F0FB]/40 text-stone-600 hover:text-[#243355] border border-stone-200/70 transition-colors"
               >
                 #{tag}
               </span>
@@ -110,7 +110,7 @@ export function CourseCard({ course, onSelect }: Props) {
               className={`h-full rounded-full transition-all duration-500 ${
                 course.progress === 100
                   ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"
-                  : "bg-gradient-to-r from-[#3D568F] via-[#6384C6] to-[#9FBAF1]"
+                  : "bg-gradient-to-r from-[#1E3F82] via-[#6384C6] to-[#5B8FD8]"
               }`}
               style={{ width: `${course.progress}%` }}
             />
@@ -138,7 +138,7 @@ export function CourseCard({ course, onSelect }: Props) {
             className={`group/btn text-xs font-bold py-2 px-3.5 rounded-xl transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 active:scale-95 ${
               course.actionType === "outlined"
                 ? "border border-stone-300 text-stone-700 hover:bg-stone-100 hover:border-stone-400"
-                : "bg-[#3D568F] text-white hover:bg-[#2F4371] shadow-xs hover:shadow-md hover:shadow-[#3D568F]/25"
+                : "bg-[#1E3F82] text-white hover:bg-[#163070] shadow-xs hover:shadow-md hover:shadow-[#1E3F82]/25"
             }`}
           >
             <span>{course.actionText}</span>

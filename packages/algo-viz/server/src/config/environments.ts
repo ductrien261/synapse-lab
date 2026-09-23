@@ -34,22 +34,15 @@ const isEnabled = (v: string) => v === '1';
 const missingVars = [
   'NODE_ENV',
   'HTTP_PORT',
-  'HTTPS_PORT',
-  'CREDENTIALS_ENABLED',
   ...(isEnabled(CREDENTIALS_ENABLED) ? [
     'CREDENTIALS_PATH',
     'CREDENTIALS_CA',
     'CREDENTIALS_KEY',
     'CREDENTIALS_CERT',
   ] : []),
-  'WEBHOOK_ENABLED',
   ...(isEnabled(WEBHOOK_ENABLED) ? [
     'WEBHOOK_SECRET',
   ] : []),
-  'GITHUB_CLIENT_ID',
-  'GITHUB_CLIENT_SECRET',
-  'AWS_ACCESS_KEY_ID',
-  'AWS_SECRET_ACCESS_KEY',
 ].filter(variable => process.env[variable] === undefined);
 if (missingVars.length) throw new Error(`The following environment variables are missing: ${missingVars.join(', ')}`);
 

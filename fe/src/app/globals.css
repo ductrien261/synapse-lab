@@ -1,47 +1,49 @@
 @import "tailwindcss";
 
 /* ==========================================================================
-   SYNAPSE-LAB DESIGN SYSTEM COLOR PALETTE & TOKENS
-   Primary:   #3D568F (Deep Slate Blue)
-   Secondary: #9FBAF1 (Soft Sky / Periwinkle)
-   Tertiary:  #EAF3B2 (Pale Lime Accent)
-   Neutral:   #FDFDF5 / #F4F6F9 (Clean, elegant, light theme)
+   SYNAPSE-LAB DESIGN SYSTEM — v3.0
+   Primary:   #1E3F82 (Deep Navy — logo main)
+   Hover:     #163070
+   Active:    #0F2258
+   Secondary: #5B8FD8 (Sky Blue — logo accent)
+   Soft:      #E8F0FB (Soft Sky background)
+   Neutral:   #F4F7FC (Clean background)
+   Font:      Be Vietnam Pro
    ========================================================================== */
 
 :root {
-  /* Core Brand Colors */
-  --primary: #3D568F;
-  --primary-hover: #2F4371;
-  --primary-active: #243355;
+  /* Core Brand Colors — extracted from logo */
+  --primary: #1E3F82;
+  --primary-hover: #163070;
+  --primary-active: #0F2258;
   --primary-foreground: #FFFFFF;
 
-  --secondary: #9FBAF1;
-  --secondary-hover: #86A5E8;
-  --secondary-foreground: #1E2D4A;
+  --secondary: #5B8FD8;
+  --secondary-hover: #4A7DC8;
+  --secondary-foreground: #0F2258;
 
-  --tertiary: #EAF3B2;
-  --tertiary-hover: #DFEB9B;
-  --tertiary-foreground: #344015;
-  --tertiary-dark: #4C5922;
+  --accent: #E8F0FB;
+  --accent-hover: #D5E4F7;
+  --accent-foreground: #1E3F82;
 
-  --neutral: #FDFDF5;
-  --neutral-foreground: #1E232E;
+  --neutral: #F9FBFF;
+  --neutral-foreground: #1E293B;
 
-  /* Theme Backgrounds & Surfaces (FORCED LIGHT THEME - NO UNINTENDED BLACK SCREEN) */
-  --background: #F4F6F9;
-  --foreground: #1E293B;
+  /* Theme Backgrounds & Surfaces */
+  --background: #F4F7FC;
+  --foreground: #1A2B4A;
   --surface: #FFFFFF;
-  --surface-hover: #F8FAFC;
-  --surface-muted: #F1F5F9;
+  --surface-hover: #F8FAFF;
+  --surface-muted: #EEF3FB;
 
-  --border: #E2E8F0;
-  --border-strong: #CBD5E1;
+  --border: #DDE6F5;
+  --border-strong: #C5D5EE;
 
   --card: #FFFFFF;
-  --card-foreground: #1E293B;
+  --card-foreground: #1A2B4A;
 
-  --input: #F8FAFC;
-  --ring: #3D568F;
+  --input: #F8FAFF;
+  --ring: #5B8FD8;
 
   --radius-sm: 8px;
   --radius-md: 12px;
@@ -58,10 +60,9 @@
   --color-secondary-hover: var(--secondary-hover);
   --color-secondary-foreground: var(--secondary-foreground);
 
-  --color-tertiary: var(--tertiary);
-  --color-tertiary-hover: var(--tertiary-hover);
-  --color-tertiary-foreground: var(--tertiary-foreground);
-  --color-tertiary-dark: var(--tertiary-dark);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-foreground: var(--accent-foreground);
 
   --color-neutral: var(--neutral);
   --color-neutral-foreground: var(--neutral-foreground);
@@ -76,22 +77,21 @@
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
 
-  --font-headline: var(--font-headline), sans-serif;
-  --font-body: var(--font-body), sans-serif;
-  --font-mono: var(--font-label), monospace;
+  --font-sans: var(--font-be-vietnam), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
 
 /* Base Body Styles */
 html, body {
   background-color: var(--background) !important;
   color: var(--foreground) !important;
-  font-family: var(--font-body), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 h1, h2, h3, h4, h5, h6 {
-  font-family: var(--font-headline), sans-serif;
+  font-family: var(--font-sans);
   letter-spacing: -0.02em;
 }
 

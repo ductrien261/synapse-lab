@@ -12,7 +12,7 @@ ENV PATH="/opt/venv/bin:$PATH"
 
 COPY pyproject.toml uv.lock ./
 RUN --mount=type=cache,id=synapse-backend-uv,target=/root/.cache/uv \
-    uv sync --frozen
+    uv sync
 
 COPY . .
 

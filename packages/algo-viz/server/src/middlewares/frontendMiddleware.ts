@@ -10,10 +10,6 @@ const packageJson = require('../../package.json');
 export function frontendMiddleware(server: Server) {
   const staticMiddleware = express.static(frontendBuiltDir, {index: false});
 
-  if (!fs.pathExistsSync(frontendBuiltDir)) {
-    server.updateFrontend().catch(console.error);
-  }
-
   return (req: Request, res: Response, next: NextFunction) => {
     staticMiddleware(req, res, err => {
       if (err) return next(err);

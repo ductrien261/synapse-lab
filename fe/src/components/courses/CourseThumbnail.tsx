@@ -23,7 +23,7 @@ export function CourseThumbnail({
         className="absolute inset-0 opacity-20 pointer-events-none"
         style={{
           backgroundImage:
-            "linear-gradient(to right, #9FBAF1 1px, transparent 1px), linear-gradient(to bottom, #9FBAF1 1px, transparent 1px)",
+            "linear-gradient(to right, #5B8FD8 1px, transparent 1px), linear-gradient(to bottom, #5B8FD8 1px, transparent 1px)",
           backgroundSize: "24px 24px",
         }}
       />
@@ -49,8 +49,8 @@ export function CourseThumbnail({
         <span
           className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-wider uppercase font-mono shadow-md backdrop-blur-md ${
             isMed
-              ? "bg-[#3D568F]/90 text-white border border-[#9FBAF1]/40"
-              : "bg-[#EAF3B2] text-[#243355] border border-[#D9E69B]"
+              ? "bg-[#1E3F82]/90 text-white border border-[#5B8FD8]/40"
+              : "bg-[#E8F0FB] text-[#243355] border border-[#D9E69B]"
           }`}
         >
           <span
@@ -143,7 +143,7 @@ export function CourseThumbnail({
             </svg>
           </div>
 
-          <span className="absolute top-12 right-6 bg-[#243355]/80 backdrop-blur-md text-[9px] text-[#EAF3B2] px-2 py-0.5 rounded-full font-mono border border-white/15 flex items-center gap-1 shadow-sm">
+          <span className="absolute top-12 right-6 bg-[#243355]/80 backdrop-blur-md text-[9px] text-[#E8F0FB] px-2 py-0.5 rounded-full font-mono border border-white/15 flex items-center gap-1 shadow-sm">
             <Activity className="w-3 h-3 text-rose-400 animate-pulse" />
             <span>72 BPM • 3D Mesh</span>
           </span>
@@ -153,15 +153,15 @@ export function CourseThumbnail({
       {/* BRAIN ATLAS 3D */}
       {type === "brain" && (
         <div className="relative flex flex-col items-center justify-center w-full h-full">
-          <div className="absolute inset-0 bg-[#3D568F]/25 rounded-full blur-2xl scale-125" />
+          <div className="absolute inset-0 bg-[#1E3F82]/25 rounded-full blur-2xl scale-125" />
           <svg
-            className="w-36 h-28 text-[#9FBAF1] drop-shadow-[0_8px_24px_rgba(61,86,143,0.5)] relative z-1"
+            className="w-36 h-28 text-[#5B8FD8] drop-shadow-[0_8px_24px_rgba(61,86,143,0.5)] relative z-1"
             viewBox="0 0 120 90"
             fill="none"
           >
             <defs>
               <linearGradient id="brain-left" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#3D568F" />
+                <stop offset="0%" stopColor="#1E3F82" />
                 <stop offset="100%" stopColor="#1E293B" />
               </linearGradient>
               <linearGradient id="brain-right" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -174,41 +174,41 @@ export function CourseThumbnail({
             <path
               d="M60 22 C42 16, 18 26, 20 48 C16 66, 35 80, 56 78 C58 72, 56 58, 60 22 Z"
               fill="url(#brain-left)"
-              stroke="#9FBAF1"
+              stroke="#5B8FD8"
               strokeWidth="2"
             />
             {/* Right Hemisphere Lobe */}
             <path
               d="M60 22 C78 16, 102 26, 100 48 C104 66, 85 80, 64 78 C62 72, 64 58, 60 22 Z"
               fill="url(#brain-right)"
-              stroke="#EAF3B2"
+              stroke="#E8F0FB"
               strokeWidth="2"
             />
 
             {/* Internal Gyri & Sulci folds */}
             <path
               d="M34 38 Q46 44 40 56 M78 38 Q86 48 76 60 M42 66 Q52 68 56 60"
-              stroke="#9FBAF1"
+              stroke="#5B8FD8"
               strokeWidth="1.2"
               strokeDasharray="2 2"
               opacity="0.8"
             />
 
             {/* Glowing Synaptic Nodes */}
-            <circle cx="38" cy="46" r="4.5" fill="#EAF3B2" className="animate-pulse" />
-            <circle cx="82" cy="48" r="4.5" fill="#9FBAF1" className="animate-pulse" />
+            <circle cx="38" cy="46" r="4.5" fill="#E8F0FB" className="animate-pulse" />
+            <circle cx="82" cy="48" r="4.5" fill="#5B8FD8" className="animate-pulse" />
             <circle cx="60" cy="65" r="3.5" fill="#60A5FA" />
             <line
               x1="38"
               y1="46"
               x2="82"
               y2="48"
-              stroke="#EAF3B2"
+              stroke="#E8F0FB"
               strokeWidth="1.5"
               strokeDasharray="3 3"
             />
           </svg>
-          <span className="absolute top-12 right-6 bg-[#243355]/80 backdrop-blur-md text-[9px] text-[#EAF3B2] px-2 py-0.5 rounded-full font-mono border border-white/15 shadow-sm">
+          <span className="absolute top-12 right-6 bg-[#243355]/80 backdrop-blur-md text-[9px] text-[#E8F0FB] px-2 py-0.5 rounded-full font-mono border border-white/15 shadow-sm">
             VR Synapse • 12 Thùy
           </span>
         </div>
@@ -221,11 +221,11 @@ export function CourseThumbnail({
             {/* Kinematic Angle Arc */}
             <path
               d="M70 50 A 28 28 0 0 1 92 32"
-              stroke="#EAF3B2"
+              stroke="#E8F0FB"
               strokeWidth="1.5"
               strokeDasharray="3 3"
             />
-            <text x="96" y="32" fill="#EAF3B2" fontSize="9" fontFamily="monospace" fontWeight="bold">
+            <text x="96" y="32" fill="#E8F0FB" fontSize="9" fontFamily="monospace" fontWeight="bold">
               θ=42°
             </text>
 
@@ -235,7 +235,7 @@ export function CourseThumbnail({
               y1="50"
               x2="32"
               y2="76"
-              stroke="#9FBAF1"
+              stroke="#5B8FD8"
               strokeWidth="7"
               strokeLinecap="round"
             />
@@ -251,8 +251,8 @@ export function CourseThumbnail({
             />
 
             {/* Joint Pivot Hinge */}
-            <circle cx="70" cy="50" r="10" fill="#243355" stroke="#EAF3B2" strokeWidth="2.5" />
-            <circle cx="70" cy="50" r="4" fill="#EAF3B2" className="animate-pulse" />
+            <circle cx="70" cy="50" r="10" fill="#243355" stroke="#E8F0FB" strokeWidth="2.5" />
+            <circle cx="70" cy="50" r="4" fill="#E8F0FB" className="animate-pulse" />
 
             {/* Muscle Vector Force Arrow */}
             <line
@@ -266,7 +266,7 @@ export function CourseThumbnail({
             />
             <polygon points="90,32 82,34 86,39" fill="#F43F5E" />
           </svg>
-          <span className="absolute top-12 right-6 bg-[#243355]/80 backdrop-blur-md text-[9px] text-[#EAF3B2] px-2 py-0.5 rounded-full font-mono border border-white/15 shadow-sm">
+          <span className="absolute top-12 right-6 bg-[#243355]/80 backdrop-blur-md text-[9px] text-[#E8F0FB] px-2 py-0.5 rounded-full font-mono border border-white/15 shadow-sm">
             206 Xương • Vector F
           </span>
         </div>
@@ -275,37 +275,37 @@ export function CourseThumbnail({
       {/* GRAPH / AVL TREE 3D */}
       {type === "graph" && (
         <div className="relative flex flex-col items-center justify-center w-full h-full">
-          <svg className="w-38 h-28 text-[#9FBAF1] relative z-1" viewBox="0 0 160 110" fill="none">
+          <svg className="w-38 h-28 text-[#5B8FD8] relative z-1" viewBox="0 0 160 110" fill="none">
             {/* Edges with luminous pulse */}
-            <line x1="80" y1="24" x2="42" y2="56" stroke="#EAF3B2" strokeWidth="2.5" />
-            <line x1="80" y1="24" x2="118" y2="56" stroke="#9FBAF1" strokeWidth="2" />
-            <line x1="42" y1="56" x2="24" y2="88" stroke="#9FBAF1" strokeWidth="1.5" />
-            <line x1="42" y1="56" x2="62" y2="88" stroke="#EAF3B2" strokeWidth="2" />
-            <line x1="118" y1="56" x2="98" y2="88" stroke="#9FBAF1" strokeWidth="1.5" />
-            <line x1="118" y1="56" x2="138" y2="88" stroke="#9FBAF1" strokeWidth="1.5" />
+            <line x1="80" y1="24" x2="42" y2="56" stroke="#E8F0FB" strokeWidth="2.5" />
+            <line x1="80" y1="24" x2="118" y2="56" stroke="#5B8FD8" strokeWidth="2" />
+            <line x1="42" y1="56" x2="24" y2="88" stroke="#5B8FD8" strokeWidth="1.5" />
+            <line x1="42" y1="56" x2="62" y2="88" stroke="#E8F0FB" strokeWidth="2" />
+            <line x1="118" y1="56" x2="98" y2="88" stroke="#5B8FD8" strokeWidth="1.5" />
+            <line x1="118" y1="56" x2="138" y2="88" stroke="#5B8FD8" strokeWidth="1.5" />
 
             {/* Tree Nodes */}
-            <circle cx="80" cy="24" r="12" fill="#3D568F" stroke="#EAF3B2" strokeWidth="2.5" />
-            <text x="80" y="27" textAnchor="middle" fill="#EAF3B2" fontSize="9" fontWeight="bold">
+            <circle cx="80" cy="24" r="12" fill="#1E3F82" stroke="#E8F0FB" strokeWidth="2.5" />
+            <text x="80" y="27" textAnchor="middle" fill="#E8F0FB" fontSize="9" fontWeight="bold">
               50
             </text>
 
-            <circle cx="42" cy="56" r="10" fill="#243355" stroke="#EAF3B2" strokeWidth="2" />
+            <circle cx="42" cy="56" r="10" fill="#243355" stroke="#E8F0FB" strokeWidth="2" />
             <text x="42" y="59" textAnchor="middle" fill="#FFFFFF" fontSize="8" fontWeight="bold">
               25
             </text>
 
-            <circle cx="118" cy="56" r="10" fill="#243355" stroke="#9FBAF1" strokeWidth="2" />
+            <circle cx="118" cy="56" r="10" fill="#243355" stroke="#5B8FD8" strokeWidth="2" />
             <text x="118" y="59" textAnchor="middle" fill="#FFFFFF" fontSize="8" fontWeight="bold">
               75
             </text>
 
-            <circle cx="24" cy="88" r="8" fill="#1C273F" stroke="#9FBAF1" strokeWidth="1.5" />
-            <circle cx="62" cy="88" r="8" fill="#3D568F" stroke="#EAF3B2" strokeWidth="2" />
-            <circle cx="98" cy="88" r="8" fill="#1C273F" stroke="#9FBAF1" strokeWidth="1.5" />
-            <circle cx="138" cy="88" r="8" fill="#1C273F" stroke="#9FBAF1" strokeWidth="1.5" />
+            <circle cx="24" cy="88" r="8" fill="#1C273F" stroke="#5B8FD8" strokeWidth="1.5" />
+            <circle cx="62" cy="88" r="8" fill="#1E3F82" stroke="#E8F0FB" strokeWidth="2" />
+            <circle cx="98" cy="88" r="8" fill="#1C273F" stroke="#5B8FD8" strokeWidth="1.5" />
+            <circle cx="138" cy="88" r="8" fill="#1C273F" stroke="#5B8FD8" strokeWidth="1.5" />
           </svg>
-          <span className="absolute top-12 right-6 bg-[#243355]/80 backdrop-blur-md text-[9px] text-[#EAF3B2] px-2 py-0.5 rounded-full font-mono border border-white/15 shadow-sm">
+          <span className="absolute top-12 right-6 bg-[#243355]/80 backdrop-blur-md text-[9px] text-[#E8F0FB] px-2 py-0.5 rounded-full font-mono border border-white/15 shadow-sm">
             AVL Bal: 0 • Min-Heap
           </span>
         </div>
@@ -321,21 +321,21 @@ export function CourseThumbnail({
                 style={{ height: `${h}%` }}
                 className={`w-3.5 rounded-t-sm transition-all duration-300 relative group/bar ${
                   i === 5
-                    ? "bg-[#EAF3B2] shadow-[0_0_14px_rgba(234,243,178,0.8)]"
+                    ? "bg-[#E8F0FB] shadow-[0_0_14px_rgba(234,243,178,0.8)]"
                     : i === 3 || i === 8
-                    ? "bg-[#9FBAF1] shadow-[0_0_8px_rgba(159,186,241,0.5)]"
-                    : "bg-[#3D568F]/80"
+                    ? "bg-[#5B8FD8] shadow-[0_0_8px_rgba(159,186,241,0.5)]"
+                    : "bg-[#1E3F82]/80"
                 }`}
               >
                 {i === 5 && (
-                  <span className="absolute -top-4 left-1/2 -translate-x-1/2 text-[8px] font-mono text-[#EAF3B2] font-bold">
+                  <span className="absolute -top-4 left-1/2 -translate-x-1/2 text-[8px] font-mono text-[#E8F0FB] font-bold">
                     P
                   </span>
                 )}
               </div>
             ))}
           </div>
-          <span className="absolute top-12 right-6 bg-[#243355]/80 backdrop-blur-md text-[9px] text-[#EAF3B2] px-2 py-0.5 rounded-full font-mono border border-white/15 shadow-sm">
+          <span className="absolute top-12 right-6 bg-[#243355]/80 backdrop-blur-md text-[9px] text-[#E8F0FB] px-2 py-0.5 rounded-full font-mono border border-white/15 shadow-sm">
             QuickSort • Pivot [5]
           </span>
         </div>
@@ -344,16 +344,16 @@ export function CourseThumbnail({
       {/* DYNAMIC PROGRAMMING MATRIX */}
       {type === "dp" && (
         <div className="relative flex flex-col items-center justify-center w-full h-full">
-          <div className="grid grid-cols-4 gap-1.5 p-2.5 bg-[#0F172A]/90 rounded-xl border border-[#9FBAF1]/30 shadow-lg relative z-1">
+          <div className="grid grid-cols-4 gap-1.5 p-2.5 bg-[#0F172A]/90 rounded-xl border border-[#5B8FD8]/30 shadow-lg relative z-1">
             {["0", "1", "1", "2", "3", "5", "8", "13", "21", "34", "55", "89"].map(
               (val, idx) => (
                 <div
                   key={idx}
                   className={`w-8 h-6 flex items-center justify-center text-[10px] font-mono rounded-md font-bold transition-all ${
                     idx === 11
-                      ? "bg-[#EAF3B2] text-[#243355] shadow-[0_0_10px_rgba(234,243,178,0.6)]"
+                      ? "bg-[#E8F0FB] text-[#243355] shadow-[0_0_10px_rgba(234,243,178,0.6)]"
                       : idx === 7 || idx === 10
-                      ? "bg-[#9FBAF1] text-[#1E293B]"
+                      ? "bg-[#5B8FD8] text-[#1E293B]"
                       : "bg-white/10 text-white/80"
                   }`}
                 >
@@ -362,7 +362,7 @@ export function CourseThumbnail({
               )
             )}
           </div>
-          <span className="absolute top-12 right-6 bg-[#243355]/80 backdrop-blur-md text-[9px] text-[#EAF3B2] px-2 py-0.5 rounded-full font-mono border border-white/15 shadow-sm">
+          <span className="absolute top-12 right-6 bg-[#243355]/80 backdrop-blur-md text-[9px] text-[#E8F0FB] px-2 py-0.5 rounded-full font-mono border border-white/15 shadow-sm">
             Memoize • O(N×W)
           </span>
         </div>
@@ -370,8 +370,8 @@ export function CourseThumbnail({
 
       {/* 4. Interactive Hover Overlay ("Khám phá 3D 360°") */}
       <div className="absolute inset-0 bg-[#0F172A]/75 backdrop-blur-[2px] opacity-0 group-hover/thumb:opacity-100 transition-all duration-250 flex items-center justify-center z-20 pointer-events-none">
-        <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white text-[#243355] text-xs font-bold font-[family-name:var(--font-headline)] shadow-xl shadow-black/30 transform scale-90 group-hover/thumb:scale-100 transition-transform duration-250 border border-white/90">
-          <ArrowRepeat className="w-3.5 h-3.5 text-[#3D568F] animate-spin" style={{ animationDuration: "3s" }} />
+        <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white text-[#243355] text-xs font-bold shadow-xl shadow-black/30 transform scale-90 group-hover/thumb:scale-100 transition-transform duration-250 border border-white/90">
+          <ArrowRepeat className="w-3.5 h-3.5 text-[#1E3F82] animate-spin" style={{ animationDuration: "3s" }} />
           <span>Mô phỏng 3D tương tác</span>
         </span>
       </div>
@@ -379,7 +379,7 @@ export function CourseThumbnail({
       {/* 5. Bottom Telemetry Bar */}
       <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 via-black/50 to-transparent px-3 py-2 flex items-center justify-between z-10 border-t border-white/10">
         <div className="flex items-center gap-1.5 text-[11px] font-mono text-white/90 font-medium">
-          <BoxSeam className="w-3 h-3 text-[#EAF3B2]" />
+          <BoxSeam className="w-3 h-3 text-[#E8F0FB]" />
           <span>{badgeText}</span>
         </div>
         <span className="text-[9px] font-mono text-white/60 uppercase tracking-tight">

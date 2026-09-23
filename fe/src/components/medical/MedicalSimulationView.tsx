@@ -148,7 +148,7 @@ export function MedicalSimulationView({ onBack, system }: Props) {
           <button
             type="button"
             onClick={onBack}
-            className="hover:text-[#3D568F] transition-colors flex items-center gap-1 font-semibold cursor-pointer"
+            className="hover:text-[#1E3F82] transition-colors flex items-center gap-1 font-semibold cursor-pointer"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
             <span>MED-201</span>
@@ -216,7 +216,7 @@ export function MedicalSimulationView({ onBack, system }: Props) {
                   : "text-stone-500 hover:text-stone-900"
               }`}
             >
-              <Grid3x3GapFill className="w-3.5 h-3.5 text-[#3D568F]" />
+              <Grid3x3GapFill className="w-3.5 h-3.5 text-[#1E3F82]" />
               <span>Sơ đồ 6 bước (Grid)</span>
             </button>
           </div>
@@ -413,7 +413,7 @@ export function MedicalSimulationView({ onBack, system }: Props) {
                 <div
                   className="absolute inset-0 opacity-15 pointer-events-none"
                   style={{
-                    backgroundImage: "radial-gradient(#9FBAF1 1px, transparent 1px)",
+                    backgroundImage: "radial-gradient(#5B8FD8 1px, transparent 1px)",
                     backgroundSize: "24px 24px",
                   }}
                 />
@@ -745,7 +745,7 @@ export function MedicalSimulationView({ onBack, system }: Props) {
                   {/* NÚT BÓC TÁCH 4 LAYER RÕ RÀNG */}
                   <div className="flex items-center gap-1 bg-black/70 backdrop-blur-md p-1.5 rounded-xl border border-white/10 text-[11px] font-mono">
                     <span className="text-[10px] text-stone-400 px-1 font-bold flex items-center gap-1">
-                      <LayersFill className="w-3 h-3 text-[#EAF3B2]" />
+                      <LayersFill className="w-3 h-3 text-[#E8F0FB]" />
                       Bóc tách Layer:
                     </span>
                     <button
@@ -825,7 +825,7 @@ export function MedicalSimulationView({ onBack, system }: Props) {
                     }}
                     className={`p-3 rounded-xl border text-left transition-all cursor-pointer font-mono ${
                       isSelected
-                        ? "bg-white border-[#3D568F] ring-2 ring-[#3D568F]/20 shadow-xs"
+                        ? "bg-white border-[#1E3F82] ring-2 ring-[#1E3F82]/20 shadow-xs"
                         : "bg-stone-50 border-stone-200/80 hover:bg-white hover:border-stone-300"
                     }`}
                   >
@@ -987,9 +987,9 @@ export function MedicalSimulationView({ onBack, system }: Props) {
 
                   {/* 2-Sentence Core Takeaway (Cực Kỳ Dễ Hiểu) */}
                   <div className="bg-blue-50/70 border border-blue-200/70 rounded-xl p-3 flex items-start gap-2.5">
-                    <Speedometer2 className="w-4 h-4 text-[#3D568F] shrink-0 mt-0.5" />
+                    <Speedometer2 className="w-4 h-4 text-[#1E3F82] shrink-0 mt-0.5" />
                     <div className="text-xs text-stone-700 leading-relaxed font-sans">
-                      <strong className="text-[#3D568F] font-bold">Hiểu nhanh định luật Poiseuille:</strong> Bán kính giảm 70% làm trở kháng tăng lũy thừa 4 ($R \sim 1/r^4 \approx 13$ lần), lưu lượng tưới máu sụt giảm nặng nề gây thiếu oxy nuôi cơ tim.
+                      <strong className="text-[#1E3F82] font-bold">Hiểu nhanh định luật Poiseuille:</strong> Bán kính giảm 70% làm trở kháng tăng lũy thừa 4 ($R \sim 1/r^4 \approx 13$ lần), lưu lượng tưới máu sụt giảm nặng nề gây thiếu oxy nuôi cơ tim.
                     </div>
                   </div>
                 </div>
@@ -1011,7 +1011,7 @@ export function MedicalSimulationView({ onBack, system }: Props) {
                   {currentStep.codeFormula && (
                     <div className="bg-stone-50 border border-stone-200 rounded-xl p-3 flex flex-col gap-1 font-mono text-[11px]">
                       <span className="text-stone-500 font-bold uppercase text-[10px]">Công thức định lượng:</span>
-                      <div className="bg-white p-2 rounded-lg border border-stone-200 font-semibold text-[#3D568F]">
+                      <div className="bg-white p-2 rounded-lg border border-stone-200 font-semibold text-[#1E3F82]">
                         {currentStep.codeFormula}
                       </div>
                     </div>
@@ -1042,7 +1042,7 @@ export function MedicalSimulationView({ onBack, system }: Props) {
                       </span>
                     </div>
                     <div className="text-stone-500 text-[11px] font-mono flex items-center gap-1">
-                      <CompassFill className="w-3 h-3 text-[#3D568F]" />
+                      <CompassFill className="w-3 h-3 text-[#1E3F82]" />
                       <span>{currentPin.location}</span>
                     </div>
                     <p className="text-stone-600 text-[11px] leading-relaxed font-sans mt-1">
@@ -1075,7 +1075,7 @@ export function MedicalSimulationView({ onBack, system }: Props) {
                     className={`py-2.5 px-4 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs ${
                       isLessonUnderstood
                         ? "bg-emerald-600 text-white hover:bg-emerald-700"
-                        : "bg-[#3D568F] text-white hover:bg-[#2B3E6A]"
+                        : "bg-[#1E3F82] text-white hover:bg-[#2B3E6A]"
                     }`}
                   >
                     <CheckCircleFill className="w-3.5 h-3.5" />
@@ -1106,7 +1106,7 @@ export function MedicalSimulationView({ onBack, system }: Props) {
             </p>
           </div>
 
-          <span className="text-xs font-mono text-[#3D568F] font-bold hover:underline cursor-pointer">
+          <span className="text-xs font-mono text-[#1E3F82] font-bold hover:underline cursor-pointer">
             Xem toàn bộ giáo trình tim mạch →
           </span>
         </div>
