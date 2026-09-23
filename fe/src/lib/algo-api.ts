@@ -1,4 +1,4 @@
-﻿const ALGO_API = process.env.NEXT_PUBLIC_ALGO_API_URL || 'http://localhost:8080/api';
+const ALGO_API = process.env.NEXT_PUBLIC_ALGO_API_URL || 'http://localhost:8080/api';
 
 async function algoRequest<T>(path: string): Promise<T> {
   const res = await fetch(`${ALGO_API}${path}`);

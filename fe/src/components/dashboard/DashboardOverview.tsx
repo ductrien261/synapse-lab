@@ -1,5 +1,7 @@
 'use client';
 
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useUser } from '@/lib/user-context';
 import { useRecent } from '@/lib/recent';
 import { getGreetingName } from '@/lib/format';
@@ -13,8 +15,17 @@ import { TrackPicker } from './TrackPicker';
 import { AiTutorCard, ClassesCard } from './SideCards';
 
 export function DashboardOverview() {
+  const router = useRouter();
   const { user, loading, refresh, updateMe } = useUser();
   const recent = useRecent(user?.track ?? null);
+  const isAdmin = user?.role === 'admin';
+
+  // Admin không học -> trang chủ của admin là trang quản trị
+  useEffect(() => {
+    if (isAdmin) router.replace('/admin');
+  }, [isAdmin, router]);
+
+  if (isAdmin) return <DashboardSkeleton />;
 
   if (loading && !user) return <DashboardSkeleton />;
 

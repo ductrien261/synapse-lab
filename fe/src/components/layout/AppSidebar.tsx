@@ -99,24 +99,24 @@ export function AppSidebar({ collapsed, onToggle }: Props) {
             ))}
           </NavSection>
         )}
-
-        {/* ---------- Quản trị ---------- */}
-        {isAdmin && (
-          <NavSection title="Quản trị" collapsed={collapsed}>
-            <NavLink
-              href="/admin"
-              label="Trang quản trị"
-              icon={ShieldLockFill}
-              active={isActive('/admin')}
-              collapsed={collapsed}
-            />
-          </NavSection>
-        )}
       </div>
 
       {/* ---------- Chân sidebar ---------- */}
       <div className="p-3 border-t border-stone-100 flex flex-col gap-2">
-        {track && <TrackBadge track={track} collapsed={collapsed} />}
+        {isAdmin ? (
+          <Link
+            href="/admin"
+            title={collapsed ? 'Về trang quản trị' : undefined}
+            className={`flex items-center gap-3 rounded-xl py-2.5 text-xs font-bold bg-[#0F2258] hover:bg-[#1E3F82] text-white transition-colors ${
+              collapsed ? 'justify-center' : 'px-3'
+            }`}
+          >
+            <ShieldLockFill className="w-4 h-4 shrink-0" />
+            {!collapsed && <span>Về trang quản trị</span>}
+          </Link>
+        ) : (
+          track && <TrackBadge track={track} collapsed={collapsed} />
+        )}
         <button
           type="button"
           onClick={onToggle}

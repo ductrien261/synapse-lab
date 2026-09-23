@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { ApiError, authApi, getAccessToken, setTokens } from '@/lib/api';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -11,23 +12,21 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // Đã đăng nhập rồi thì vào thẳng trang chủ
+  useEffect(() => {
+    if (getAccessToken()) router.replace('/');
+  }, [router]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/users/login/`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
-      if (!res.ok) throw new Error('Email hoặc mật khẩu không đúng');
-      const data = await res.json();
-      localStorage.setItem('access_token', data.access);
-      localStorage.setItem('refresh_token', data.refresh);
+      const data = await authApi.login(email, password);
+      setTokens(data.access, data.refresh);
       router.push('/');
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Đã có lỗi xảy ra');
+      setError(err instanceof ApiError && err.status === 401 ? 'Email hoặc mật khẩu không đúng' : err instanceof Error ? err.message : 'Đã có lỗi xảy ra');
     } finally {
       setLoading(false);
     }
@@ -60,7 +59,8 @@ export default function LoginPage() {
             <div>
               <label className="block text-xs font-bold text-stone-700 mb-1.5 uppercase tracking-wider">EMAIL</label>
               <input
-                type="email"
+                type="text"
+                autoComplete="username"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required

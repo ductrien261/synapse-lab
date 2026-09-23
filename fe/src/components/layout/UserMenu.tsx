@@ -30,7 +30,12 @@ export function UserMenu() {
   }, [open]);
 
   const displayName = user?.name || user?.email || 'Đang tải...';
-  const subtitle = user?.track ? TRACKS[user.track].audience : 'Chưa chọn chuyên ngành';
+  const subtitle =
+    user?.role === 'admin'
+      ? 'Quản trị viên'
+      : user?.track
+        ? TRACKS[user.track].audience
+        : 'Chưa chọn chuyên ngành';
   const close = () => setOpen(false);
 
   return (

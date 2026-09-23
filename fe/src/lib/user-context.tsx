@@ -15,45 +15,19 @@ import {
   type ReactNode,
 } from 'react';
 import { useRouter } from 'next/navigation';
-import type { Track } from './tracks';
+import { ApiError, authApi, clearTokens, getAccessToken, type CurrentUser } from './api';
 
-export interface CurrentUser {
-  id: string;
-  email: string;
-  name: string;
-  role: 'user' | 'admin';
-  track: Track | null;
-  is_active: boolean;
-  date_joined: string;
-}
-
+export type { CurrentUser } from './api';
 export type ProfileUpdate = Partial<Pick<CurrentUser, 'name' | 'track'>>;
 
 interface UserContextValue {
   user: CurrentUser | null;
   loading: boolean;
+  /** Lỗi không phải do đăng nhập (mất mạng, backend sập...) */
+  error: string | null;
   refresh: () => Promise<void>;
   updateMe: (data: ProfileUpdate) => Promise<CurrentUser>;
   logout: () => void;
-}
-
-const API_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:8000/api';
-
-class AuthError extends Error {}
-
-async function authFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const token = localStorage.getItem('access_token');
-  if (!token) throw new AuthError('NO_TOKEN');
-  const res = await fetch(`${API_URL}${path}`, {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
-  });
-  if (res.status === 401) throw new AuthError('UNAUTHORIZED');
-  if (!res.ok) throw new Error(`API ${res.status}`);
-  return res.json() as Promise<T>;
 }
 
 const UserContext = createContext<UserContextValue | null>(null);
@@ -62,30 +36,33 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const logout = useCallback(() => {
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
+    clearTokens();
     setUser(null);
     router.replace('/login');
   }, [router]);
 
   const refresh = useCallback(async () => {
+    if (!getAccessToken()) {
+      logout();
+      return;
+    }
+    setLoading(true);
     try {
-      setUser(await authFetch<CurrentUser>('/users/me/'));
+      setUser(await authApi.me());
+      setError(null);
     } catch (err) {
-      if (err instanceof AuthError) logout();
-      else console.error('Không tải được thông tin người dùng:', err);
+      if (err instanceof ApiError && err.status === 401) logout();
+      else setError(err instanceof Error ? err.message : 'Không tải được thông tin tài khoản');
     } finally {
       setLoading(false);
     }
   }, [logout]);
 
   const updateMe = useCallback(async (data: ProfileUpdate) => {
-    const updated = await authFetch<CurrentUser>('/users/me/', {
-      method: 'PATCH',
-      body: JSON.stringify(data),
-    });
+    const updated = await authApi.updateMe(data);
     setUser(updated);
     return updated;
   }, []);
@@ -95,8 +72,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
   }, [refresh]);
 
   const value = useMemo(
-    () => ({ user, loading, refresh, updateMe, logout }),
-    [user, loading, refresh, updateMe, logout],
+    () => ({ user, loading, error, refresh, updateMe, logout }),
+    [user, loading, error, refresh, updateMe, logout],
   );
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;

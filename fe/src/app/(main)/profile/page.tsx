@@ -80,12 +80,14 @@ function ProfileForm({
         </label>
       </section>
 
-      {/* Chuyên ngành */}
+      {/* Chuyên ngành (admin không cần) */}
+      {user.role !== 'admin' && (
       <section className="bg-white rounded-3xl border border-stone-200/90 p-6">
         <h2 className="text-base font-bold text-stone-900">Chuyên ngành</h2>
         <p className="text-sm text-stone-500 mt-1 mb-4">Quyết định nội dung hiển thị ở trang Tổng quan và thứ tự menu.</p>
         <TrackOptions value={track} onChange={setTrack} disabled={saving} />
       </section>
+      )}
 
       <div className="flex items-center gap-4">
         <button

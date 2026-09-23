@@ -1,0 +1,13 @@
+# Git tự chuẩn hóa xuống dòng, tránh diff toàn file giữa Windows và macOS/Linux
+* text=auto
+
+# Script chạy trong container Linux phải giữ LF
+*.sh text eol=lf
+Dockerfile text eol=lf
+
+# File nhị phân
+*.png binary
+*.jpg binary
+*.ico binary
+*.pdf binary
+*.glb binary

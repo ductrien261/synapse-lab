@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { authApi, getAccessToken, setTokens } from '@/lib/api';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -10,20 +11,18 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // Đã đăng nhập rồi thì vào thẳng trang chủ
+  useEffect(() => {
+    if (getAccessToken()) router.replace('/');
+  }, [router]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/users/register/`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
-      });
-      if (!res.ok) throw new Error('Đăng ký thất bại, thử lại sau');
-      const data = await res.json();
-      localStorage.setItem('access_token', data.access);
-      localStorage.setItem('refresh_token', data.refresh);
+      const data = await authApi.register(form);
+      setTokens(data.access, data.refresh);
       router.push('/');
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Đã có lỗi xảy ra');

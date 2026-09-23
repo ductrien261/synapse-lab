@@ -1,4 +1,4 @@
-﻿// ============================================================
+// ============================================================
 // medicalData.ts - Local placeholder data for MedicalSimulationView
 // TODO: Replace with API calls to Django backend when ready
 // ============================================================
