@@ -12,7 +12,7 @@ Mỗi người chỉ sửa trong phần của mình. Cần sửa phần của ng
 |---|---|---|
 | Thuật toán | `packages/algo-viz/`, `fe/src/app/(main)/algorithms/`, `fe/src/components/simulation/` | Bạn A |
 | Lớp học | `be/classroom/`, `fe/src/app/(main)/classes/`, `fe/src/components/classroom/` | Bạn B |
-| Giải phẫu 3D | `be/anatomy/`, `fe/src/app/(main)/anatomy/`, `fe/src/components/medical/` | Leader |
+| Giải phẫu 3D | `be/anatomy/`, `fe/src/app/(main)/anatomy/`, `fe/src/components/anatomy/` | Leader |
 | Nền tảng chung | `be/core/`, `be/users/`, `be/knowledge/`, `fe/src/app/(admin)/`, `fe/src/components/admin/`, `fe/src/components/layout/`, `fe/src/lib/` | Leader |
 
 **File dùng chung — sửa phải báo leader trong PR:**

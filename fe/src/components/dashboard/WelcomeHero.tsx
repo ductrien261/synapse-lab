@@ -7,6 +7,7 @@ import { ArrowRight, ClockHistory, Search } from 'react-bootstrap-icons';
 import { TRACKS, searchHref, type Track } from '@/lib/tracks';
 import type { RecentItem } from '@/lib/recent';
 import { timeAgo } from '@/lib/format';
+import { useBodySystems } from '@/lib/anatomy-catalog';
 
 interface Props {
   greetingName: string;
@@ -18,6 +19,11 @@ export function WelcomeHero({ greetingName, track, lastItem }: Props) {
   const router = useRouter();
   const config = TRACKS[track];
   const [query, setQuery] = useState('');
+  const { systems } = useBodySystems();
+  const quickLinks =
+    track === 'med'
+      ? systems.filter((s) => s.model_count > 0).slice(0, 6).map((s) => ({ label: s.name_vi, href: `/anatomy?system=${s.slug}` }))
+      : config.quickTags.map((tag) => ({ label: tag, href: searchHref(track, tag) }));
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -64,18 +70,20 @@ export function WelcomeHero({ greetingName, track, lastItem }: Props) {
             </button>
           </form>
 
+          {quickLinks.length > 0 && (
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-[11px] font-bold uppercase tracking-wider text-white/60">Tìm nhanh:</span>
-            {config.quickTags.map((tag) => (
+            {quickLinks.map(({ label: tag, href }) => (
               <Link
                 key={tag}
-                href={searchHref(track, tag)}
+                href={href}
                 className="px-3 py-1 rounded-full text-xs font-semibold bg-white/10 border border-white/15 text-white/90 hover:bg-white/20 transition-colors"
               >
                 {tag}
               </Link>
             ))}
           </div>
+          )}
         </div>
 
         {/* Thẻ học tiếp */}

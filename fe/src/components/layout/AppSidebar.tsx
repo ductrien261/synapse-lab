@@ -17,10 +17,10 @@ import {
 } from 'react-bootstrap-icons';
 import { useUser } from '@/lib/user-context';
 import { useRecent } from '@/lib/recent';
-import { TRACKS, searchHref, type Track } from '@/lib/tracks';
+import { TRACKS, type Track } from '@/lib/tracks';
 import { useAlgoCatalog } from '@/lib/algo-catalog';
 import { categoryLabelVi } from '@/lib/algo-categories';
-import { ANATOMY_SYSTEMS } from '@/lib/anatomy-catalog';
+import { useBodySystems } from '@/lib/anatomy-catalog';
 
 type Icon = ComponentType<{ className?: string }>;
 
@@ -28,6 +28,8 @@ interface SubItem {
   href: string;
   label: string;
   dot?: string;
+  /** màu hex của chấm tròn */
+  color?: string;
   count?: number;
 }
 
@@ -63,20 +65,7 @@ export function AppSidebar({ collapsed, onToggle }: Props) {
           {showAlgorithms && (
             <AlgorithmsNav active={isActive('/algorithms')} collapsed={collapsed} />
           )}
-          {showAnatomy && (
-            <ExpandableNav
-              href="/anatomy"
-              label="Giải phẫu 3D"
-              icon={HeartPulseFill}
-              active={isActive('/anatomy')}
-              collapsed={collapsed}
-              items={ANATOMY_SYSTEMS.map((s) => ({
-                href: searchHref('med', s.name),
-                label: s.name,
-                dot: s.dot,
-              }))}
-            />
-          )}
+          {showAnatomy && <AnatomyNav active={isActive('/anatomy')} collapsed={collapsed} />}
           <NavLink href="/classes" label="Lớp học" icon={PeopleFill} active={isActive('/classes')} collapsed={collapsed} />
         </NavSection>
 
@@ -259,6 +248,7 @@ function ExpandableNav({
               className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[13px] text-stone-600 hover:bg-[#F4F7FC] hover:text-[#1E3F82] transition-colors"
             >
               {item.dot && <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${item.dot}`} />}
+              {item.color && <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: item.color }} />}
               <span className="truncate flex-1">{item.label}</span>
               {item.count !== undefined && (
                 <span className="text-[10.5px] font-semibold text-stone-400">{item.count}</span>
@@ -286,6 +276,28 @@ function AlgorithmsNav({ active, collapsed }: { active: boolean; collapsed: bool
         label: categoryLabelVi(c.key, c.name),
         count: c.algorithms?.length ?? 0,
       }))}
+    />
+  );
+}
+
+function AnatomyNav({ active, collapsed }: { active: boolean; collapsed: boolean }) {
+  const { systems, state } = useBodySystems();
+  return (
+    <ExpandableNav
+      href="/anatomy"
+      label="Giải phẫu 3D"
+      icon={HeartPulseFill}
+      active={active}
+      collapsed={collapsed}
+      loading={state === 'loading'}
+      items={systems
+        .filter((s) => s.model_count > 0)
+        .map((s) => ({
+          href: `/anatomy?system=${s.slug}`,
+          label: s.name_vi,
+          color: s.color,
+          count: s.model_count,
+        }))}
     />
   );
 }

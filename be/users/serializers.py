@@ -12,8 +12,9 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['id', 'email', 'name', 'role', 'track', 'is_active', 'date_joined']
+        fields = ['id', 'email', 'name', 'role', 'track', 'weekly_goal', 'is_active', 'date_joined']
         read_only_fields = ['id', 'email', 'role', 'is_active', 'date_joined']
+        extra_kwargs = {'weekly_goal': {'min_value': 1, 'max_value': 7}}
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -37,8 +38,6 @@ class RegisterSerializer(serializers.ModelSerializer):
 
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
-    # Ngoại lệ duy nhất: gõ "admin" thay cho email để đăng nhập tài khoản quản trị.
-    # Mặc định là superuser tạo sớm nhất; muốn chỉ định thì đặt ADMIN_LOGIN_EMAIL trong .env
     ADMIN_ALIAS = 'admin'
 
     def validate(self, attrs):

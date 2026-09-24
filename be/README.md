@@ -8,6 +8,14 @@ Django 5 + Django REST Framework + SimpleJWT. Hướng dẫn chạy toàn bộ d
 |---|---|
 | `core` | settings, urls gốc, health check |
 | `users` | tài khoản (đăng nhập bằng email), role `user` / `admin`, chuyên ngành `cs` / `med`, phân quyền |
+| `knowledge` | `Document` (giáo trình, file trên Neon Object Storage), `DocumentChunk` (đoạn trích + số trang + vector 768 chiều) |
+| `anatomy` | `BodySystem` → `AnatomyModel` (Sketchfab) → `ModelAnnotation` (chú thích số) → `Structure` (kiến thức) → `StructureReference` (trích giáo trình) |
+| `algorithms` | `AlgorithmCategory`, `Algorithm` (đồng bộ từ algo-server), `AlgorithmContent` (giải thích), `AlgorithmReference` |
+| `learning` | `LearningActivity` (lịch sử học), `StudyDay` (ngày có học) |
+| `classroom` | `Classroom`, `ClassMembership` — khung tối thiểu, bạn B mở rộng |
+| `translation` | `Translation` — cache bản dịch (đoạn đã dịch thì không gọi API lại) |
+
+Nội dung kiến thức (`Structure`, `AlgorithmContent`) có trạng thái **Nháp / Đã duyệt**: học viên chỉ thấy bản đã duyệt.
 
 ## API
 
@@ -22,6 +30,24 @@ Tài liệu đầy đủ trên Swagger: <http://localhost:8000/api/schema/swagge
 | GET / PATCH | `/api/users/me/` | Đã đăng nhập (chỉ sửa được `name`, `track`) |
 | GET | `/api/users/admin/?search=&role=&track=&is_active=&page=` | Admin |
 | GET / PATCH | `/api/users/admin/<id>/` | Admin (sửa `role`, `is_active`; không tự sửa chính mình) |
+| GET | `/api/anatomy/systems/` · `/api/anatomy/systems/<slug>/` | Đã đăng nhập (admin: thêm/sửa/xóa) |
+| GET | `/api/anatomy/models/?system=&search=` · `/api/anatomy/models/<sketchfab_uid>/` | Đã đăng nhập (admin: thêm/sửa/xóa) |
+| GET | `/api/anatomy/structures/?search=` | Đã đăng nhập (admin: thêm/sửa/xóa) |
+| GET | `/api/algorithms/` | Danh mục đã đồng bộ |
+| GET / PUT | `/api/algorithms/<category>/<algorithm>/` | Xem giải thích; PUT chỉ admin |
+| GET / POST | `/api/learning/activities/?track=` | Lịch sử học của mình; POST ghi nhận vừa mở bài |
+| GET | `/api/learning/summary/?track=` | Chuỗi ngày học, 7 ngày gần nhất, mục tiêu tuần |
+| GET / PUT | `/api/learning/notes/?kind=&object_key=` | Ghi chú riêng của mình (PUT content rỗng = xóa) |
+| POST | `/api/translate/` | Dịch đoạn văn sang tiếng Việt qua Groq, có cache DB (30 lần/phút/người) |
+
+## Lệnh quản lý
+
+| Lệnh | Việc |
+|---|---|
+| `init_data` | Tạo dữ liệu nền (gọi 2 lệnh dưới), không tạo dữ liệu giả |
+| `seed_anatomy` | Danh sách 11 hệ cơ quan chuẩn |
+| `add_anatomy_model <link> [--system slug] [--publish]` | Nhập một mô hình Sketchfab thật (lấy tên, tác giả, giấy phép, ảnh) |
+| `sync_algorithms` | Đồng bộ danh mục thuật toán từ algo-server |
 
 ## Phân quyền
 

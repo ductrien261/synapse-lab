@@ -28,11 +28,7 @@ export default function AdminSystemPage() {
   const [algo, setAlgo] = useState<Check>({ status: 'checking' });
   const [checkedAt, setCheckedAt] = useState<Date | null>(null);
 
-  const run = useCallback(async () => {
-    setBackend({ status: 'checking' });
-    setDatabase({ status: 'checking' });
-    setAlgo({ status: 'checking' });
-
+  const probe = useCallback(async () => {
     const backendCheck = timed(async () => {
       const res = await fetch(`${BACKEND}/health/`, { cache: 'no-store' });
       return (await res.json()) as { status: string; database: string; version?: string };
@@ -66,9 +62,18 @@ export default function AdminSystemPage() {
     setCheckedAt(new Date());
   }, []);
 
+  const run = useCallback(() => {
+    setBackend({ status: 'checking' });
+    setDatabase({ status: 'checking' });
+    setAlgo({ status: 'checking' });
+    void probe();
+  }, [probe]);
+
+  // Kiểm tra lần đầu khi mở trang (state ban đầu đã là "Đang kiểm tra")
   useEffect(() => {
-    void run();
-  }, [run]);
+    const t = setTimeout(() => void probe(), 0);
+    return () => clearTimeout(t);
+  }, [probe]);
 
   const checking = [backend, database, algo].some((c) => c.status === 'checking');
 
@@ -80,7 +85,7 @@ export default function AdminSystemPage() {
         actions={
           <button
             type="button"
-            onClick={() => void run()}
+            onClick={run}
             disabled={checking}
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#1E3F82] hover:bg-[#163070] text-white text-sm font-bold disabled:opacity-60 cursor-pointer"
           >

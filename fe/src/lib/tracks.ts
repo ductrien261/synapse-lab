@@ -35,8 +35,9 @@ export const TRACKS: Record<Track, TrackConfig> = {
     moduleLabel: 'Giải phẫu 3D',
     moduleHref: '/anatomy',
     tagline: 'Xoay, bóc tách mô hình 3D và tra cứu kiến thức gắn trực tiếp với giáo trình.',
-    searchPlaceholder: 'Tìm bộ phận hoặc hệ cơ quan, ví dụ: Tim, Não, Hệ hô hấp...',
-    quickTags: ['Tim', 'Não', 'Hệ hô hấp', 'Hệ cơ xương khớp', 'Hệ tiêu hóa'],
+    searchPlaceholder: 'Tìm mô hình hoặc bộ phận, ví dụ: heart, aorta, tâm thất...',
+    // SV Y: thẻ tìm nhanh lấy từ danh sách hệ cơ quan có mô hình (xem WelcomeHero)
+    quickTags: [],
   },
 };
 

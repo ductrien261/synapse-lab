@@ -2,6 +2,8 @@
 URL configuration for SYNAPSE-LAB core project.
 """
 
+from django.conf import settings
+from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import path, include
 from django.db import connection
@@ -33,6 +35,10 @@ def health_check(request):
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/users/', include('users.urls')),
+    path('api/anatomy/', include('anatomy.urls')),
+    path('api/algorithms/', include('algorithms.urls')),
+    path('api/learning/', include('learning.urls')),
+    path('api/translate/', include('translation.urls')),
 
     # Health Check Endpoint
     path('api/health/', health_check, name='health-check'),
@@ -42,3 +48,7 @@ urlpatterns = [
     path('api/schema/swagger-ui/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
     path('api/schema/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
 ]
+
+# Phục vụ file upload khi lưu local (chỉ lúc dev)
+if settings.DEBUG and not settings.S3_BUCKET:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

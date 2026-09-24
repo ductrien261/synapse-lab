@@ -16,6 +16,7 @@ import {
 } from 'react';
 import { useRouter } from 'next/navigation';
 import { ApiError, authApi, clearTokens, getAccessToken, type CurrentUser } from './api';
+import { resetLearning } from './recent';
 
 export type { CurrentUser } from './api';
 export type ProfileUpdate = Partial<Pick<CurrentUser, 'name' | 'track'>>;
@@ -40,26 +41,35 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(() => {
     clearTokens();
+    resetLearning();
     setUser(null);
     router.replace('/login');
   }, [router]);
 
-  const refresh = useCallback(async () => {
+  // Chỉ gọi setState trong callback của promise (không gọi đồng bộ) để dùng được trong useEffect
+  const load = useCallback((): Promise<void> => {
     if (!getAccessToken()) {
-      logout();
-      return;
+      clearTokens();
+      router.replace('/login');
+      return Promise.resolve();
     }
+    return authApi
+      .me()
+      .then((me) => {
+        setUser(me);
+        setError(null);
+      })
+      .catch((err: unknown) => {
+        if (err instanceof ApiError && err.status === 401) logout();
+        else setError(err instanceof Error ? err.message : 'Không tải được thông tin tài khoản');
+      })
+      .finally(() => setLoading(false));
+  }, [logout, router]);
+
+  const refresh = useCallback(async () => {
     setLoading(true);
-    try {
-      setUser(await authApi.me());
-      setError(null);
-    } catch (err) {
-      if (err instanceof ApiError && err.status === 401) logout();
-      else setError(err instanceof Error ? err.message : 'Không tải được thông tin tài khoản');
-    } finally {
-      setLoading(false);
-    }
-  }, [logout]);
+    await load();
+  }, [load]);
 
   const updateMe = useCallback(async (data: ProfileUpdate) => {
     const updated = await authApi.updateMe(data);
@@ -68,8 +78,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    void refresh();
-  }, [refresh]);
+    void load();
+  }, [load]);
 
   const value = useMemo(
     () => ({ user, loading, error, refresh, updateMe, logout }),

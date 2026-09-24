@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ChevronLeft, ChevronRight, LockFill, Search, UnlockFill } from 'react-bootstrap-icons';
 import { adminApi, type AdminUser, type AdminUserQuery, type Role } from '@/lib/api';
 import { useUser } from '@/lib/user-context';
@@ -16,26 +16,32 @@ export default function AdminUsersPage() {
   const [search, setSearch] = useState('');
   const [query, setQuery] = useState<AdminUserQuery>({ page: 1 });
   const [data, setData] = useState<{ count: number; results: AdminUser[] } | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loadedKey, setLoadedKey] = useState<string | null>(null);
   const [error, setError] = useState('');
+  const queryKey = JSON.stringify(query);
+  const loading = loadedKey !== queryKey;
   const [savingId, setSavingId] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ type: 'ok' | 'error'; text: string } | null>(null);
 
-  const load = useCallback(async (q: AdminUserQuery) => {
-    setLoading(true);
-    setError('');
-    try {
-      setData(await adminApi.listUsers(q));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Không tải được danh sách');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
-    void load(query);
-  }, [load, query]);
+    let cancelled = false;
+    adminApi
+      .listUsers(query)
+      .then((res) => {
+        if (cancelled) return;
+        setData(res);
+        setError('');
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Không tải được danh sách');
+      })
+      .finally(() => {
+        if (!cancelled) setLoadedKey(queryKey);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [query, queryKey]);
 
   // Tìm kiếm sau khi ngừng gõ 350ms
   useEffect(() => {

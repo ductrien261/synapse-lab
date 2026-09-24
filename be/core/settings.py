@@ -37,8 +37,17 @@ INSTALLED_APPS = [
     'corsheaders',
     'drf_spectacular',
 
+    'storages',
+
     # Local apps
+    'core',
     'users',
+    'knowledge',     # tài liệu, giáo trình, vector (RAG)
+    'anatomy',       # giải phẫu 3D
+    'algorithms',    # nội dung giải thích thuật toán
+    'learning',      # lịch sử học, chuỗi ngày học
+    'classroom',     # lớp học (bạn B)
+    'translation',   # dịch tự động (Groq) + cache
 ]
 
 MIDDLEWARE = [
@@ -103,6 +112,43 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
+# ------------------------------------------------------------
+# Lưu file upload (giáo trình PDF...)
+# - Có S3_BUCKET trong .env  -> lưu lên Neon Object Storage (chuẩn S3)
+# - Không có                 -> lưu local trong be/media/ (tiện khi dev)
+# ------------------------------------------------------------
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
+S3_BUCKET = env('S3_BUCKET', default='') if env('S3_ENDPOINT_URL', default='') else ''
+if S3_BUCKET:
+    STORAGES = {
+        'default': {
+            'BACKEND': 'storages.backends.s3.S3Storage',
+            'OPTIONS': {
+                'bucket_name': S3_BUCKET,
+                'endpoint_url': env('S3_ENDPOINT_URL'),
+                'access_key': env('S3_ACCESS_KEY_ID'),
+                'secret_key': env('S3_SECRET_ACCESS_KEY'),
+                'region_name': env('S3_REGION', default='auto'),
+                'addressing_style': 'path',
+                'signature_version': 's3v4',
+                'default_acl': None,
+                'file_overwrite': False,
+                'querystring_auth': True,      # bucket private -> link tải có chữ ký, hết hạn sau 1 giờ
+                'querystring_expire': 3600,
+            },
+        },
+        'staticfiles': {'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage'},
+    }
+
+# Dịch tự động qua Groq (API tương thích OpenAI)
+GROQ_API_KEY = env('GROQ_API_KEY', default='')
+GROQ_MODEL = env('GROQ_MODEL', default='qwen/qwen3.8-27b')
+
+# Algo-server (trong mạng docker compose tên service là algo-server)
+ALGO_SERVER_URL = env('ALGO_SERVER_URL', default='http://algo-server:8080/api')
+
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 AUTH_USER_MODEL = 'users.User'
@@ -119,6 +165,7 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ],
+    'DEFAULT_PAGINATION_CLASS': None,
 }
 
 from datetime import timedelta

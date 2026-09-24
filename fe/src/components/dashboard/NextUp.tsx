@@ -5,8 +5,8 @@ import { ArrowRight, Lightbulb } from 'react-bootstrap-icons';
 import type { RecentItem } from '@/lib/recent';
 import { useAlgoCatalog } from '@/lib/algo-catalog';
 import { categoryLabelVi } from '@/lib/algo-categories';
-import { ANATOMY_SYSTEMS } from '@/lib/anatomy-catalog';
-import { searchHref, type Track } from '@/lib/tracks';
+import { modelHref, modelTitle, useAnatomyModels, useBodySystems } from '@/lib/anatomy-catalog';
+import type { Track } from '@/lib/tracks';
 
 interface Suggestion {
   href: string;
@@ -14,12 +14,15 @@ interface Suggestion {
   subtitle: string;
   reason: string;
   dot?: string;
+  color?: string;
 }
 
 const MAX = 3;
 
 export function NextUp({ track, recent }: { track: Track; recent: RecentItem[] }) {
   const { categories, state } = useAlgoCatalog();
+  const { models, state: modelsState } = useAnatomyModels();
+  const { systems } = useBodySystems();
   const visited = new Set(recent.map((r) => r.href));
 
   let suggestions: Suggestion[] = [];
@@ -43,18 +46,25 @@ export function NextUp({ track, recent }: { track: Track; recent: RecentItem[] }
       if (suggestions.length >= MAX) break;
     }
   } else {
-    suggestions = ANATOMY_SYSTEMS.filter((s) => !visited.has(searchHref('med', s.name)))
+    const lastGroup = recent[0]?.group;
+    const systemName = new Map(systems.map((sys) => [sys.slug, sys]));
+    suggestions = models
+      .filter((m) => !visited.has(modelHref(m.sketchfab_uid)))
+      .sort((x, y) => Number(y.system === lastGroup) - Number(x.system === lastGroup))
       .slice(0, MAX)
-      .map((s) => ({
-        href: searchHref('med', s.name),
-        title: s.name,
-        subtitle: s.parts,
-        reason: 'Chưa khám phá',
-        dot: s.dot,
-      }));
+      .map((m) => {
+        const sys = m.system ? systemName.get(m.system) : undefined;
+        return {
+          href: modelHref(m.sketchfab_uid),
+          title: modelTitle(m),
+          subtitle: sys?.name_vi ?? 'Giải phẫu 3D',
+          reason: m.system && m.system === lastGroup ? 'Cùng hệ bạn vừa học' : 'Chưa khám phá',
+          color: sys?.color,
+        };
+      });
   }
 
-  const loading = track === 'cs' && state === 'loading';
+  const loading = track === 'cs' ? state === 'loading' : modelsState === 'loading';
   if (!loading && suggestions.length === 0) return null;
 
   return (
@@ -82,6 +92,7 @@ export function NextUp({ track, recent }: { track: Track; recent: RecentItem[] }
                 </span>
                 <span className="text-xs text-stone-500 flex items-center gap-1.5 truncate">
                   {s.dot && <span className={`w-1.5 h-1.5 rounded-full ${s.dot}`} />}
+                  {s.color && <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: s.color }} />}
                   {s.subtitle}
                 </span>
                 <span className="mt-auto pt-2 inline-flex items-center gap-1 text-xs font-bold text-[#1E3F82]">

@@ -1,0 +1,37 @@
+from django.contrib import admin
+
+from .models import AnatomyModel, BodySystem, ModelAnnotation, Structure, StructureReference
+
+
+@admin.register(BodySystem)
+class BodySystemAdmin(admin.ModelAdmin):
+    list_display = ('name_vi', 'name_en', 'slug', 'order', 'is_published')
+    prepopulated_fields = {'slug': ('name_en',)}
+
+
+class ModelAnnotationInline(admin.TabularInline):
+    model = ModelAnnotation
+    extra = 0
+    autocomplete_fields = ('structure',)
+
+
+@admin.register(AnatomyModel)
+class AnatomyModelAdmin(admin.ModelAdmin):
+    list_display = ('__str__', 'system', 'sketchfab_uid', 'is_published', 'last_synced_at')
+    list_filter = ('system', 'is_published')
+    search_fields = ('title', 'title_vi', 'sketchfab_uid')
+    inlines = [ModelAnnotationInline]
+
+
+class StructureReferenceInline(admin.TabularInline):
+    model = StructureReference
+    extra = 0
+    raw_id_fields = ('chunk',)
+
+
+@admin.register(Structure)
+class StructureAdmin(admin.ModelAdmin):
+    list_display = ('__str__', 'name_en', 'system', 'status', 'updated_at')
+    list_filter = ('status', 'system')
+    search_fields = ('name_vi', 'name_en', 'latin_name')
+    inlines = [StructureReferenceInline]

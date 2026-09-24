@@ -144,6 +144,7 @@ export interface CurrentUser {
   name: string;
   role: Role;
   track: Track | null;
+  weekly_goal: number;
   is_active: boolean;
   date_joined: string;
 }
@@ -183,7 +184,7 @@ export const authApi = {
 
   me: () => request<CurrentUser>('/users/me/'),
 
-  updateMe: (data: Partial<Pick<CurrentUser, 'name' | 'track'>>) =>
+  updateMe: (data: Partial<Pick<CurrentUser, 'name' | 'track' | 'weekly_goal'>>) =>
     request<CurrentUser>('/users/me/', { method: 'PATCH', body: JSON.stringify(data) }),
 };
 
@@ -211,39 +212,90 @@ export const adminApi = {
     request<AdminUser>(`/users/admin/${id}/`, { method: 'PATCH', body: JSON.stringify(data) }),
 };
 
-// ---------------- Anatomy (API sẽ có khi làm app anatomy) ----------------
+// ---------------- Lịch sử học ----------------
 
-export const anatomyApi = {
-  getSystems: () =>
-    request<{ id: string; slug: string; name_vi: string; name_en: string; iframe_url: string; sketchfab_model_id: string; part_count: number }[]>('/anatomy/systems/'),
+export interface LearningActivityDto {
+  id: number;
+  track: Track;
+  kind: 'algorithm' | 'anatomy_model';
+  object_key: string;
+  href: string;
+  title: string;
+  subtitle: string;
+  group: string;
+  visit_count: number;
+  first_visited_at: string;
+  last_visited_at: string;
+}
 
-  getSystem: (slug: string) =>
-    request<{ id: string; slug: string; name_vi: string; name_en: string; iframe_url: string; sketchfab_model_id: string }>(`/anatomy/systems/${slug}/`),
+export interface LearningSummaryDto {
+  streak: number;
+  learned_today: boolean;
+  last7: { date: string; label: string; active: boolean; is_today: boolean }[];
+  days_this_week: number;
+  weekly_goal: number;
+  explored_count: number;
+}
 
-  getPartByAnnotation: (systemSlug: string, annotationIndex: number) =>
-    request<{ id: string; annotation_index: number; name_vi: string; name_en: string; definition: string; physiology: string; clinical_note: string; document_links: object[] }>(
-      `/anatomy/systems/${systemSlug}/parts/?annotation_index=${annotationIndex}`,
-    ),
+export const learningApi = {
+  activities: (limit = 200) => request<LearningActivityDto[]>(`/learning/activities/?limit=${limit}`),
 
-  askAI: (partId: string, question: string) =>
-    request<{ answer: string; sources: object[] }>('/ai/ask/', {
+  record: (data: Pick<LearningActivityDto, 'track' | 'kind' | 'object_key' | 'href' | 'title' | 'subtitle' | 'group'>) =>
+    request<LearningActivityDto>('/learning/activities/', { method: 'POST', body: JSON.stringify(data) }),
+
+  summary: () => request<LearningSummaryDto>('/learning/summary/'),
+};
+
+// ---------------- Giải thích thuật toán (backend) ----------------
+
+export interface AlgorithmContentDto {
+  summary: string;
+  theory: string;
+  time_best: string;
+  time_average: string;
+  time_worst: string;
+  space: string;
+  applications: string[];
+  status: 'draft' | 'published';
+  updated_at: string;
+}
+
+export const algorithmContentApi = {
+  get: (categoryKey: string, algorithmKey: string) =>
+    request<{
+      algorithm: { id: number; key: string; name: string; category_key: string; category_name: string };
+      content: AlgorithmContentDto | null;
+      references: { id: number; citation: string; page_start: number | null; page_end: number | null; excerpt: string }[];
+    }>(`/algorithms/${categoryKey}/${algorithmKey}/`),
+};
+
+// ---------------- Dịch tự động ----------------
+
+export const translateApi = {
+  translate: (text: string, target: 'vi' | 'en' = 'vi') =>
+    request<{ translated: string; cached: boolean }>('/translate/', {
       method: 'POST',
-      body: JSON.stringify({ part_id: partId, question, context: 'anatomy' }),
+      body: JSON.stringify({ text, target }),
     }),
 };
 
-// ---------------- Algorithms (API sẽ có khi làm app algorithms) ----------------
+// ---------------- Ghi chú ----------------
 
-export const algorithmApi = {
-  getAll: () =>
-    request<{ id: string; category: string; name: string; slug: string; description: string; tags: string[] }[]>('/algorithms/'),
+export type NoteKind = 'algorithm' | 'anatomy_model';
 
-  getDetail: (slug: string) =>
-    request<{ id: string; category: string; name: string; description: string; steps: object[] }>(`/algorithms/${slug}/`),
+export interface StudyNoteDto {
+  kind: NoteKind;
+  object_key: string;
+  /** -1 = ghi chú cho cả bài / cả mô hình */
+  part_index: number;
+  content: string;
+  updated_at: string;
+}
 
-  askAI: (algorithmId: string, question: string) =>
-    request<{ answer: string; sources: object[] }>('/ai/ask/', {
-      method: 'POST',
-      body: JSON.stringify({ algorithm_id: algorithmId, question, context: 'algorithm' }),
-    }),
+export const notesApi = {
+  list: (kind: NoteKind, objectKey: string) =>
+    request<StudyNoteDto[]>(`/learning/notes/?kind=${kind}&object_key=${encodeURIComponent(objectKey)}`),
+
+  save: (data: Pick<StudyNoteDto, 'kind' | 'object_key' | 'part_index' | 'content'>) =>
+    request<StudyNoteDto | undefined>('/learning/notes/', { method: 'PUT', body: JSON.stringify(data) }),
 };

@@ -4,7 +4,7 @@ import { CompassFill, DashLg, Fire, PlusLg, TrophyFill } from 'react-bootstrap-i
 import type { ReactNode } from 'react';
 import { setWeeklyGoal, useActivity, useWeeklyGoal, type RecentItem } from '@/lib/recent';
 import { countAlgorithms, useAlgoCatalog } from '@/lib/algo-catalog';
-import { ANATOMY_SYSTEMS } from '@/lib/anatomy-catalog';
+import { useAnatomyModels } from '@/lib/anatomy-catalog';
 import { TRACKS, type Track } from '@/lib/tracks';
 
 interface Props {
@@ -83,11 +83,12 @@ function StreakTile() {
 /* ---------- Đã khám phá ---------- */
 function ExploredTile({ track, recent }: Props) {
   const { categories, state } = useAlgoCatalog();
-  const explored = recent.length; // mỗi href chỉ lưu 1 lần
-  const total = track === 'cs' ? countAlgorithms(categories) : ANATOMY_SYSTEMS.length;
-  const ready = track === 'med' || state === 'ready';
+  const { models, state: modelsState } = useAnatomyModels();
+  const explored = recent.length; // mỗi bài học chỉ lưu 1 lần
+  const total = track === 'cs' ? countAlgorithms(categories) : models.length;
+  const ready = track === 'cs' ? state === 'ready' : modelsState === 'ready';
   const percent = ready && total > 0 ? Math.min(100, Math.round((explored / total) * 100)) : 0;
-  const unit = track === 'cs' ? 'thuật toán' : 'hệ cơ quan';
+  const unit = track === 'cs' ? 'thuật toán' : 'mô hình';
 
   return (
     <Tile icon={<CompassFill className="w-4 h-4" />} iconClass="bg-[#E8F0FB] text-[#1E3F82]" label="Đã khám phá">

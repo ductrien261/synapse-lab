@@ -63,6 +63,8 @@ cp .env.example .env          # PowerShell: Copy-Item .env.example .env
 Mở `.env` và điền:
 
 - `DATABASE_URL` — **nhắn leader** để được cấp một Neon branch riêng (xem [Làm việc với database](#làm-việc-với-database)).
+- `S3_*` — Neon Object Storage để lưu giáo trình PDF (Neon Console → Object storage → Connect). Để trống thì file lưu local trong `be/media/`.
+- `GROQ_API_KEY` — cho nút Dịch, tạo miễn phí tại <https://console.groq.com/keys>.
 - `GEMINI_API_KEY` — tạo miễn phí tại <https://aistudio.google.com/apikey>. Chưa làm phần AI thì để trống cũng được.
 
 > ⚠️ `.env` chứa key thật, **không bao giờ commit** file này (đã có trong `.gitignore`).
@@ -81,13 +83,22 @@ Lần đầu mất vài phút để tải image và cài thư viện.
 docker compose exec be python manage.py migrate
 ```
 
-### 5. Tạo tài khoản admin
+### 5. Tạo tài khoản admin và dữ liệu nền
 
 ```bash
 docker compose exec be python manage.py createsuperuser
+docker compose exec be python manage.py init_data
 ```
 
-Xong. Mở <http://localhost:3100> và đăng nhập bằng tài khoản vừa tạo.
+`init_data` tạo danh sách hệ cơ quan chuẩn và đồng bộ danh mục thuật toán từ algo-server. **Không tạo dữ liệu giả.** Chạy lại nhiều lần không bị trùng.
+
+Muốn có mô hình 3D để học: vào trang quản trị để nhập, hoặc dùng lệnh:
+
+```bash
+docker compose exec be python manage.py add_anatomy_model https://sketchfab.com/models/<mã>/embed --system cardiovascular --publish
+```
+
+Xong. Mở <http://localhost:3100> và đăng nhập bằng tài khoản vừa tạo (ô Email gõ `admin` cũng được).
 
 ---
 
@@ -116,6 +127,7 @@ docker compose down
 docker compose restart be
 
 # Django
+docker compose exec be python manage.py sync_algorithms      # cập nhật danh mục thuật toán từ algo-server
 docker compose exec be python manage.py makemigrations <tên_app>
 docker compose exec be python manage.py migrate
 docker compose exec be python manage.py shell
@@ -136,8 +148,13 @@ cd fe && npm install && cd ..          # cập nhật node_modules trên máy ch
 ```
 synapse-lab/
 ├── be/                         Django backend
-│   ├── core/                   settings, urls gốc
-│   └── users/                  tài khoản, đăng nhập, phân quyền
+│   ├── core/                   settings, urls gốc, model dùng chung, lệnh init_data
+│   ├── users/                  tài khoản, đăng nhập, phân quyền
+│   ├── knowledge/              tài liệu, giáo trình, đoạn trích + vector (RAG)
+│   ├── anatomy/                hệ cơ quan, mô hình 3D, chú thích, cấu trúc giải phẫu
+│   ├── algorithms/             danh mục + phần giải thích thuật toán
+│   ├── learning/               lịch sử học, chuỗi ngày học
+│   └── classroom/              lớp học ← bạn B
 ├── fe/                         Next.js frontend
 │   └── src/
 │       ├── app/
@@ -153,7 +170,7 @@ synapse-lab/
 │       │   ├── admin/          sidebar và khung trang quản trị
 │       │   ├── dashboard/      trang tổng quan
 │       │   ├── simulation/     ← bạn A
-│       │   └── medical/        ← leader
+│       │   └── anatomy/        ← leader (khung 3D, bảng bộ phận)
 │       └── lib/                API client, context, tiện ích dùng chung
 ├── packages/algo-viz/          ← bạn A
 │   ├── algorithms/             kho thuật toán (mỗi thư mục 1 nhóm)

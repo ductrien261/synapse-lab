@@ -46,6 +46,7 @@ class User(AbstractUser):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default=ROLE_USER)
     track = models.CharField(max_length=10, choices=TRACK_CHOICES, null=True, blank=True)
+    weekly_goal = models.PositiveSmallIntegerField('Mục tiêu số ngày học mỗi tuần', default=4)
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = []

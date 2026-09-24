@@ -40,3 +40,6 @@ out/
 
 # Server downloads & generated
 **/server/public/
+
+# File upload lưu local khi dev
+be/media/
