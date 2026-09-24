@@ -43,3 +43,6 @@ out/
 
 # File upload lưu local khi dev
 be/media/
+
+# File HTML mẫu để phát triển bộ quét (không commit)
+_samples/

@@ -87,10 +87,15 @@ const TABS: { key: TabKey; label: string; icon: ComponentType<{ className?: stri
 ];
 
 function ModelViewer({ model }: { model: AnatomyModelDetail }) {
-  const { iframeRef, status, annotations: viewerAnnotations, selected, select, recenter, onPick } =
+  const { iframeRef, status, annotations: viewerAnnotations, selected, select, recenter, onPick, setLabelsVisible } =
     useSketchfabViewer(model.sketchfab_uid);
   const [tab, setTab] = useState<TabKey>('info');
   const [quizActive, setQuizActive] = useState(false);
+
+  // Đang ôn tập: ẩn tên chú thích trên khung 3D để không lộ đáp án
+  useEffect(() => {
+    if (status === 'ready') setLabelsVisible(!quizActive);
+  }, [quizActive, status, setLabelsVisible]);
   const frameBox = useRef<HTMLDivElement>(null);
 
   // Số thứ tự lấy theo Sketchfab; nội dung tiếng Việt lấy từ database

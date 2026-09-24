@@ -15,6 +15,7 @@ import {
   ShieldLockFill,
 } from 'react-bootstrap-icons';
 import { adminApi } from '@/lib/api';
+import { adminAnatomyApi, type AnatomyStats } from '@/lib/admin-anatomy';
 import { useUser } from '@/lib/user-context';
 import { getGreetingName } from '@/lib/format';
 import { AdminPageHeader } from '@/components/admin/AdminPageHeader';
@@ -33,7 +34,7 @@ const SHORTCUTS: { href: string; title: string; description: string; icon: Icon;
   { href: '/admin/users', title: 'Người dùng', description: 'Cấp quyền admin, khóa hoặc mở tài khoản.', icon: PersonBadgeFill, ready: true },
   { href: '/admin/documents', title: 'Tài liệu', description: 'Upload giáo trình để AI tra cứu và trích dẫn.', icon: FileEarmarkTextFill, ready: false },
   { href: '/admin/algorithms', title: 'Thuật toán', description: 'Soạn giải thích, độ phức tạp, ứng dụng.', icon: BoxFill, ready: false },
-  { href: '/admin/anatomy', title: 'Giải phẫu', description: 'Hệ cơ quan, mô hình 3D, bộ phận.', icon: HeartPulseFill, ready: false },
+  { href: '/admin/anatomy', title: 'Giải phẫu', description: 'Nhập mô hình 3D, soạn nội dung, xuất bản.', icon: HeartPulseFill, ready: true },
   { href: '/admin/classes', title: 'Lớp học', description: 'Theo dõi các lớp đang hoạt động.', icon: PeopleFill, ready: false },
   { href: '/admin/system', title: 'Tình trạng hệ thống', description: 'Backend, database, algo-server.', icon: Activity, ready: true },
 ];
@@ -41,6 +42,7 @@ const SHORTCUTS: { href: string; title: string; description: string; icon: Icon;
 export default function AdminHomePage() {
   const { user } = useUser();
   const [stats, setStats] = useState<Stats | null>(null);
+  const [anatomy, setAnatomy] = useState<AnatomyStats | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -54,6 +56,10 @@ export default function AdminHomePage() {
         setStats({ total: all.count, admins: admins.count, locked: locked.count, cs: cs.count, med: med.count }),
       )
       .catch(() => setStats(null));
+    adminAnatomyApi
+      .stats()
+      .then(setAnatomy)
+      .catch(() => setAnatomy(null));
   }, []);
 
   return (
@@ -74,6 +80,21 @@ export default function AdminHomePage() {
           tone="bg-amber-50 text-amber-600"
         />
       </div>
+
+      <section>
+        <h2 className="text-sm font-bold uppercase tracking-wider text-stone-500 mb-3">Nội dung giải phẫu</h2>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <Stat label="Mô hình 3D" value={anatomy?.models.total} icon={HeartPulseFill} tone="bg-rose-50 text-rose-500" />
+          <Stat label="Đã xuất bản" value={anatomy?.models.published} icon={ArrowRight} tone="bg-emerald-50 text-emerald-600" />
+          <Stat label="Đang nháp" value={anatomy?.models.draft} icon={FileEarmarkTextFill} tone="bg-stone-100 text-stone-500" />
+          <Stat
+            label="Bộ phận đã duyệt"
+            value={anatomy ? `${anatomy.structures.published}/${anatomy.structures.total}` : undefined}
+            icon={ShieldLockFill}
+            tone="bg-[#E8F0FB] text-[#1E3F82]"
+          />
+        </div>
+      </section>
 
       <section>
         <h2 className="text-sm font-bold uppercase tracking-wider text-stone-500 mb-3">Truy cập nhanh</h2>

@@ -40,6 +40,24 @@ Tài liệu đầy đủ trên Swagger: <http://localhost:8000/api/schema/swagge
 | GET / PUT | `/api/learning/notes/?kind=&object_key=` | Ghi chú riêng của mình (PUT content rỗng = xóa) |
 | POST | `/api/translate/` | Dịch đoạn văn sang tiếng Việt qua Groq, có cache DB (30 lần/phút/người) |
 
+### Quản trị giải phẫu (chỉ admin)
+
+| Method | Endpoint | Việc |
+|---|---|---|
+| GET | `/api/anatomy/admin/stats/` | Số mô hình (nháp / đã xuất bản), số cấu trúc đã duyệt |
+| GET | `/api/anatomy/admin/models/?status=draft\|published&system=&search=` | Danh sách kể cả nháp, kèm tiến độ soạn |
+| POST | `/api/anatomy/admin/models/bulk/` | `{uids, action: publish\|unpublish\|set_system\|delete, system}` |
+| GET / PATCH | `/api/anatomy/admin/models/<uid>/` | Chi tiết để soạn; sửa `title_vi`, `system`, `is_published` |
+| POST | `/api/anatomy/admin/models/<uid>/annotations/` | Lưu chú thích đọc từ Sketchfab Viewer API, tự ghép cấu trúc theo tên tiếng Anh |
+| POST | `/api/anatomy/admin/models/<uid>/publish/` | Xuất bản; `approve_structures=true` duyệt luôn nội dung đã soạn |
+| PATCH | `/api/anatomy/admin/structures/<id>/` | Sửa nội dung cấu trúc (dùng chung mọi mô hình) |
+| GET | `/api/anatomy/admin/anatomytool/collections/` | Các Collection đã quét |
+| POST | `/api/anatomy/admin/anatomytool/scan/` | Quét danh mục Collection (chạy nền) |
+| POST | `/api/anatomy/admin/anatomytool/import/` | `{collections:[{id, system}], links:[...], links_system}` (chạy nền) |
+| GET | `/api/anatomy/admin/jobs/latest/` · `/jobs/<id>/` · POST `/jobs/<id>/cancel/` | Tiến độ / dừng lượt chạy |
+
+Bộ quét AnatomyTOOL (`anatomy/services/anatomytool.py`) tuân thủ `robots.txt` của họ: **mỗi request cách nhau 10 giây**, chạy trong luồng nền và ghi tiến độ vào bảng `ImportJob`.
+
 ## Lệnh quản lý
 
 | Lệnh | Việc |

@@ -81,6 +81,10 @@ class AnatomyModel(TimeStampedModel):
 
     thumbnail_url = models.URLField(max_length=500, blank=True)
     source_url = models.URLField('Trang nguồn (vd. anatomytool.org)', max_length=500, blank=True)
+    source_meta = models.JSONField(
+        'Thông tin từ trang nguồn', default=dict, blank=True,
+        help_text='vd. danh sách cấu trúc (tên Latin), người tạo, trường đại học từ AnatomyTOOL',
+    )
 
     is_published = models.BooleanField(default=False, db_index=True)
     order = models.PositiveSmallIntegerField(default=0)
@@ -140,3 +144,68 @@ class StructureReference(models.Model):
 
     def __str__(self):
         return f'{self.structure} → {self.document} tr.{self.page_start or "?"}'
+
+
+# ------------------------------------------------------------
+# Nhập dữ liệu từ AnatomyTOOL
+# ------------------------------------------------------------
+
+class AnatomyToolCollection(models.Model):
+    """Một trang Collection trên anatomytool.org (vd. Heart, Brain...)."""
+
+    url = models.URLField(max_length=500, unique=True)
+    title = models.CharField(max_length=300)
+    suggested_system = models.ForeignKey(BodySystem, null=True, blank=True, on_delete=models.SET_NULL, related_name='+')
+    candidate_count = models.PositiveIntegerField('Số mục 3D tìm thấy', null=True, blank=True)
+    imported_count = models.PositiveIntegerField(default=0)
+    last_scanned_at = models.DateTimeField(null=True, blank=True)
+    last_imported_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['title']
+        verbose_name = 'Collection AnatomyTOOL'
+        verbose_name_plural = 'Collection AnatomyTOOL'
+
+    def __str__(self):
+        return self.title
+
+
+class ImportJob(models.Model):
+    """Một lượt quét/nhập chạy nền; trang admin hỏi định kỳ để hiện tiến độ."""
+
+    class Kind(models.TextChoices):
+        SCAN_INDEX = 'scan_index', 'Quét danh mục'
+        IMPORT = 'import', 'Nhập mô hình'
+
+    class Status(models.TextChoices):
+        QUEUED = 'queued', 'Chờ chạy'
+        RUNNING = 'running', 'Đang chạy'
+        DONE = 'done', 'Hoàn tất'
+        FAILED = 'failed', 'Lỗi'
+        CANCELLED = 'cancelled', 'Đã dừng'
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    kind = models.CharField(max_length=20, choices=Kind.choices)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.QUEUED, db_index=True)
+    params = models.JSONField(default=dict, blank=True)
+
+    total = models.PositiveIntegerField(default=0)
+    processed = models.PositiveIntegerField(default=0)
+    created_count = models.PositiveIntegerField(default=0)
+    skipped_count = models.PositiveIntegerField(default=0)
+    failed_count = models.PositiveIntegerField(default=0)
+    log = models.JSONField(default=list, blank=True)
+    cancel_requested = models.BooleanField(default=False)
+
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Lượt nhập dữ liệu'
+        verbose_name_plural = 'Lượt nhập dữ liệu'
+
+    def __str__(self):
+        return f'{self.get_kind_display()} · {self.get_status_display()}'

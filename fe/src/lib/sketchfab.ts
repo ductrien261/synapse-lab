@@ -27,6 +27,8 @@ interface SketchfabApi {
   getAnnotationList: (cb: (err: unknown, list: RawAnnotation[]) => void) => void;
   gotoAnnotation: (index: number, options: Record<string, boolean>, cb?: (err: unknown) => void) => void;
   recenterCamera: (cb?: (err: unknown) => void) => void;
+  hideAnnotationTooltips: (cb?: (err: unknown) => void) => void;
+  showAnnotationTooltips: (cb?: (err: unknown) => void) => void;
 }
 
 interface SketchfabClient {
@@ -90,6 +92,7 @@ export function useSketchfabViewer(uid: string) {
           ui_vr: 0,
           ui_ar: 0,
           annotations_visible: 1,
+          ui_annotations: 0, // tắt thanh tên chú thích ở đáy (đã có thanh bộ phận riêng, và để ôn tập không lộ tên)
           success: (api: SketchfabApi) => {
             apiRef.current = api;
             api.start();
@@ -151,6 +154,14 @@ export function useSketchfabViewer(uid: string) {
     apiRef.current?.recenterCamera();
   }, []);
 
+  /** Ẩn / hiện chữ tên của chú thích trên mô hình (số (1), (2)... vẫn bấm được). Dùng khi ôn tập. */
+  const setLabelsVisible = useCallback((visible: boolean) => {
+    const api = apiRef.current;
+    if (!api) return;
+    if (visible) api.showAnnotationTooltips();
+    else api.hideAnnotationTooltips();
+  }, []);
+
   /** Đăng ký nhận sự kiện "người dùng vừa chọn chú thích". Trả về hàm hủy đăng ký. */
   const onPick = useCallback((fn: (index: number) => void) => {
     pickListeners.current.add(fn);
@@ -159,5 +170,5 @@ export function useSketchfabViewer(uid: string) {
     };
   }, []);
 
-  return { iframeRef, status, annotations, selected, select, recenter, onPick };
+  return { iframeRef, status, annotations, selected, select, recenter, onPick, setLabelsVisible };
 }
