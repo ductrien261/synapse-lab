@@ -130,8 +130,9 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     throw new ApiError(extractMessage(data, res.status), res.status, data);
   }
 
-  if (res.status === 204) return undefined as T;
-  return res.json() as Promise<T>;
+  // 204 hoặc body rỗng -> không parse JSON
+  const text = await res.text();
+  return (text ? JSON.parse(text) : undefined) as T;
 }
 
 // ---------------- Kiểu dữ liệu ----------------

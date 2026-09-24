@@ -136,7 +136,8 @@ export const adminAnatomyApi = {
   startImport: (data: { collections: { id: number; system: string | null }[]; links: string[]; links_system?: string | null }) =>
     request<ImportJob>(`${BASE}/anatomytool/import/`, { method: 'POST', body: JSON.stringify(data) }),
 
-  latestJob: () => request<ImportJob | null>(`${BASE}/jobs/latest/`),
+  latestJob: () =>
+    request<ImportJob | { job: null }>(`${BASE}/jobs/latest/`).then((data) => (data && 'id' in data ? data : null)),
 
   job: (id: string) => request<ImportJob>(`${BASE}/jobs/${id}/`),
 

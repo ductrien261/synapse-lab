@@ -238,7 +238,10 @@ class JobView(APIView):
     def get(self, request, pk=None):
         has_active_job()  # dọn lượt treo
         job = ImportJob.objects.first() if pk is None else get_object_or_404(ImportJob, pk=pk)
-        return Response(ImportJobSerializer(job).data if job else None)
+        if job is None:
+            # Chưa có lượt nào: trả {"job": null} thay vì body rỗng
+            return Response({'job': None})
+        return Response(ImportJobSerializer(job).data)
 
 
 class CancelJobView(APIView):
