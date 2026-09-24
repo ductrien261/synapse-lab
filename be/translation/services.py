@@ -36,7 +36,7 @@ class TranslationNotConfigured(TranslationError):
     pass
 
 
-def _call_groq(text: str, target_lang: str) -> str:
+def _call_groq(text: str, target_lang: str, system: str | None = None) -> str:
     api_key = getattr(settings, 'GROQ_API_KEY', '')
     if not api_key:
         raise TranslationNotConfigured('Chưa cấu hình dịch tự động (thiếu GROQ_API_KEY).')
@@ -45,7 +45,7 @@ def _call_groq(text: str, target_lang: str) -> str:
         'model': settings.GROQ_MODEL,
         'temperature': 0.2,
         'messages': [
-            {'role': 'system', 'content': SYSTEM_PROMPT.format(lang=LANG_NAMES.get(target_lang, target_lang))},
+            {'role': 'system', 'content': system or SYSTEM_PROMPT.format(lang=LANG_NAMES.get(target_lang, target_lang))},
             {'role': 'user', 'content': text},
         ],
         # Model Qwen có chế độ "suy nghĩ": ẩn phần đó đi, chỉ lấy câu trả lời
@@ -98,3 +98,38 @@ def translate(text: str, target_lang: str = 'vi') -> tuple[str, bool]:
         },
     )
     return translated, False
+
+
+# ------------------------------------------------------------
+# Dịch câu hỏi tìm kiếm Việt -> Anh (kho tri thức tiếng Anh)
+# ------------------------------------------------------------
+
+QUERY_LANG = 'en-query'  # khóa cache riêng, không lẫn với nút "Dịch"
+QUERY_PROMPT = (
+    'Translate this Vietnamese anatomy/medicine or computer-science question into concise English, '
+    'using standard textbook terminology. Return only the translation.'
+)
+
+
+def translate_query_to_english(text: str) -> str | None:
+    """Trả về câu tiếng Anh (có cache); None nếu chưa cấu hình / lỗi -> nơi gọi tự dùng câu gốc."""
+    text = (text or '').strip()
+    if not text or len(text) > 500:
+        return None
+    key = text_hash(text)
+    cached = Translation.objects.filter(source_hash=key, target_lang=QUERY_LANG).first()
+    if cached:
+        Translation.objects.filter(pk=cached.pk).update(hit_count=cached.hit_count + 1)
+        return cached.translated_text
+    try:
+        translated = _call_groq(text, 'en', system=QUERY_PROMPT)
+    except TranslationError:
+        return None
+    if not translated:
+        return None
+    Translation.objects.get_or_create(
+        source_hash=key,
+        target_lang=QUERY_LANG,
+        defaults={'source_text': text, 'translated_text': translated, 'provider': 'groq', 'model': settings.GROQ_MODEL},
+    )
+    return translated

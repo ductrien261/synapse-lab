@@ -30,6 +30,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.postgres',   # tìm kiếm full-text (kho tri thức)
 
     # Third-party apps
     'rest_framework',
@@ -145,6 +146,10 @@ if S3_BUCKET:
 # Dịch tự động qua Groq (API tương thích OpenAI)
 GROQ_API_KEY = env('GROQ_API_KEY', default='')
 GROQ_MODEL = env('GROQ_MODEL', default='qwen/qwen3.8-27b')
+
+# Embedding cho kho tri thức (Gemini, 768 chiều)
+GEMINI_API_KEY = env('GEMINI_API_KEY', default='')
+GEMINI_EMBED_MODEL = env('GEMINI_EMBED_MODEL', default='gemini-embedding-001')
 
 # Algo-server (trong mạng docker compose tên service là algo-server)
 ALGO_SERVER_URL = env('ALGO_SERVER_URL', default='http://algo-server:8080/api')

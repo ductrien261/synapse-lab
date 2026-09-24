@@ -4,6 +4,9 @@
 
 import { request } from './api';
 import { invalidateAnatomyCatalog, type AnatomyModelSummary, type BodySystem } from './anatomy-catalog';
+import { isJobActive, type BackgroundJob, type JobStatus } from './jobs';
+
+export { isJobActive, type JobStatus };
 
 export interface AdminModelRow extends AnatomyModelSummary {
   filled_count: number;
@@ -22,6 +25,52 @@ export interface AdminStructure {
   clinical_note: string;
   status: 'draft' | 'published';
   model_count: number | null;
+  draft?: DraftSummary | null;
+}
+
+export type DraftStatus = 'pending' | 'applied' | 'discarded' | 'no_source' | 'failed';
+
+export interface DraftSummary {
+  id: number;
+  status: DraftStatus;
+  error: string;
+}
+
+export interface DraftCitation {
+  n: number;
+  chunk_id: number;
+  document_id: string;
+  document_title: string;
+  heading: string;
+  url: string;
+  page_label: string;
+  excerpt: string;
+  citation: string;
+}
+
+export interface StructureDraft {
+  id: number;
+  status: DraftStatus;
+  name_vi: string;
+  definition: string;
+  function: string;
+  clinical_note: string;
+  citations: DraftCitation[];
+  error: string;
+  llm_model: string;
+  prompt_tokens: number;
+  completion_tokens: number;
+  structure: Pick<AdminStructure, 'id' | 'name_en' | 'name_vi' | 'latin_name' | 'status' | 'definition' | 'function' | 'clinical_note'>;
+  models: { uid: string; title: string; thumbnail_url: string; is_published: boolean; system: string | null }[];
+  created_at: string;
+  updated_at: string;
+}
+
+export type DraftFields = Pick<StructureDraft, 'name_vi' | 'definition' | 'function' | 'clinical_note'>;
+
+export interface ReadyModel {
+  uid: string;
+  title: string;
 }
 
 export interface AdminAnnotation {
@@ -65,30 +114,16 @@ export interface AnatomyToolCollection {
   last_imported_at: string | null;
 }
 
-export type JobStatus = 'queued' | 'running' | 'done' | 'failed' | 'cancelled';
-
-export interface ImportJob {
-  id: string;
-  kind: 'scan_index' | 'import';
-  status: JobStatus;
-  total: number;
-  processed: number;
-  created_count: number;
-  skipped_count: number;
-  failed_count: number;
-  log: { at: string; level: 'info' | 'success' | 'warning' | 'error'; message: string }[];
-  cancel_requested: boolean;
-  created_at: string;
-  finished_at: string | null;
+export interface ImportJob extends BackgroundJob {
+  kind: 'scan_index' | 'import' | 'ai_draft';
 }
+
+export const ANATOMY_JOB_KINDS = { scan_index: 'Quét danh mục', import: 'Nhập mô hình', ai_draft: 'AI viết nháp' };
 
 export interface AnatomyStats {
   models: { total: number; published: number; draft: number; no_system: number };
   structures: { total: number; published: number; with_content: number };
-}
-
-export function isJobActive(job: ImportJob | null | undefined): boolean {
-  return Boolean(job && (job.status === 'queued' || job.status === 'running'));
+  drafts: { pending: number };
 }
 
 const BASE = '/anatomy/admin';
@@ -147,4 +182,36 @@ export const adminAnatomyApi = {
   job: (id: string) => request<ImportJob>(`${BASE}/jobs/${id}/`),
 
   cancelJob: (id: string) => request<ImportJob>(`${BASE}/jobs/${id}/cancel/`, { method: 'POST', body: '{}' }),
+
+  // ---- AI viết nháp + duyệt nhanh ----
+  structureDraft: (structureId: number) =>
+    request<StructureDraft | { draft: null }>(`${BASE}/structures/${structureId}/draft/`).then((d) => (d && 'id' in d ? d : null)),
+
+  writeDraft: (structureId: number) => request<StructureDraft>(`${BASE}/structures/${structureId}/draft/`, { method: 'POST', body: '{}' }),
+
+  generateDrafts: (data: { model_uid?: string; structure_ids?: number[]; only_empty?: boolean }) =>
+    request<ImportJob>(`${BASE}/drafts/generate/`, { method: 'POST', body: JSON.stringify({ only_empty: true, ...data }) }),
+
+  drafts: (query: { status?: DraftStatus; model?: string; system?: string } = {}) => {
+    const params = new URLSearchParams();
+    Object.entries(query).forEach(([k, v]) => v && params.set(k, v));
+    const qs = params.toString();
+    return request<{ counts: Partial<Record<DraftStatus, number>>; results: StructureDraft[] }>(`${BASE}/drafts/${qs ? `?${qs}` : ''}`);
+  },
+
+  approveDraft: (id: number, fields: Partial<DraftFields> = {}) =>
+    request<{ approved: number; structure_id: number; ready_models: ReadyModel[] }>(`${BASE}/drafts/${id}/approve/`, {
+      method: 'POST',
+      body: JSON.stringify(fields),
+    }).then(withInvalidate),
+
+  approveDrafts: (ids: number[]) =>
+    request<{ approved: number; ready_models: ReadyModel[] }>(`${BASE}/drafts/approve-bulk/`, {
+      method: 'POST',
+      body: JSON.stringify({ ids }),
+    }).then(withInvalidate),
+
+  discardDraft: (id: number) => request<{ discarded: number }>(`${BASE}/drafts/${id}/discard/`, { method: 'POST', body: '{}' }),
 };
+
+export const ANATOMY_JOB_API = { job: adminAnatomyApi.job, cancel: adminAnatomyApi.cancelJob };

@@ -2,14 +2,9 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { CheckCircleFill, ExclamationTriangleFill, StopCircle, XCircleFill } from 'react-bootstrap-icons';
-import { adminAnatomyApi, isJobActive, type ImportJob } from '@/lib/admin-anatomy';
+import { isJobActive, type BackgroundJob, type JobApi, type JobStatus } from '@/lib/jobs';
 
-const KIND_LABEL: Record<ImportJob['kind'], string> = {
-  scan_index: 'Quét danh mục',
-  import: 'Nhập mô hình',
-};
-
-const STATUS_LABEL: Record<ImportJob['status'], string> = {
+const STATUS_LABEL: Record<JobStatus, string> = {
   queued: 'Chờ chạy',
   running: 'Đang chạy',
   done: 'Hoàn tất',
@@ -17,13 +12,20 @@ const STATUS_LABEL: Record<ImportJob['status'], string> = {
   cancelled: 'Đã dừng',
 };
 
-/** Tiến độ lượt quét/nhập gần nhất; tự hỏi lại server mỗi 2 giây khi đang chạy. */
-export function JobProgress({
+/** Tiến độ lượt chạy nền gần nhất; tự hỏi lại server mỗi 2 giây khi đang chạy. */
+export function JobProgress<J extends BackgroundJob>({
   job,
   onChange,
+  api,
+  kindLabels,
+  createdLabel = 'mới',
 }: {
-  job: ImportJob | null;
-  onChange: (job: ImportJob) => void;
+  job: J | null;
+  onChange: (job: J) => void;
+  api: JobApi<J>;
+  kindLabels: Record<string, string>;
+  /** chữ sau số lượng tạo mới, vd. "mới", "trang đã nạp" */
+  createdLabel?: string;
 }) {
   const [showLog, setShowLog] = useState(true);
   const logBox = useRef<HTMLDivElement>(null);
@@ -33,13 +35,13 @@ export function JobProgress({
   useEffect(() => {
     if (!active || !jobId) return;
     const timer = setInterval(() => {
-      adminAnatomyApi
+      api
         .job(jobId)
         .then(onChange)
         .catch(() => undefined);
     }, 2000);
     return () => clearInterval(timer);
-  }, [active, jobId, onChange]);
+  }, [active, jobId, onChange, api]);
 
   useEffect(() => {
     logBox.current?.scrollTo({ top: logBox.current.scrollHeight });
@@ -63,20 +65,20 @@ export function JobProgress({
           {job.status === 'failed' && <XCircleFill className="w-4 h-4 text-rose-600" />}
           {job.status === 'cancelled' && <ExclamationTriangleFill className="w-4 h-4 text-amber-500" />}
           {active && <span className="w-3.5 h-3.5 rounded-full border-2 border-[#1E3F82] border-t-transparent animate-spin" />}
-          {KIND_LABEL[job.kind]} · {STATUS_LABEL[job.status]}
+          {kindLabels[job.kind] ?? job.kind} · {STATUS_LABEL[job.status]}
         </div>
         <div className="flex items-center gap-3 text-xs text-stone-600">
           <span>
             {job.processed}/{job.total || '?'}
           </span>
-          <span className="text-emerald-700 font-semibold">+{job.created_count} mới</span>
+          <span className="text-emerald-700 font-semibold">+{job.created_count} {createdLabel}</span>
           <span>{job.skipped_count} bỏ qua</span>
           {job.failed_count > 0 && <span className="text-rose-600 font-semibold">{job.failed_count} lỗi</span>}
           {active && (
             <button
               type="button"
               disabled={job.cancel_requested}
-              onClick={() => adminAnatomyApi.cancelJob(job.id).then(onChange).catch(() => undefined)}
+              onClick={() => api.cancel(job.id).then(onChange).catch(() => undefined)}
               className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-stone-300 bg-white font-bold hover:border-rose-300 hover:text-rose-600 disabled:opacity-50 cursor-pointer"
             >
               <StopCircle className="w-3.5 h-3.5" /> {job.cancel_requested ? 'Đang dừng...' : 'Dừng'}

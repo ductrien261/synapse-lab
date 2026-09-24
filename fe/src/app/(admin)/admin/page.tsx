@@ -32,7 +32,7 @@ interface Stats {
 
 const SHORTCUTS: { href: string; title: string; description: string; icon: Icon; ready: boolean }[] = [
   { href: '/admin/users', title: 'Người dùng', description: 'Cấp quyền admin, khóa hoặc mở tài khoản.', icon: PersonBadgeFill, ready: true },
-  { href: '/admin/documents', title: 'Tài liệu', description: 'Upload giáo trình để AI tra cứu và trích dẫn.', icon: FileEarmarkTextFill, ready: false },
+  { href: '/admin/documents', title: 'Tài liệu', description: 'Nạp giáo trình OpenStax / PDF để AI tra cứu và trích dẫn.', icon: FileEarmarkTextFill, ready: true },
   { href: '/admin/algorithms', title: 'Thuật toán', description: 'Soạn giải thích, độ phức tạp, ứng dụng.', icon: BoxFill, ready: false },
   { href: '/admin/anatomy', title: 'Giải phẫu', description: 'Nhập mô hình 3D, soạn nội dung, xuất bản.', icon: HeartPulseFill, ready: true },
   { href: '/admin/spaces', title: 'Không gian', description: 'Theo dõi các không gian đang hoạt động.', icon: PeopleFill, ready: false },

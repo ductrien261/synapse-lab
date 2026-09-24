@@ -99,7 +99,8 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     return fetch(`${BASE_URL}${path}`, {
       ...init,
       headers: {
-        'Content-Type': 'application/json',
+        // FormData (upload file): để trình duyệt tự đặt Content-Type kèm boundary
+        ...(init.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...headers,
       },

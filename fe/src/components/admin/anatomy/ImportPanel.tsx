@@ -2,9 +2,16 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { BoxArrowUpRight, CloudDownload, InfoCircle, Link45deg, Search } from 'react-bootstrap-icons';
-import { adminAnatomyApi, isJobActive, type AnatomyToolCollection, type ImportJob } from '@/lib/admin-anatomy';
+import {
+  adminAnatomyApi,
+  ANATOMY_JOB_API,
+  ANATOMY_JOB_KINDS,
+  isJobActive,
+  type AnatomyToolCollection,
+  type ImportJob,
+} from '@/lib/admin-anatomy';
 import { useBodySystems } from '@/lib/anatomy-catalog';
-import { JobProgress } from './JobProgress';
+import { JobProgress } from '@/components/admin/JobProgress';
 
 export function ImportPanel({ onImported }: { onImported: () => void }) {
   const { systems } = useBodySystems();
@@ -85,7 +92,7 @@ export function ImportPanel({ onImported }: { onImported: () => void }) {
         </span>
       </div>
 
-      <JobProgress job={job} onChange={handleJobChange} />
+      <JobProgress job={job} onChange={handleJobChange} api={ANATOMY_JOB_API} kindLabels={ANATOMY_JOB_KINDS} />
       {error && <div className="rounded-xl bg-rose-50 text-rose-700 text-sm px-4 py-2.5">{error}</div>}
 
       {/* Collection */}
