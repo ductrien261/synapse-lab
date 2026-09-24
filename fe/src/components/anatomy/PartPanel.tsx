@@ -1,6 +1,6 @@
 'use client';
 
-import { BookHalf, ClipboardPulse, InfoCircleFill, Lightning, PinMapFill } from 'react-bootstrap-icons';
+import { BookHalf, BoxArrowUpRight, ClipboardPulse, InfoCircleFill, Lightning, PinMapFill } from 'react-bootstrap-icons';
 import type { ReactNode } from 'react';
 import { TranslatableText } from './TranslatableText';
 import type { PartItem } from './types';
@@ -41,13 +41,27 @@ export function InfoTab({ part }: { part: PartItem | null }) {
           <ul className="mt-2 flex flex-col gap-2">
             {s.references.map((r) => (
               <li key={r.id} className="rounded-xl bg-stone-50 border border-stone-100 px-3 py-2.5 text-sm">
-                <div className="font-semibold text-stone-800">
-                  {r.citation}
-                  {pageLabel(r.page_start, r.page_end) && (
-                    <span className="ml-1.5 text-[#1E3F82]">{pageLabel(r.page_start, r.page_end)}</span>
-                  )}
+                <div className="flex items-start gap-2">
+                  {r.order > 0 && <span className="font-bold text-[#1E3F82] shrink-0">[{r.order}]</span>}
+                  <div className="min-w-0 flex-1">
+                    <div className="font-semibold text-stone-800">
+                      {r.document_title}
+                      {pageLabel(r.page_start, r.page_end) && !r.url && (
+                        <span className="ml-1.5 text-[#1E3F82]">{pageLabel(r.page_start, r.page_end)}</span>
+                      )}
+                    </div>
+                    {r.heading && <div className="text-xs text-stone-500 mt-0.5">{r.heading}</div>}
+                    {r.excerpt && <p className="text-stone-600 mt-1 line-clamp-3">“{r.excerpt}”</p>}
+                    <div className="mt-1.5 flex flex-wrap items-center gap-3 text-xs">
+                      {r.url && (
+                        <a href={r.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-semibold text-[#1E3F82] hover:underline">
+                          Đọc trong sách <BoxArrowUpRight className="w-3 h-3" />
+                        </a>
+                      )}
+                      {r.license_name && <span className="text-stone-400">{r.license_name}</span>}
+                    </div>
+                  </div>
                 </div>
-                {r.excerpt && <p className="text-stone-600 mt-1 line-clamp-4">“{r.excerpt}”</p>}
               </li>
             ))}
           </ul>

@@ -10,15 +10,20 @@ from rest_framework.views import APIView
 from core.models import ContentStatus
 from users.permissions import IsAdminRole
 
-from .models import AnatomyModel, AnatomyToolCollection, BodySystem, ImportJob, Structure
+from core import llm
+from knowledge.services import embeddings
+
+from .models import AnatomyModel, AnatomyToolCollection, BodySystem, ImportJob, Structure, StructureDraft
 from .serializers import (
     AdminModelDetailSerializer,
     AdminModelListSerializer,
     AdminStructureSerializer,
     CollectionSerializer,
     ImportJobSerializer,
+    StructureDraftSerializer,
 )
 from .services.annotations import sync_annotations
+from .services.drafting import apply_draft, draft_structure
 from .services.jobs import has_active_job, start_job
 
 FILLED = Q(annotations__structure__definition__gt='') | Q(annotations__structure__function__gt='')
@@ -272,4 +277,145 @@ class AnatomyStatsView(APIView):
             published=Count('id', filter=Q(status=ContentStatus.PUBLISHED)),
             with_content=Count('id', filter=Q(definition__gt='') | Q(function__gt='')),
         )
-        return Response({'models': models, 'structures': structures, 'checked_at': timezone.now()})
+        drafts = {'pending': StructureDraft.objects.filter(status=StructureDraft.Status.PENDING).count()}
+        return Response({'models': models, 'structures': structures, 'drafts': drafts, 'checked_at': timezone.now()})
+
+
+# ------------------------------------------------------------
+# AI viết nháp + duyệt nhanh
+# ------------------------------------------------------------
+
+def _ai_not_ready():
+    if not llm.is_configured():
+        return Response({'detail': 'Chưa cấu hình GROQ_API_KEY nên AI chưa viết được.'}, status=status.HTTP_400_BAD_REQUEST)
+    if not embeddings.is_configured():
+        return Response({'detail': 'Chưa cấu hình GEMINI_API_KEY nên chưa tìm được trong kho tài liệu.'}, status=status.HTTP_400_BAD_REQUEST)
+    return None
+
+
+def _drafts():
+    return StructureDraft.objects.select_related('structure').prefetch_related('structure__annotations__model__system')
+
+
+def ready_models(structure_ids) -> list[dict]:
+    """Mô hình chưa xuất bản mà mọi bộ phận (đã gắn cấu trúc) đều đã duyệt -> gợi ý xuất bản."""
+    candidates = AnatomyModel.objects.filter(is_published=False, annotations__structure_id__in=structure_ids).distinct()
+    out = []
+    for m in candidates:
+        linked = m.annotations.filter(structure__isnull=False)
+        if linked.exists() and not linked.exclude(structure__status=ContentStatus.PUBLISHED).exists():
+            out.append({'uid': m.sketchfab_uid, 'title': m.title_vi or m.title})
+    return out
+
+
+class DraftStructureView(APIView):
+    """
+    GET  /api/anatomy/admin/structures/<id>/draft/  -> bản nháp hiện tại (hoặc {"draft": null})
+    POST /api/anatomy/admin/structures/<id>/draft/  -> AI viết nháp ngay cho 1 bộ phận (5–15 giây)
+    """
+
+    permission_classes = [IsAdminRole]
+
+    def get(self, request, pk):
+        draft = _drafts().filter(structure_id=pk).first()
+        return Response(StructureDraftSerializer(draft).data if draft else {'draft': None})
+
+    def post(self, request, pk):
+        if (err := _ai_not_ready()) is not None:
+            return err
+        structure = get_object_or_404(Structure, pk=pk)
+        draft = draft_structure(structure, request.user)
+        return Response(StructureDraftSerializer(_drafts().get(pk=draft.pk)).data)
+
+
+class GenerateDraftsView(APIView):
+    """
+    POST /api/anatomy/admin/drafts/generate/  {model_uid?, structure_ids?, only_empty: true}
+    Chạy nền: AI viết nháp cho nhiều bộ phận.
+    """
+
+    permission_classes = [IsAdminRole]
+
+    def post(self, request):
+        if (err := _ai_not_ready()) is not None:
+            return err
+        if (active := has_active_job()) is not None:
+            return _busy_response(active)
+        qs = Structure.objects.all()
+        if request.data.get('model_uid'):
+            qs = qs.filter(annotations__model__sketchfab_uid=request.data['model_uid'])
+        if request.data.get('structure_ids'):
+            qs = qs.filter(pk__in=[int(i) for i in request.data['structure_ids'] if str(i).isdigit()])
+        if request.data.get('only_empty', True):
+            # chưa có nội dung và chưa có bản nháp đang chờ duyệt
+            qs = qs.filter(definition='', function='').exclude(draft__status=StructureDraft.Status.PENDING)
+        ids = list(qs.distinct().values_list('pk', flat=True))
+        if not ids:
+            return Response({'detail': 'Không có bộ phận nào cần viết nháp.'}, status=status.HTTP_400_BAD_REQUEST)
+        job = start_job(ImportJob.Kind.AI_DRAFT, {'structure_ids': ids}, request.user)
+        return Response(ImportJobSerializer(job).data, status=status.HTTP_202_ACCEPTED)
+
+
+class DraftListView(APIView):
+    """GET /api/anatomy/admin/drafts/?status=pending&model=<uid>&system=<slug>"""
+
+    permission_classes = [IsAdminRole]
+
+    def get(self, request):
+        p = request.query_params
+        qs = _drafts().filter(status=p.get('status') or StructureDraft.Status.PENDING)
+        if p.get('model'):
+            qs = qs.filter(structure__annotations__model__sketchfab_uid=p['model'])
+        if p.get('system'):
+            qs = qs.filter(structure__annotations__model__system__slug=p['system'])
+        counts = dict(StructureDraft.objects.values_list('status').annotate(n=Count('id')))
+        return Response({'counts': counts, 'results': StructureDraftSerializer(qs.distinct(), many=True).data})
+
+
+class ApproveDraftView(APIView):
+    """POST /api/anatomy/admin/drafts/<id>/approve/  {name_vi?, definition?, function?, clinical_note?}"""
+
+    permission_classes = [IsAdminRole]
+
+    class Input(serializers.Serializer):
+        name_vi = serializers.CharField(max_length=200, required=False, allow_blank=True)
+        definition = serializers.CharField(required=False, allow_blank=True)
+        function = serializers.CharField(required=False, allow_blank=True)
+        clinical_note = serializers.CharField(required=False, allow_blank=True)
+
+    def post(self, request, pk):
+        draft = get_object_or_404(_drafts(), pk=pk)
+        if draft.status != StructureDraft.Status.PENDING:
+            return Response({'detail': 'Bản nháp này không còn chờ duyệt.'}, status=status.HTTP_409_CONFLICT)
+        data = self.Input(data=request.data)
+        data.is_valid(raise_exception=True)
+        structure = apply_draft(draft, request.user, data.validated_data)
+        return Response({'approved': 1, 'structure_id': structure.pk, 'ready_models': ready_models([structure.pk])})
+
+
+class BulkApproveDraftsView(APIView):
+    """POST /api/anatomy/admin/drafts/approve-bulk/  {ids: [...]}  -> duyệt nguyên bản nháp, không sửa"""
+
+    permission_classes = [IsAdminRole]
+
+    def post(self, request):
+        ids = [int(i) for i in request.data.get('ids', []) if str(i).isdigit()]
+        drafts = _drafts().filter(pk__in=ids, status=StructureDraft.Status.PENDING)
+        structure_ids = []
+        for draft in drafts:
+            structure_ids.append(apply_draft(draft, request.user).pk)
+        return Response({'approved': len(structure_ids), 'ready_models': ready_models(structure_ids)})
+
+
+class DiscardDraftView(APIView):
+    """POST /api/anatomy/admin/drafts/<id>/discard/"""
+
+    permission_classes = [IsAdminRole]
+
+    def post(self, request, pk):
+        draft = get_object_or_404(StructureDraft, pk=pk)
+        draft.status = StructureDraft.Status.DISCARDED
+        draft.reviewed_by = request.user
+        draft.reviewed_at = timezone.now()
+        draft.save(update_fields=['status', 'reviewed_by', 'reviewed_at', 'updated_at'])
+        return Response({'discarded': 1})

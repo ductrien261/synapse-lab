@@ -14,7 +14,7 @@ from django.db import close_old_connections
 from django.db.models import F
 from django.utils import timezone
 
-from ..models import AnatomyModel, AnatomyToolCollection, BodySystem, ImportJob
+from ..models import AnatomyModel, AnatomyToolCollection, BodySystem, ImportJob, Structure, StructureDraft
 from .anatomytool import (
     COLLECTIONS_URL,
     AnatomyToolError,
@@ -24,6 +24,7 @@ from .anatomytool import (
     parse_collections_index,
     parse_item_page,
 )
+from .drafting import draft_structure
 from .importer import import_model
 from .sketchfab import SketchfabError, parse_uid
 
@@ -244,9 +245,35 @@ def _import_item_or_nested(job: ImportJob, item: CollectionItem, system: BodySys
     _log(job, f'Bỏ qua (không có mô hình Sketchfab): {page.title}')
 
 
+def _run_ai_draft(job: ImportJob):
+    """AI viết nháp cho danh sách cấu trúc (1 lần gọi LLM / cấu trúc có tài liệu)."""
+    ids = job.params.get('structure_ids', [])
+    job.total = len(ids)
+    job.save(update_fields=['total'])
+    _log(job, f'AI viết nháp cho {len(ids)} bộ phận (chỉ dựa trên kho tài liệu).')
+    tokens = 0
+    for structure in Structure.objects.filter(pk__in=ids).order_by('name_en'):
+        if _cancelled(job):
+            return
+        draft = draft_structure(structure, job.created_by)
+        tokens += draft.prompt_tokens + draft.completion_tokens
+        name = structure.name_vi or structure.name_en
+        if draft.status == StructureDraft.Status.PENDING:
+            _bump(job, processed=1, created_count=1)
+            _log(job, f'{name}: đã có bản nháp ({len(draft.citations)} nguồn).', 'success')
+        elif draft.status == StructureDraft.Status.NO_SOURCE:
+            _bump(job, processed=1, skipped_count=1)
+            _log(job, f'{name}: kho chưa có tài liệu → bỏ qua (không tốn AI).', 'warning')
+        else:
+            _bump(job, processed=1, failed_count=1)
+            _log(job, f'{name}: lỗi — {draft.error}', 'error')
+    _log(job, f'Tổng token AI đã dùng: {tokens:,}.'.replace(',', '.'))
+
+
 RUNNERS = {
     ImportJob.Kind.SCAN_INDEX: _run_scan_index,
     ImportJob.Kind.IMPORT: _run_import,
+    ImportJob.Kind.AI_DRAFT: _run_ai_draft,
 }
 
 

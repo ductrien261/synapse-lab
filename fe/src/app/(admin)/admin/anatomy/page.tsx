@@ -1,7 +1,8 @@
 'use client';
 
+import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
-import { CloudDownload, Grid3x3GapFill } from 'react-bootstrap-icons';
+import { CloudDownload, Grid3x3GapFill, LightningChargeFill } from 'react-bootstrap-icons';
 import { AdminPageHeader } from '@/components/admin/AdminPageHeader';
 import { ModelsTable } from '@/components/admin/anatomy/ModelsTable';
 import { ImportPanel } from '@/components/admin/anatomy/ImportPanel';
@@ -34,6 +35,17 @@ export default function AdminAnatomyPage() {
       <AdminPageHeader
         title="Giải phẫu"
         description="Nhập mô hình 3D từ AnatomyTOOL / Sketchfab, soạn nội dung tiếng Việt và xuất bản cho học viên."
+        actions={
+          <Link
+            href="/admin/anatomy/review"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-sm font-bold"
+          >
+            <LightningChargeFill className="w-4 h-4" /> Duyệt nhanh
+            {stats && stats.drafts.pending > 0 && (
+              <span className="ml-0.5 px-1.5 py-0.5 rounded-md bg-white/20 text-xs tabular-nums">{stats.drafts.pending}</span>
+            )}
+          </Link>
+        }
       />
 
       <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">

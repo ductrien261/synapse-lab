@@ -36,9 +36,13 @@ export interface AnatomyModelSummary {
 
 export interface StructureReference {
   id: number;
+  order: number;
   document: string;
   document_title: string;
   citation: string;
+  license_name: string;
+  heading: string;
+  url: string;
   page_start: number | null;
   page_end: number | null;
   excerpt: string;

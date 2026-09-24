@@ -135,15 +135,63 @@ class StructureReference(models.Model):
     chunk = models.ForeignKey('knowledge.DocumentChunk', null=True, blank=True, on_delete=models.SET_NULL, related_name='+')
     page_start = models.PositiveIntegerField(null=True, blank=True)
     page_end = models.PositiveIntegerField(null=True, blank=True)
+    heading = models.CharField('Mục trong tài liệu', max_length=500, blank=True)
+    url = models.URLField('Link trích dẫn', max_length=600, blank=True)
     excerpt = models.TextField('Đoạn trích', blank=True)
+    order = models.PositiveSmallIntegerField(default=0)
 
     class Meta:
-        ordering = ['structure', 'page_start']
+        ordering = ['structure', 'order', 'page_start']
         verbose_name = 'Trích dẫn giáo trình'
         verbose_name_plural = 'Trích dẫn giáo trình'
 
     def __str__(self):
         return f'{self.structure} → {self.document} tr.{self.page_start or "?"}'
+
+
+class StructureDraft(models.Model):
+    """
+    Bản nháp nội dung do AI viết từ kho tri thức, chờ admin duyệt.
+    Không ghi đè nội dung Structure cho tới khi admin bấm Duyệt.
+    Mỗi cấu trúc giữ 1 bản nháp mới nhất (viết lại = thay bản cũ).
+    """
+
+    class Status(models.TextChoices):
+        PENDING = 'pending', 'Chờ duyệt'
+        APPLIED = 'applied', 'Đã duyệt'
+        DISCARDED = 'discarded', 'Đã bỏ'
+        NO_SOURCE = 'no_source', 'Kho chưa có tài liệu'
+        FAILED = 'failed', 'Lỗi'
+
+    structure = models.OneToOneField(Structure, on_delete=models.CASCADE, related_name='draft')
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING, db_index=True)
+
+    name_vi = models.CharField(max_length=200, blank=True)
+    definition = models.TextField(blank=True)
+    function = models.TextField(blank=True)
+    clinical_note = models.TextField(blank=True)
+    # [{n, chunk_id, document_id, document_title, heading, url, page_label, excerpt}]
+    citations = models.JSONField(default=list, blank=True)
+
+    query = models.CharField(max_length=300, blank=True)
+    llm_model = models.CharField(max_length=100, blank=True)
+    prompt_tokens = models.PositiveIntegerField(default=0)
+    completion_tokens = models.PositiveIntegerField(default=0)
+    error = models.TextField(blank=True)
+
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name='+')
+    reviewed_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name='+')
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['structure__name_en']
+        verbose_name = 'Bản nháp AI'
+        verbose_name_plural = 'Bản nháp AI'
+
+    def __str__(self):
+        return f'{self.structure} · {self.get_status_display()}'
 
 
 # ------------------------------------------------------------
@@ -176,6 +224,7 @@ class ImportJob(models.Model):
     class Kind(models.TextChoices):
         SCAN_INDEX = 'scan_index', 'Quét danh mục'
         IMPORT = 'import', 'Nhập mô hình'
+        AI_DRAFT = 'ai_draft', 'AI viết nháp'
 
     class Status(models.TextChoices):
         QUEUED = 'queued', 'Chờ chạy'

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ArrowClockwise,
   ArrowLeft,
@@ -11,17 +11,26 @@ import {
   EyeFill,
   EyeSlashFill,
   InfoCircle,
+  LightningChargeFill,
   Rocket,
+  Stars,
 } from 'react-bootstrap-icons';
 import {
   adminAnatomyApi,
+  ANATOMY_JOB_API,
+  ANATOMY_JOB_KINDS,
+  isJobActive,
   type AdminAnnotation,
   type AdminModelDetail,
   type AdminStructure,
+  type ImportJob,
+  type StructureDraft,
 } from '@/lib/admin-anatomy';
 import { modelTitle, useBodySystems } from '@/lib/anatomy-catalog';
 import { useSketchfabViewer } from '@/lib/sketchfab';
 import { StructureForm } from '@/components/admin/anatomy/StructureForm';
+import { AiDraftPanel } from '@/components/admin/anatomy/AiDraftPanel';
+import { JobProgress } from '@/components/admin/JobProgress';
 
 export default function AdminModelEditorPage() {
   const { uid } = useParams<{ uid: string }>();
@@ -59,6 +68,7 @@ export default function AdminModelEditorPage() {
 
 function dotClass(a: AdminAnnotation) {
   const s = a.structure;
+  if (s?.draft?.status === 'pending') return 'bg-violet-500';
   if (s?.status === 'published') return 'bg-emerald-500';
   if (s && (s.definition || s.function || s.clinical_note)) return 'bg-[#5B8FD8]';
   return 'bg-stone-300';
@@ -74,6 +84,54 @@ function Editor({ initial }: { initial: AdminModelDetail }) {
   const [publishOpen, setPublishOpen] = useState(false);
   const [approve, setApprove] = useState(true);
   const [publishMsg, setPublishMsg] = useState('');
+  const [formVersion, setFormVersion] = useState(0);
+  const [aiJob, setAiJobState] = useState<ImportJob | null>(null);
+  const [aiError, setAiError] = useState('');
+  const aiJobRef = useRef<ImportJob | null>(null);
+
+  const reloadModel = useCallback(
+    () =>
+      adminAnatomyApi
+        .model(model.sketchfab_uid)
+        .then(setModel)
+        .catch(() => undefined),
+    [model.sketchfab_uid],
+  );
+
+  const onAiJobChange = useCallback(
+    (next: ImportJob) => {
+      const wasActive = isJobActive(aiJobRef.current);
+      aiJobRef.current = next;
+      setAiJobState(next);
+      if (wasActive && !isJobActive(next)) void reloadModel();
+    },
+    [reloadModel],
+  );
+
+  const generateAll = async () => {
+    setAiError('');
+    try {
+      const job = await adminAnatomyApi.generateDrafts({ model_uid: model.sketchfab_uid });
+      aiJobRef.current = job;
+      setAiJobState(job);
+    } catch (err) {
+      setAiError(err instanceof Error ? err.message : 'Không bắt đầu được');
+    }
+  };
+
+  const onDraftChange = (structureId: number, draft: StructureDraft | null) =>
+    setModel((m) => ({
+      ...m,
+      annotations: m.annotations.map((a) =>
+        a.structure?.id === structureId
+          ? { ...a, structure: { ...a.structure, draft: draft ? { id: draft.id, status: draft.status, error: draft.error } : null } }
+          : a,
+      ),
+    }));
+
+  const onDraftApplied = () => {
+    void reloadModel().then(() => setFormVersion((v) => v + 1));
+  };
 
   const sync = (list = viewerAnnotations) => {
     setSyncState({ running: true, message: '' });
@@ -141,6 +199,12 @@ function Editor({ initial }: { initial: AdminModelDetail }) {
   const current = selected !== null ? model.annotations.find((a) => a.index === selected) ?? null : null;
   const filled = model.annotations.filter((a) => a.structure && (a.structure.definition || a.structure.function)).length;
   const latin = model.source_meta?.structures_latin ?? [];
+  const currentStructureId = current?.structure?.id ?? 0;
+  const structures = model.annotations.filter((a) => a.structure).map((a) => a.structure as AdminStructure);
+  const emptyCount = new Set(
+    structures.filter((s) => !s.definition && !s.function && s.draft?.status !== 'pending').map((s) => s.id),
+  ).size;
+  const pendingCount = new Set(structures.filter((s) => s.draft?.status === 'pending').map((s) => s.id)).size;
 
   return (
     <>
@@ -302,6 +366,36 @@ function Editor({ initial }: { initial: AdminModelDetail }) {
         </section>
       </div>
 
+      {/* AI viết nháp hàng loạt */}
+      {structures.length > 0 && (
+        <section className="flex flex-col gap-3">
+          <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-violet-200 bg-gradient-to-r from-violet-50 to-white px-4 py-3">
+            <Stars className="w-5 h-5 text-violet-600" />
+            <div className="flex-1 min-w-[220px] text-sm text-stone-700">
+              <b>AI viết nháp</b> từ kho tài liệu, mỗi ý kèm trích dẫn. Bộ phận không có tài liệu sẽ được bỏ qua (không tốn lượt AI).
+            </div>
+            <button
+              type="button"
+              disabled={emptyCount === 0 || isJobActive(aiJob)}
+              onClick={() => void generateAll()}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-sm font-bold disabled:opacity-50 cursor-pointer"
+            >
+              <Stars className="w-4 h-4" /> Viết nháp cho {emptyCount} bộ phận chưa có nội dung
+            </button>
+            {pendingCount > 0 && (
+              <Link
+                href={`/admin/anatomy/review?model=${model.sketchfab_uid}`}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-violet-300 bg-white text-sm font-bold text-violet-700 hover:bg-violet-50"
+              >
+                <LightningChargeFill className="w-4 h-4" /> Duyệt nhanh ({pendingCount})
+              </Link>
+            )}
+          </div>
+          {aiError && <div className="rounded-xl bg-rose-50 text-rose-700 text-sm px-4 py-2.5">{aiError}</div>}
+          <JobProgress job={aiJob} onChange={onAiJobChange} api={ANATOMY_JOB_API} kindLabels={ANATOMY_JOB_KINDS} createdLabel="bản nháp" />
+        </section>
+      )}
+
       {/* Danh sách bộ phận + form soạn */}
       <div className="grid gap-5 lg:grid-cols-[300px_minmax(0,1fr)] items-start">
         <section className="bg-white rounded-2xl border border-stone-200/90 overflow-hidden">
@@ -349,6 +443,7 @@ function Editor({ initial }: { initial: AdminModelDetail }) {
             </ul>
           )}
           <div className="flex flex-wrap gap-3 px-4 py-2.5 border-t border-stone-100 text-[11px] text-stone-500">
+            <Legend color="bg-violet-500" label="Có nháp AI" />
             <Legend color="bg-emerald-500" label="Đã duyệt" />
             <Legend color="bg-[#5B8FD8]" label="Đã soạn (nháp)" />
             <Legend color="bg-stone-300" label="Chưa có" />
@@ -371,8 +466,16 @@ function Editor({ initial }: { initial: AdminModelDetail }) {
                   <p className="text-xs text-stone-500">Tên trên Sketchfab</p>
                 </div>
               </div>
+              <div className="mb-4">
+                <AiDraftPanel
+                  key={current.structure.id}
+                  structure={current.structure}
+                  onApplied={onDraftApplied}
+                  onDraftChange={(d) => onDraftChange(currentStructureId, d)}
+                />
+              </div>
               <StructureForm
-                key={current.structure.id}
+                key={`${current.structure.id}-${formVersion}`}
                 annotation={current as AdminAnnotation & { structure: AdminStructure }}
                 latinSuggestions={latin}
                 onSaved={onStructureSaved}

@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import AnatomyModel, AnatomyToolCollection, BodySystem, ImportJob, ModelAnnotation, Structure, StructureReference
+from .models import AnatomyModel, AnatomyToolCollection, BodySystem, ImportJob, ModelAnnotation, Structure, StructureDraft, StructureReference
 
 
 @admin.register(BodySystem)
@@ -46,3 +46,11 @@ class AnatomyToolCollectionAdmin(admin.ModelAdmin):
 class ImportJobAdmin(admin.ModelAdmin):
     list_display = ('kind', 'status', 'processed', 'total', 'created_count', 'failed_count', 'created_at')
     list_filter = ('kind', 'status')
+
+
+@admin.register(StructureDraft)
+class StructureDraftAdmin(admin.ModelAdmin):
+    list_display = ('structure', 'status', 'llm_model', 'prompt_tokens', 'updated_at')
+    list_filter = ('status',)
+    search_fields = ('structure__name_en', 'name_vi')
+    raw_id_fields = ('structure',)
