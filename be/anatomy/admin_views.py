@@ -10,8 +10,7 @@ from rest_framework.views import APIView
 from core.models import ContentStatus
 from users.permissions import IsAdminRole
 
-from core import llm
-from knowledge.services import embeddings
+from ai_gateway.services import ai_health
 
 from .models import AnatomyModel, AnatomyToolCollection, BodySystem, ImportJob, Structure, StructureDraft
 from .serializers import (
@@ -286,10 +285,13 @@ class AnatomyStatsView(APIView):
 # ------------------------------------------------------------
 
 def _ai_not_ready():
-    if not llm.is_configured():
-        return Response({'detail': 'Chưa cấu hình GROQ_API_KEY nên AI chưa viết được.'}, status=status.HTTP_400_BAD_REQUEST)
-    if not embeddings.is_configured():
-        return Response({'detail': 'Chưa cấu hình GEMINI_API_KEY nên chưa tìm được trong kho tài liệu.'}, status=status.HTTP_400_BAD_REQUEST)
+    health = ai_health()
+    if health is None:
+        return Response({'detail': 'Service AI chưa chạy (docker compose up -d ai).'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+    if not health.get('llm'):
+        return Response({'detail': 'Service AI chưa có GROQ_API_KEY nên chưa viết được.'}, status=status.HTTP_400_BAD_REQUEST)
+    if not health.get('embedding') or not health.get('knowledge_db'):
+        return Response({'detail': 'Service AI chưa có GEMINI_API_KEY / DATABASE_URL nên chưa tìm được trong kho.'}, status=status.HTTP_400_BAD_REQUEST)
     return None
 
 

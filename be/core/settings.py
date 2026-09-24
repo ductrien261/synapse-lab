@@ -48,7 +48,8 @@ INSTALLED_APPS = [
     'algorithms',    # nội dung giải thích thuật toán
     'learning',      # lịch sử học, chuỗi ngày học
     'classroom',     # lớp học (bạn B)
-    'translation',   # dịch tự động (Groq) + cache
+    'translation',   # dịch tự động (qua service AI) + cache
+    'ai_gateway',    # cổng gọi service AI: hạn mức, nhật ký, chi phí
 ]
 
 MIDDLEWARE = [
@@ -143,9 +144,9 @@ if S3_BUCKET:
         'staticfiles': {'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage'},
     }
 
-# Dịch tự động qua Groq (API tương thích OpenAI)
-GROQ_API_KEY = env('GROQ_API_KEY', default='')
-GROQ_MODEL = env('GROQ_MODEL', default='qwen/qwen3.8-27b')
+# Service AI (thư mục ai/ — FastAPI + LangGraph). Mọi lần gọi LLM đi qua service này.
+AI_SERVICE_URL = env('AI_SERVICE_URL', default='http://ai:8100')
+AI_SERVICE_TOKEN = env('AI_SERVICE_TOKEN', default='')
 
 # Embedding cho kho tri thức (Gemini, 768 chiều)
 GEMINI_API_KEY = env('GEMINI_API_KEY', default='')

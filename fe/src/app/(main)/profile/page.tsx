@@ -5,6 +5,7 @@ import { useUser, type CurrentUser, type ProfileUpdate } from '@/lib/user-contex
 import { getInitials } from '@/lib/format';
 import type { Track } from '@/lib/tracks';
 import { TrackOptions } from '@/components/dashboard/TrackPicker';
+import { TokenQuotaCard } from '@/components/ai/TokenQuotaCard';
 
 export default function ProfilePage() {
   const { user, updateMe } = useUser();
@@ -64,6 +65,9 @@ function ProfileForm({
           </span>
         </div>
       </section>
+
+      {/* Token AI */}
+      <TokenQuotaCard />
 
       {/* Họ tên */}
       <section className="bg-white rounded-3xl border border-stone-200/90 p-6">

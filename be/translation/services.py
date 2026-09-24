@@ -1,76 +1,21 @@
 """
-Dịch văn bản qua Groq (API tương thích OpenAI), có cache trong DB.
-
-Cấu hình trong .env:
-    GROQ_API_KEY=...
-    GROQ_MODEL=qwen/qwen3.8-27b
+Dịch văn bản cho người học (nút "Dịch"), có cache trong DB.
+- Có trong cache -> trả ngay, 0 token
+- Chưa có -> nhờ service AI dịch (tính vào hạn mức token/ngày của người dùng)
 """
 
-import re
-
-import requests
-from django.conf import settings
+from ai_gateway.services import AIError, call_ai, record_cached
 
 from .models import Translation, text_hash
 
-GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions'
 MAX_CHARS = 6000
 
-LANG_NAMES = {'vi': 'tiếng Việt', 'en': 'English'}
 
-SYSTEM_PROMPT = (
-    'Bạn là công cụ dịch thuật chuyên ngành y khoa. Dịch đoạn văn người dùng gửi sang {lang}. '
-    'Quy tắc: chỉ trả về bản dịch, không giải thích, không thêm lời chào; '
-    'giữ nguyên xuống dòng và danh sách; với thuật ngữ giải phẫu quan trọng, '
-    'ghi thuật ngữ gốc tiếng Anh trong ngoặc ở lần xuất hiện đầu tiên, ví dụ "tâm thất trái (left ventricle)".'
-)
-
-THINK_RE = re.compile(r'<think>.*?</think>', re.DOTALL)
-
-
-class TranslationError(Exception):
+class TranslationError(AIError):
     pass
 
 
-class TranslationNotConfigured(TranslationError):
-    pass
-
-
-def _call_groq(text: str, target_lang: str, system: str | None = None) -> str:
-    api_key = getattr(settings, 'GROQ_API_KEY', '')
-    if not api_key:
-        raise TranslationNotConfigured('Chưa cấu hình dịch tự động (thiếu GROQ_API_KEY).')
-
-    payload = {
-        'model': settings.GROQ_MODEL,
-        'temperature': 0.2,
-        'messages': [
-            {'role': 'system', 'content': system or SYSTEM_PROMPT.format(lang=LANG_NAMES.get(target_lang, target_lang))},
-            {'role': 'user', 'content': text},
-        ],
-        # Model Qwen có chế độ "suy nghĩ": ẩn phần đó đi, chỉ lấy câu trả lời
-        'reasoning_format': 'hidden',
-    }
-    try:
-        res = requests.post(
-            GROQ_URL,
-            json=payload,
-            headers={'Authorization': f'Bearer {api_key}'},
-            timeout=45,
-        )
-    except requests.RequestException as exc:
-        raise TranslationError('Không kết nối được dịch vụ dịch.') from exc
-
-    if res.status_code == 429:
-        raise TranslationError('Dịch vụ dịch đang quá tải, thử lại sau ít phút.')
-    if not res.ok:
-        raise TranslationError(f'Dịch vụ dịch trả lỗi {res.status_code}.')
-
-    content = res.json()['choices'][0]['message']['content'] or ''
-    return THINK_RE.sub('', content).strip()
-
-
-def translate(text: str, target_lang: str = 'vi') -> tuple[str, bool]:
+def translate(text: str, target_lang: str = 'vi', user=None) -> tuple[str, bool]:
     """Trả về (bản dịch, lấy_từ_cache)."""
     text = (text or '').strip()
     if not text:
@@ -82,54 +27,17 @@ def translate(text: str, target_lang: str = 'vi') -> tuple[str, bool]:
     cached = Translation.objects.filter(source_hash=key, target_lang=target_lang).first()
     if cached:
         Translation.objects.filter(pk=cached.pk).update(hit_count=cached.hit_count + 1)
+        record_cached(user, 'translate')
         return cached.translated_text, True
 
-    translated = _call_groq(text, target_lang)
+    data = call_ai('/v1/translate', {'text': text, 'target': target_lang}, user=user, feature='translate')
+    translated = (data.get('text') or '').strip()
     if not translated:
         raise TranslationError('Không nhận được bản dịch.')
+    models = [s.get('model', '') for s in data.get('meta', {}).get('usage', []) if s.get('kind') == 'chat']
     Translation.objects.get_or_create(
         source_hash=key,
         target_lang=target_lang,
-        defaults={
-            'source_text': text,
-            'translated_text': translated,
-            'provider': 'groq',
-            'model': settings.GROQ_MODEL,
-        },
+        defaults={'source_text': text, 'translated_text': translated, 'provider': 'ai-service', 'model': (models or [''])[0][:100]},
     )
     return translated, False
-
-
-# ------------------------------------------------------------
-# Dịch câu hỏi tìm kiếm Việt -> Anh (kho tri thức tiếng Anh)
-# ------------------------------------------------------------
-
-QUERY_LANG = 'en-query'  # khóa cache riêng, không lẫn với nút "Dịch"
-QUERY_PROMPT = (
-    'Translate this Vietnamese anatomy/medicine or computer-science question into concise English, '
-    'using standard textbook terminology. Return only the translation.'
-)
-
-
-def translate_query_to_english(text: str) -> str | None:
-    """Trả về câu tiếng Anh (có cache); None nếu chưa cấu hình / lỗi -> nơi gọi tự dùng câu gốc."""
-    text = (text or '').strip()
-    if not text or len(text) > 500:
-        return None
-    key = text_hash(text)
-    cached = Translation.objects.filter(source_hash=key, target_lang=QUERY_LANG).first()
-    if cached:
-        Translation.objects.filter(pk=cached.pk).update(hit_count=cached.hit_count + 1)
-        return cached.translated_text
-    try:
-        translated = _call_groq(text, 'en', system=QUERY_PROMPT)
-    except TranslationError:
-        return None
-    if not translated:
-        return None
-    Translation.objects.get_or_create(
-        source_hash=key,
-        target_lang=QUERY_LANG,
-        defaults={'source_text': text, 'translated_text': translated, 'provider': 'groq', 'model': settings.GROQ_MODEL},
-    )
-    return translated

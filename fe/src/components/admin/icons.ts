@@ -9,4 +9,5 @@ export {
   HeartPulseFill,
   PeopleFill,
   PersonBadgeFill,
+  Robot,
 } from 'react-bootstrap-icons';

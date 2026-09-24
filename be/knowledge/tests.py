@@ -1,4 +1,4 @@
-"""Kiểm thử phần xử lý không cần mạng/DB: đọc mục lục, tách mục, chia đoạn, câu tìm từ khóa."""
+"""Kiểm thử phần xử lý không cần mạng/DB: đọc mục lục, tách mục, chia đoạn. (Tìm kiếm: xem ai/tests)"""
 
 import json
 
@@ -6,7 +6,6 @@ from django.test import SimpleTestCase
 
 from .services import openstax
 from .services.chunking import Section, chunk_sections, contextual_text
-from .services.search import VI_CHARS, keyword_query, keyword_terms
 
 TREE = {
     'id': 'book', 'slug': 'demo-book', 'title': 'Demo Book',
@@ -99,13 +98,3 @@ class ChunkingTests(SimpleTestCase):
 
     def test_contextual_text(self):
         self.assertEqual(contextual_text('Book', 'Ch › Sec', 'Body'), 'Book › Ch › Sec\nBody')
-
-
-class SearchHelperTests(SimpleTestCase):
-    def test_keyword_query_or_terms(self):
-        self.assertEqual(keyword_terms("What is the left ventricle? left! a"), 'what | is | the | left | ventricle')
-        self.assertIsNone(keyword_query('? !'))
-
-    def test_vietnamese_detection(self):
-        self.assertTrue(VI_CHARS.search('Tâm thất trái có chức năng gì?'))
-        self.assertIsNone(VI_CHARS.search('What is the left ventricle?'))

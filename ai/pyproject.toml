@@ -1,0 +1,28 @@
+[project]
+name = "synapse-ai"
+version = "0.1.0"
+description = "SYNAPSE-LAB AI service: LangGraph workflows (tutor, quiz, grading, drafting) grounded on the knowledge base"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.115",
+    "langchain>=1.0",
+    "langchain-core>=0.3",
+    "langchain-openai>=0.2",
+    "langfuse>=3,<4",
+    "langgraph>=0.2",
+    "psycopg-pool>=3.2",
+    "psycopg[binary]>=3.2",
+    "pydantic-settings>=2.4",
+    "redis>=5",
+    "requests>=2.31",
+    "uvicorn[standard]>=0.30",
+]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "pytest>=9.1.1",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

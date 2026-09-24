@@ -14,6 +14,7 @@ import {
   HeartPulseFill,
   PeopleFill,
   PersonBadgeFill,
+  Robot,
 } from './icons';
 
 type Icon = ComponentType<{ className?: string }>;
@@ -47,7 +48,10 @@ const GROUPS: { title: string; items: Item[] }[] = [
   },
   {
     title: 'Hệ thống',
-    items: [{ href: '/admin/system', label: 'Tình trạng hệ thống', icon: ActivityIcon }],
+    items: [
+      { href: '/admin/ai', label: 'AI & Chi phí', icon: Robot },
+      { href: '/admin/system', label: 'Tình trạng hệ thống', icon: ActivityIcon },
+    ],
   },
 ];
 

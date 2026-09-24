@@ -37,8 +37,8 @@ services:
       DATABASE_URL: ${DATABASE_URL}
       REDIS_URL: redis://redis:6379/0
       GEMINI_API_KEY: ${GEMINI_API_KEY}
-      GROQ_API_KEY: ${GROQ_API_KEY:-}
-      GROQ_MODEL: ${GROQ_MODEL:-qwen/qwen3.8-27b}
+      AI_SERVICE_URL: http://ai:8100
+      AI_SERVICE_TOKEN: ${AI_SERVICE_TOKEN:-dev-ai-token}
       ADMIN_LOGIN_EMAIL: ${ADMIN_LOGIN_EMAIL:-}
       ALGO_SERVER_URL: http://algo-server:8080/api
       S3_BUCKET: ${S3_BUCKET:-}
@@ -46,6 +46,29 @@ services:
       S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-}
       S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-}
       S3_REGION: ${S3_REGION:-auto}
+    depends_on:
+      - redis
+      - ai
+
+  # Service AI: FastAPI + LangGraph (thư mục ai/). Chỉ be gọi vào.
+  ai:
+    build:
+      context: ./ai
+    working_dir: /app
+    ports:
+      - "8100:8100"
+    volumes:
+      - ./ai:/app
+    environment:
+      AI_SERVICE_TOKEN: ${AI_SERVICE_TOKEN:-dev-ai-token}
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: redis://redis:6379/1
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GROQ_MODEL: ${GROQ_MODEL:-qwen/qwen3.8-27b}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
+      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
+      LANGFUSE_HOST: ${LANGFUSE_HOST:-https://cloud.langfuse.com}
     depends_on:
       - redis
 

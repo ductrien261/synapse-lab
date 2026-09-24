@@ -24,18 +24,27 @@ Sinh viên **CNTT** học thuật toán qua mô phỏng từng bước; sinh vi�
         ┌──────────────────┐   ┌──────────────────────────┐
         │ be/ Django :8000 │   │ packages/algo-viz/server │
         │ DRF + SimpleJWT  │   │ Node.js :8080            │
-        └──┬─────────┬─────┘   │ đọc packages/algo-viz/   │
-           │         │         │ algorithms/              │
-           ▼         ▼         └──────────────────────────┘
-   Neon Postgres   Redis :6379
+        └──┬──────┬─────┬──┘   └──────────────────────────┘
+           │      │     │ HTTP nội bộ (X-Internal-Token)
+           │      │     ▼
+           │      │   ┌──────────────────────────────┐
+           │      │   │ ai/ FastAPI :8100            │──► Groq (LLM), Gemini (embedding)
+           │      │   │ LangChain + LangGraph        │──► Langfuse (trace, tùy chọn)
+           │      │   └───┬──────────────────┬───────┘
+           ▼      ▼       ▼ (chỉ đọc kho)    ▼
+   Neon Postgres   Redis :6379 (cache)
    (+ pgvector)
 ```
+
+- `be` là **cổng**: đăng nhập, hạn mức token/ngày, ghi nhật ký + chi phí mọi lần gọi AI, lưu dữ liệu.
+- `ai` là **bộ não**: các quy trình LangGraph (viết nháp, gia sư, ra đề, chấm bài...). Chỉ `be` gọi vào, `ai` không ghi CSDL.
 
 | Thành phần | Công nghệ |
 |---|---|
 | Frontend | Next.js 16, React 19, TypeScript, Tailwind CSS 4, react-bootstrap-icons |
 | Backend | Django 5, Django REST Framework, SimpleJWT, drf-spectacular (Swagger) |
 | Thuật toán | algorithm-visualizer (server + tracers + kho thuật toán), đã tách khỏi dịch vụ gốc |
+| AI | FastAPI, LangChain, LangGraph, Langfuse; Groq (LLM), Gemini (embedding) |
 | Cơ sở dữ liệu | Neon Postgres (Singapore) + pgvector |
 | Cache / hàng đợi | Redis |
 | AI | Gemini + LangChain / LangGraph, Docling để đọc tài liệu |
@@ -64,8 +73,10 @@ Mở `.env` và điền:
 
 - `DATABASE_URL` — **nhắn leader** để được cấp một Neon branch riêng (xem [Làm việc với database](#làm-việc-với-database)).
 - `S3_*` — Neon Object Storage để lưu giáo trình PDF (Neon Console → Object storage → Connect). Để trống thì file lưu local trong `be/media/`.
-- `GROQ_API_KEY` — cho nút Dịch, tạo miễn phí tại <https://console.groq.com/keys>.
-- `GEMINI_API_KEY` — tạo miễn phí tại <https://aistudio.google.com/apikey>. Chưa làm phần AI thì để trống cũng được.
+- `GROQ_API_KEY` — LLM cho service AI (dịch, viết nháp, gia sư...), tạo miễn phí tại <https://console.groq.com/keys>.
+- `GEMINI_API_KEY` — embedding cho kho giáo trình, tạo miễn phí tại <https://aistudio.google.com/apikey>.
+- `AI_SERVICE_TOKEN` — chuỗi bí mật bất kỳ để `be` gọi service `ai`.
+- `LANGFUSE_*` — (tùy chọn) xem trace từng bước AI trên <https://cloud.langfuse.com>.
 
 > ⚠️ `.env` chứa key thật, **không bao giờ commit** file này (đã có trong `.gitignore`).
 
@@ -147,10 +158,12 @@ cd fe && npm install && cd ..          # cập nhật node_modules trên máy ch
 
 ```
 synapse-lab/
+├── ai/                         Service AI (FastAPI + LangGraph) — xem ai/README.md
 ├── be/                         Django backend
 │   ├── core/                   settings, urls gốc, model dùng chung, lệnh init_data
 │   ├── users/                  tài khoản, đăng nhập, phân quyền
 │   ├── knowledge/              tài liệu, giáo trình, đoạn trích + vector (RAG)
+│   ├── ai_gateway/             cổng gọi service AI: hạn mức, nhật ký, chi phí
 │   ├── anatomy/                hệ cơ quan, mô hình 3D, chú thích, cấu trúc giải phẫu
 │   ├── algorithms/             danh mục + phần giải thích thuật toán
 │   ├── learning/               lịch sử học, chuỗi ngày học

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Translate } from 'react-bootstrap-icons';
 import { translateApi } from '@/lib/api';
+import { refreshAiQuota } from '@/lib/ai';
 
 // Bản dịch đã lấy trong phiên này (tránh gọi lại khi bấm qua lại)
 const sessionCache = new Map<string, string>();
@@ -28,6 +29,7 @@ export function TranslatableText({ text, className = '' }: { text: string; class
     try {
       const { translated: result } = await translateApi.translate(text, 'vi');
       sessionCache.set(text, result);
+      refreshAiQuota();
       setTranslated(result);
       setShowVi(true);
     } catch (err) {

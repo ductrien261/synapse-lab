@@ -1,79 +1,26 @@
 """
-AI viết nháp nội dung cho một cấu trúc giải phẫu, CHỈ dựa trên kho tri thức:
-    1. Tìm lai (hybrid) các đoạn liên quan trong tài liệu Y khoa        -> không tốn LLM
-    2. Không có đoạn nào nhắc tới cấu trúc -> dừng, báo "kho chưa có"   -> không tốn LLM
-    3. Gọi LLM 1 lần: viết tên VI, định nghĩa, chức năng, lâm sàng, mỗi ý kèm [n]
-    4. Lưu thành StructureDraft (chờ admin duyệt), không ghi đè nội dung đang có
+AI viết nháp nội dung cho một cấu trúc giải phẫu.
+Quy trình (tìm giáo trình -> viết -> kiểm chứng trích dẫn -> viết lại nếu cần) chạy ở service AI
+(ai/app/graphs/draft.py). Ở đây chỉ: chuẩn bị bảng thuật ngữ đã duyệt, gọi service, lưu bản nháp.
 """
-
-import re
 
 from django.db.models import Q
 from django.utils import timezone
 
-from core import llm
+from ai_gateway.services import AIError, call_ai
 from core.models import ContentStatus
-from knowledge.services.embeddings import EmbeddingError
-from knowledge.services.search import SearchHit, citation, hybrid_search
 
 from ..models import Structure, StructureDraft
 
-MAX_SOURCES = 6
-EXCERPT_CHARS = 1500
-CITE_RE = re.compile(r'\[(\d{1,2})\]')
 
-SYSTEM_PROMPT = """Bạn là trợ lý soạn giáo trình giải phẫu cho sinh viên y khoa Việt Nam.
-Quy tắc bắt buộc:
-- CHỈ dùng thông tin có trong các đoạn trích được cung cấp. Không thêm kiến thức bên ngoài, không suy đoán.
-- Viết tiếng Việt chuẩn thuật ngữ y khoa; ở lần đầu nhắc thuật ngữ quan trọng, ghi thuật ngữ tiếng Anh trong ngoặc.
-- Mỗi câu phải kết thúc bằng số trích dẫn của đoạn làm căn cứ, dạng [1] hoặc [1][3].
-- Mục nào đoạn trích không đề cập thì để chuỗi rỗng "".
-- Ưu tiên dùng đúng bảng thuật ngữ nếu có. Lưu ý: ventricle = tâm thất (thất), atrium = tâm nhĩ (nhĩ),
-  sinus = xoang, cusp/leaflet = lá van, chordae tendineae = thừng gân, papillary muscle = cơ nhú,
-  trabeculae carneae = bè cơ, septum = vách.
-Trả về DUY NHẤT một object JSON với các khóa:
-{"name_vi": "...", "definition": "2-4 câu: là gì, nằm ở đâu, cấu tạo", "function": "2-4 câu: chức năng",
- "clinical_note": "1-2 câu liên hệ lâm sàng nếu đoạn trích có, không thì \\"\\"", "used_sources": [1, 2]}"""
-
-
-def _terms(structure: Structure) -> list[str]:
-    terms = set()
-    for name in (structure.name_en, structure.latin_name):
-        name = re.sub(r'\(.*?\)', '', name or '').strip().lower()
-        if len(name) >= 3:
-            terms.add(name)
-            if name.endswith('s') and len(name) > 4:
-                terms.add(name[:-1])
-    return sorted(terms)
-
-
-def _mentions(hit: SearchHit, terms: list[str]) -> bool:
-    text = f'{hit.chunk.heading} {hit.chunk.content}'.lower()
-    return any(t in text for t in terms)
-
-
-def _glossary(structure: Structure, text: str) -> list[str]:
-    """Thuật ngữ admin đã duyệt (name_en -> name_vi) có xuất hiện trong các đoạn trích."""
-    lowered = text.lower()
-    lines = []
-    if structure.name_vi:
-        lines.append(f'{structure.name_en} = {structure.name_vi}')
-    rows = (
-        Structure.objects.filter(status=ContentStatus.PUBLISHED)
+def _glossary(structure: Structure) -> list[list[str]]:
+    """Thuật ngữ admin đã duyệt (name_en -> name_vi); service AI tự lọc những từ có trong đoạn trích."""
+    return [
+        [en, vi]
+        for en, vi in Structure.objects.filter(status=ContentStatus.PUBLISHED)
         .exclude(Q(name_vi='') | Q(pk=structure.pk))
-        .values_list('name_en', 'name_vi')
-    )
-    for en, vi in rows:
-        if en.lower() in lowered:
-            lines.append(f'{en} = {vi}')
-        if len(lines) >= 40:
-            break
-    return lines
-
-
-def _clean_citations(text: str, allowed: set[int]) -> str:
-    """Bỏ số trích dẫn không tồn tại (AI đánh số sai)."""
-    return CITE_RE.sub(lambda m: m.group(0) if int(m.group(1)) in allowed else '', text or '').strip()
+        .values_list('name_en', 'name_vi')[:2000]
+    ]
 
 
 def _save(structure: Structure, user, **fields) -> StructureDraft:
@@ -88,78 +35,43 @@ def _save(structure: Structure, user, **fields) -> StructureDraft:
 
 
 def draft_structure(structure: Structure, user=None) -> StructureDraft:
-    terms = _terms(structure)
     query = ' '.join(dict.fromkeys([structure.name_en, structure.latin_name])).strip()
-
     try:
-        hits, _info = hybrid_search(query, k=MAX_SOURCES + 2, scope='med', per_section=2)
-    except EmbeddingError as exc:
+        data = call_ai(
+            '/v1/draft/structure',
+            {
+                'name_en': structure.name_en, 'latin_name': structure.latin_name, 'name_vi': structure.name_vi,
+                'glossary': _glossary(structure), 'scope': 'med',
+            },
+            user=user, feature='draft', count_quota=False, timeout=240,
+        )
+    except AIError as exc:
         return _save(structure, user, status=StructureDraft.Status.FAILED, query=query, error=str(exc))
 
-    relevant = [h for h in hits if _mentions(h, terms)]
-    if not relevant:
-        return _save(structure, user, status=StructureDraft.Status.NO_SOURCE, query=query,
-                     error='Không có đoạn nào trong kho nhắc tới cấu trúc này. Hãy nạp thêm chương liên quan.')
-    others = [h for h in hits if h not in relevant]
-    sources = (relevant + others)[:MAX_SOURCES]
-
-    excerpts = []
-    for n, h in enumerate(sources, start=1):
-        excerpts.append(f'[{n}] {h.chunk.document.title} — {h.chunk.heading}\n{h.chunk.content[:EXCERPT_CHARS]}')
-    joined = '\n\n'.join(excerpts)
-    glossary = _glossary(structure, joined)
-
-    prompt = (
-        f'Cấu trúc cần soạn: {structure.name_en}'
-        + (f' (Latin: {structure.latin_name})' if structure.latin_name else '')
-        + ('\n\nBảng thuật ngữ đã duyệt (dùng đúng các tên này):\n' + '\n'.join(glossary) if glossary else '')
-        + f'\n\nCác đoạn trích:\n\n{joined}'
-    )
-
-    try:
-        result = llm.complete(prompt, system=SYSTEM_PROMPT, json_mode=True)
-        data = llm.parse_json(result.text)
-    except llm.LLMError as exc:
-        return _save(structure, user, status=StructureDraft.Status.FAILED, query=query, error=str(exc))
-
-    allowed = set(range(1, len(sources) + 1))
-    fields = {k: _clean_citations(str(data.get(k) or ''), allowed) for k in ('definition', 'function', 'clinical_note')}
-    name_vi = str(data.get('name_vi') or '').strip()[:200]
-
-    used = {int(n) for n in CITE_RE.findall(' '.join(fields.values()))}
-    used |= {n for n in data.get('used_sources') or [] if isinstance(n, int) and n in allowed}
-    citations = [
-        {
-            'n': n,
-            'chunk_id': h.chunk.id,
-            'document_id': str(h.chunk.document_id),
-            'document_title': h.chunk.document.title,
-            'heading': h.chunk.heading,
-            'url': h.chunk.url,
-            'page_label': h.chunk.page_label,
-            'page_start': h.chunk.page_start,
-            'excerpt': h.chunk.content[:600],
-            'citation': citation(h.chunk),
-        }
-        for n, h in enumerate(sources, start=1)
-        if n in used
-    ]
-
-    if not any(fields.values()):
-        return _save(structure, user, status=StructureDraft.Status.NO_SOURCE, query=query,
-                     llm_model=result.model, prompt_tokens=result.prompt_tokens, completion_tokens=result.completion_tokens,
-                     error='AI không tìm thấy thông tin phù hợp trong các đoạn trích.')
-
-    return _save(
-        structure, user,
-        status=StructureDraft.Status.PENDING, name_vi=name_vi, citations=citations, query=query,
-        llm_model=result.model, prompt_tokens=result.prompt_tokens, completion_tokens=result.completion_tokens,
-        **fields,
-    )
+    usage = [s for s in data.get('meta', {}).get('usage', []) if s.get('kind') == 'chat']
+    tokens = {
+        'llm_model': (usage[-1].get('model', '') if usage else '')[:100],
+        'prompt_tokens': sum(int(s.get('input_tokens') or 0) for s in usage),
+        'completion_tokens': sum(int(s.get('output_tokens') or 0) for s in usage),
+    }
+    status = data.get('status')
+    if status == 'pending':
+        return _save(
+            structure, user, status=StructureDraft.Status.PENDING, query=query,
+            name_vi=(data.get('name_vi') or '')[:200], definition=data.get('definition', ''), function=data.get('function', ''),
+            clinical_note=data.get('clinical_note', ''), citations=data.get('citations', []),
+            error='\n'.join(data.get('warnings') or []), **tokens,
+        )
+    if status == 'no_source':
+        return _save(structure, user, status=StructureDraft.Status.NO_SOURCE, query=query, error=data.get('error', ''), **tokens)
+    return _save(structure, user, status=StructureDraft.Status.FAILED, query=query,
+                 error=data.get('error') or 'Service AI trả lỗi.', **tokens)
 
 
 def apply_draft(draft: StructureDraft, user, overrides: dict | None = None, publish: bool = True) -> Structure:
     """Admin duyệt: ghi nội dung (có thể đã sửa) vào Structure, lưu trích dẫn, đánh dấu đã duyệt."""
+    from knowledge.models import Document, DocumentChunk
+
     from ..models import StructureReference
 
     overrides = overrides or {}
@@ -175,8 +87,6 @@ def apply_draft(draft: StructureDraft, user, overrides: dict | None = None, publ
     structure.save()
 
     # Tài liệu / đoạn có thể đã bị xóa hoặc nạp lại (đổi id) sau khi viết nháp
-    from knowledge.models import Document, DocumentChunk
-
     doc_ids = {str(pk) for pk in Document.objects.filter(pk__in=[c.get('document_id') for c in draft.citations]).values_list('pk', flat=True)}
     chunk_ids = set(DocumentChunk.objects.filter(pk__in=[c.get('chunk_id') for c in draft.citations]).values_list('pk', flat=True))
 

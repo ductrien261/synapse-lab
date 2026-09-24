@@ -1,10 +1,12 @@
-from rest_framework import serializers, status
+from rest_framework import serializers
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.throttling import UserRateThrottle
 from rest_framework.views import APIView
 
-from .services import MAX_CHARS, TranslationError, TranslationNotConfigured, translate
+from ai_gateway.services import AIError
+
+from .services import MAX_CHARS, translate
 
 
 class TranslateThrottle(UserRateThrottle):
@@ -26,9 +28,7 @@ class TranslateView(APIView):
         body = TranslateRequest(data=request.data)
         body.is_valid(raise_exception=True)
         try:
-            translated, cached = translate(body.validated_data['text'], body.validated_data['target'])
-        except TranslationNotConfigured as exc:
-            return Response({'detail': str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
-        except TranslationError as exc:
-            return Response({'detail': str(exc)}, status=status.HTTP_502_BAD_GATEWAY)
+            translated, cached = translate(body.validated_data['text'], body.validated_data['target'], request.user)
+        except AIError as exc:  # hết hạn mức (429), service AI chưa chạy (503), lỗi khác (502)
+            return Response({'detail': str(exc)}, status=exc.status_code)
         return Response({'translated': translated, 'cached': cached})

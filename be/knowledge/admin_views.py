@@ -10,14 +10,13 @@ from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from ai_gateway.services import AIError, call_ai
 from users.permissions import IsAdminRole
 
 from .models import Document, DocumentChunk, IngestJob
 from .serializers import DocumentSerializer, IngestJobSerializer
 from .services import embeddings, openstax
-from .services.embeddings import EmbeddingError
 from .services.ingest import active_job, refresh_document_stats, start_job
-from .services.search import hybrid_search
 
 MAX_PDF_BYTES = 50 * 1024 * 1024
 BOOK_CACHE_SECONDS = 60 * 60
@@ -293,7 +292,8 @@ class SearchView(APIView):
         except ValueError:
             k = 5
         try:
-            hits, info = hybrid_search(q, k=k, scope=scope)
-        except EmbeddingError as exc:
-            return Response({'detail': str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
-        return Response({**info, 'results': [h.as_dict() for h in hits]})
+            data = call_ai('/v1/search', {'query': q, 'k': k, 'scope': scope}, user=request.user, feature='search', count_quota=False)
+        except AIError as exc:
+            return Response({'detail': str(exc)}, status=exc.status_code)
+        data.pop('meta', None)
+        return Response(data)
