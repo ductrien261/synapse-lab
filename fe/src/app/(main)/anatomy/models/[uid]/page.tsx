@@ -68,8 +68,8 @@ export default function AnatomyModelPage() {
   if (!model) {
     return (
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_380px]">
-        <div className="aspect-[4/3] lg:aspect-auto lg:h-[640px] rounded-3xl bg-stone-200/70 animate-pulse" />
-        <div className="h-[640px] rounded-3xl bg-stone-200/70 animate-pulse" />
+        <div className="aspect-4/3 lg:aspect-auto lg:h-160 rounded-3xl bg-stone-200/70 animate-pulse" />
+        <div className="h-160 rounded-3xl bg-stone-200/70 animate-pulse" />
       </div>
     );
   }
@@ -82,7 +82,7 @@ type TabKey = 'info' | 'notes' | 'quiz' | 'ai';
 const TABS: { key: TabKey; label: string; icon: ComponentType<{ className?: string }> }[] = [
   { key: 'info', label: 'Thông tin', icon: InfoCircle },
   { key: 'notes', label: 'Ghi chú', icon: JournalText },
-  { key: 'quiz', label: 'Tương tác', icon: Controller },
+  { key: 'quiz', label: 'Ôn tập', icon: Controller },
   { key: 'ai', label: 'Hỏi AI', icon: Robot },
 ];
 
@@ -93,7 +93,7 @@ function ModelViewer({ model }: { model: AnatomyModelDetail }) {
   const [quizActive, setQuizActive] = useState(false);
   const frameBox = useRef<HTMLDivElement>(null);
 
-  // Số thứ tự lấy theo Sketchfab; nội dung tiếng Việt lấy từ database (khớp theo index)
+  // Số thứ tự lấy theo Sketchfab; nội dung tiếng Việt lấy từ database
   const parts: PartItem[] = useMemo(() => {
     const fromDb = new Map(model.annotations.map((a) => [a.index, a]));
     const source =
@@ -142,7 +142,7 @@ function ModelViewer({ model }: { model: AnatomyModelDetail }) {
         <div className="flex flex-col gap-3 min-w-0">
           <div
             ref={frameBox}
-            className="relative rounded-3xl overflow-hidden bg-[#0B1224] aspect-[4/3] lg:aspect-auto lg:h-[600px] shadow-[0_8px_32px_rgba(15,34,88,0.15)]"
+            className="relative rounded-3xl overflow-hidden bg-[#0B1224] aspect-4/3 lg:aspect-auto lg:h-150 shadow-[0_8px_32px_rgba(15,34,88,0.15)]"
           >
             <iframe
               ref={iframeRef}
@@ -189,7 +189,7 @@ function ModelViewer({ model }: { model: AnatomyModelDetail }) {
         </div>
 
         {/* Cột phải: bảng thông tin */}
-        <aside className="bg-white rounded-3xl border border-stone-200/90 shadow-[0_2px_12px_rgba(0,0,0,0.03)] flex flex-col lg:h-[654px] overflow-hidden">
+        <aside className="bg-white rounded-3xl border border-stone-200/90 shadow-[0_2px_12px_rgba(0,0,0,0.03)] flex flex-col lg:h-163.5 overflow-hidden">
           {/* Bộ phận đang chọn + trước/sau */}
           <div className="flex items-center gap-2 px-3 py-3 border-b border-stone-100">
             <NavButton label="Bộ phận trước" onClick={() => step(-1)} disabled={parts.length === 0 || quizActive}>

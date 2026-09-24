@@ -76,8 +76,8 @@ function AnatomyBrowser() {
   return (
     <div className="flex flex-col gap-6 pb-12">
       {/* Banner */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-[#0F2258] via-[#163070] to-[#1E3F82] text-white rounded-3xl p-7 shadow-sm">
-        <div className="absolute inset-0 opacity-30 bg-[radial-gradient(rgba(255,255,255,0.22)_1px,transparent_1px)] [background-size:20px_20px] [mask-image:linear-gradient(to_left,black,transparent_70%)] pointer-events-none" />
+      <section className="relative overflow-hidden bg-linear-to-br from-[#0F2258] via-[#163070] to-[#1E3F82] text-white rounded-3xl p-7 shadow-sm">
+        <div className="absolute inset-0 opacity-30 bg-[radial-gradient(rgba(255,255,255,0.22)_1px,transparent_1px)] bg-size-[20px_20px] mask-[linear-gradient(to_left,black,transparent_70%)] pointer-events-none" />
         <div className="relative z-10">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/15 text-[11px] font-bold tracking-wider uppercase text-[#E8F0FB] mb-3">
             <HeartPulseFill className="w-3 h-3" /> Giải phẫu 3D tương tác
@@ -185,10 +185,8 @@ function ModelCard({ model, system }: { model: AnatomyModelSummary; system?: Bod
       href={modelHref(model.sketchfab_uid)}
       className="group bg-white rounded-2xl border border-stone-200/90 overflow-hidden shadow-[0_2px_12px_rgba(0,0,0,0.03)] hover:border-[#1E3F82]/30 hover:shadow-lg hover:shadow-[#1E3F82]/5 transition-all flex flex-col"
     >
-      <div className="relative aspect-[16/10] bg-stone-900 overflow-hidden">
+      <div className="relative aspect-16/10 bg-stone-900 overflow-hidden">
         {model.thumbnail_url ? (
-          // Ảnh từ Sketchfab (domain ngoài) nên dùng <img> thường
-          // eslint-disable-next-line @next/next/no-img-element
           <img
             src={model.thumbnail_url}
             alt={modelTitle(model)}

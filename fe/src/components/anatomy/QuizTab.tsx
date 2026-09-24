@@ -8,10 +8,6 @@ const ROUND = 10;
 
 type Feedback = { type: 'correct' } | { type: 'wrong'; picked: PartItem } | { type: 'reveal' } | null;
 
-/**
- * Tab "Tương tác": thử thách nhận diện.
- * Hệ thống đưa ra tên bộ phận, học viên bấm đúng số trên mô hình (hoặc trên thanh bên dưới).
- */
 export function QuizTab({
   parts,
   onSelect,
@@ -147,7 +143,7 @@ export function QuizTab({
         <div className="h-full bg-[#1E3F82] transition-[width]" style={{ width: `${((asked - 1) / ROUND) * 100}%` }} />
       </div>
 
-      <div className="rounded-2xl bg-gradient-to-br from-[#0F2258] to-[#1E3F82] text-white p-5 text-center">
+      <div className="rounded-2xl bg-linear-to-br from-[#0F2258] to-[#1E3F82] text-white p-5 text-center">
         <div className="text-[11px] font-bold uppercase tracking-wider text-white/60">Tìm trên mô hình</div>
         <div className="mt-1 text-lg font-extrabold">{targetPart ? partName(targetPart) : ''}</div>
       </div>
