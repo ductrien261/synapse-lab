@@ -8,7 +8,7 @@ Sinh viên **CNTT** học thuật toán qua mô phỏng từng bước; sinh vi�
 |---|---|---|
 | Trực quan hóa thuật toán | Mô phỏng từng bước, mã nguồn, giải thích | Bạn A |
 | Giải phẫu 3D | Mô hình 3D, bấm vào bộ phận để tra cứu kiến thức và giáo trình | Leader |
-| Lớp học tương tác | Tạo lớp, tham gia bằng mã, hoạt động trong lớp | Bạn B |
+| Không gian | Tạo không gian để học, họp nhóm, thuyết trình thử; tham gia bằng mã | Bạn B |
 | Nền tảng chung | Auth, phân quyền, DB, trang quản trị, pipeline tài liệu | Leader |
 
 ---
@@ -154,7 +154,7 @@ synapse-lab/
 │   ├── anatomy/                hệ cơ quan, mô hình 3D, chú thích, cấu trúc giải phẫu
 │   ├── algorithms/             danh mục + phần giải thích thuật toán
 │   ├── learning/               lịch sử học, chuỗi ngày học
-│   └── classroom/              lớp học ← bạn B
+│   └── classroom/              không gian (lớp / nhóm / buổi họp) ← bạn B
 ├── fe/                         Next.js frontend
 │   └── src/
 │       ├── app/
@@ -163,7 +163,7 @@ synapse-lab/
 │       │   └── (main)/         các trang sau khi đăng nhập
 │       │       ├── algorithms/     ← bạn A
 │       │       ├── anatomy/        ← leader
-│       │       ├── classes/        ← bạn B
+│       │       ├── spaces/         ← bạn B
 │       │       └── profile/
 │       ├── components/
 │       │   ├── layout/         header, sidebar, menu tài khoản

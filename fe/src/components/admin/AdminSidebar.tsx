@@ -34,7 +34,7 @@ const GROUPS: { title: string; items: Item[] }[] = [
     title: 'Quản lý',
     items: [
       { href: '/admin/users', label: 'Người dùng', icon: PersonBadgeFill },
-      { href: '/admin/classes', label: 'Lớp học', icon: PeopleFill, soon: true },
+      { href: '/admin/spaces', label: 'Không gian', icon: PeopleFill, soon: true },
     ],
   },
   {

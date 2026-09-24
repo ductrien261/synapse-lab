@@ -12,22 +12,22 @@ export function ClassesCard() {
         <span className="w-10 h-10 rounded-xl bg-[#1E3F82] text-white flex items-center justify-center shadow-md shadow-[#1E3F82]/20">
           <PeopleFill className="w-5 h-5" />
         </span>
-        <h2 className="mt-3 text-base font-bold text-stone-900">Lớp học</h2>
+        <h2 className="mt-3 text-base font-bold text-stone-900">Không gian</h2>
         <p className="text-sm text-stone-500 mt-1 leading-relaxed">
-          Tham gia lớp bằng mã do giảng viên cung cấp, hoặc tự tạo lớp để tổ chức buổi học.
+          Vào không gian bằng mã được chia sẻ để học, họp nhóm hay thuyết trình thử — hoặc tự tạo một không gian mới.
         </p>
         <div className="mt-4 flex gap-2">
           <Link
-            href="/classes"
+            href="/spaces"
             className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-[#1E3F82] hover:bg-[#163070] text-white text-sm font-bold transition-colors"
           >
-            Nhập mã lớp
+            Nhập mã
           </Link>
           <Link
-            href="/classes"
+            href="/spaces"
             className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl border border-stone-200 hover:border-[#1E3F82]/40 text-stone-700 hover:text-[#1E3F82] text-sm font-bold transition-colors"
           >
-            Tạo lớp
+            Tạo không gian
           </Link>
         </div>
       </div>

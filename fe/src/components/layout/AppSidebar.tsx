@@ -66,7 +66,7 @@ export function AppSidebar({ collapsed, onToggle }: Props) {
             <AlgorithmsNav active={isActive('/algorithms')} collapsed={collapsed} />
           )}
           {showAnatomy && <AnatomyNav active={isActive('/anatomy')} collapsed={collapsed} />}
-          <NavLink href="/classes" label="Lớp học" icon={PeopleFill} active={isActive('/classes')} collapsed={collapsed} />
+          <NavLink href="/spaces" label="Không gian" icon={PeopleFill} active={isActive('/spaces')} collapsed={collapsed} />
         </NavSection>
 
         {/* ---------- Gần đây ---------- */}

@@ -18,6 +18,7 @@ import {
 import { anatomyApi, modelTitle, type AnatomyModelDetail } from '@/lib/anatomy-catalog';
 import { useSketchfabViewer } from '@/lib/sketchfab';
 import { addRecent } from '@/lib/recent';
+import { ApiError } from '@/lib/api';
 import { InfoTab } from '@/components/anatomy/PartPanel';
 import { PartsBar } from '@/components/anatomy/PartsBar';
 import { NotesTab } from '@/components/anatomy/NotesTab';
@@ -47,7 +48,14 @@ export default function AnatomyModelPage() {
         });
       })
       .catch((err: unknown) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Không tải được mô hình');
+        if (cancelled) return;
+        setError(
+          err instanceof ApiError && err.status === 404
+            ? 'Mô hình này hiện không còn được xuất bản hoặc không tồn tại.'
+            : err instanceof Error
+              ? err.message
+              : 'Không tải được mô hình',
+        );
       });
     return () => {
       cancelled = true;

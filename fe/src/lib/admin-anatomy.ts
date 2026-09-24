@@ -3,7 +3,7 @@
 // ============================================================
 
 import { request } from './api';
-import type { AnatomyModelSummary, BodySystem } from './anatomy-catalog';
+import { invalidateAnatomyCatalog, type AnatomyModelSummary, type BodySystem } from './anatomy-catalog';
 
 export interface AdminModelRow extends AnatomyModelSummary {
   filled_count: number;
@@ -93,6 +93,11 @@ export function isJobActive(job: ImportJob | null | undefined): boolean {
 
 const BASE = '/anatomy/admin';
 
+function withInvalidate<T>(value: T): T {
+  invalidateAnatomyCatalog();
+  return value;
+}
+
 export const adminAnatomyApi = {
   stats: () => request<AnatomyStats>(`${BASE}/stats/`),
 
@@ -107,12 +112,12 @@ export const adminAnatomyApi = {
     request<{ affected: number }>(`${BASE}/models/bulk/`, {
       method: 'POST',
       body: JSON.stringify({ uids, action, system }),
-    }),
+    }).then(withInvalidate),
 
   model: (uid: string) => request<AdminModelDetail>(`${BASE}/models/${uid}/`),
 
   updateModel: (uid: string, data: Partial<{ title_vi: string; system: string | null; is_published: boolean }>) =>
-    request<AdminModelDetail>(`${BASE}/models/${uid}/`, { method: 'PATCH', body: JSON.stringify(data) }),
+    request<AdminModelDetail>(`${BASE}/models/${uid}/`, { method: 'PATCH', body: JSON.stringify(data) }).then(withInvalidate),
 
   syncAnnotations: (uid: string, annotations: { index: number; label: string; content: string }[]) =>
     request<{ result: { total: number; linked: number; new_structures: number; removed: number }; model: AdminModelDetail }>(
@@ -124,7 +129,7 @@ export const adminAnatomyApi = {
     request<{ published: boolean; approved_structures: number }>(`${BASE}/models/${uid}/publish/`, {
       method: 'POST',
       body: JSON.stringify({ approve_structures: approveStructures }),
-    }),
+    }).then(withInvalidate),
 
   updateStructure: (id: number, data: Partial<Omit<AdminStructure, 'id' | 'name_en' | 'model_count'>>) =>
     request<AdminStructure>(`${BASE}/structures/${id}/`, { method: 'PATCH', body: JSON.stringify(data) }),

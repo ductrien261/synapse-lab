@@ -35,7 +35,7 @@ const SHORTCUTS: { href: string; title: string; description: string; icon: Icon;
   { href: '/admin/documents', title: 'Tài liệu', description: 'Upload giáo trình để AI tra cứu và trích dẫn.', icon: FileEarmarkTextFill, ready: false },
   { href: '/admin/algorithms', title: 'Thuật toán', description: 'Soạn giải thích, độ phức tạp, ứng dụng.', icon: BoxFill, ready: false },
   { href: '/admin/anatomy', title: 'Giải phẫu', description: 'Nhập mô hình 3D, soạn nội dung, xuất bản.', icon: HeartPulseFill, ready: true },
-  { href: '/admin/classes', title: 'Lớp học', description: 'Theo dõi các lớp đang hoạt động.', icon: PeopleFill, ready: false },
+  { href: '/admin/spaces', title: 'Không gian', description: 'Theo dõi các không gian đang hoạt động.', icon: PeopleFill, ready: false },
   { href: '/admin/system', title: 'Tình trạng hệ thống', description: 'Backend, database, algo-server.', icon: Activity, ready: true },
 ];
 

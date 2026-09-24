@@ -99,10 +99,19 @@ export function modelHref(uid: string): string {
 
 type LoadState = 'loading' | 'ready' | 'error';
 
+// Dữ liệu cache tối đa 30 giây; admin ẩn/xuất bản mô hình thì gọi invalidateAnatomyCatalog()
+const MAX_AGE_MS = 30_000;
+const resetters: (() => void)[] = [];
+
 function cachedLoader<T>(load: () => Promise<T>) {
   let cache: Promise<T> | null = null;
+  let loadedAt = 0;
+  resetters.push(() => {
+    cache = null;
+  });
   return () => {
-    if (!cache) {
+    if (!cache || Date.now() - loadedAt > MAX_AGE_MS) {
+      loadedAt = Date.now();
       cache = load().catch((err: unknown) => {
         cache = null;
         throw err;
@@ -110,6 +119,14 @@ function cachedLoader<T>(load: () => Promise<T>) {
     }
     return cache;
   };
+}
+
+/** Bỏ cache để lần tải sau lấy dữ liệu mới (gọi sau khi admin thay đổi mô hình). */
+const INVALIDATE_EVENT = 'synapse-anatomy-invalidate';
+
+export function invalidateAnatomyCatalog() {
+  resetters.forEach((reset) => reset());
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event(INVALIDATE_EVENT));
 }
 
 const loadSystems = cachedLoader(anatomyApi.systems);
@@ -120,17 +137,30 @@ function useCached<T>(loader: () => Promise<T>, empty: T): { data: T; state: Loa
   const [state, setState] = useState<LoadState>('loading');
   useEffect(() => {
     let cancelled = false;
-    loader()
-      .then((value) => {
-        if (cancelled) return;
-        setData(value);
-        setState('ready');
-      })
-      .catch(() => {
-        if (!cancelled) setState('error');
-      });
+    const load = () =>
+      loader()
+        .then((value) => {
+          if (cancelled) return;
+          setData(value);
+          setState('ready');
+        })
+        .catch(() => {
+          if (!cancelled) setState('error');
+        });
+    void load();
+
+    // Admin vừa đổi dữ liệu (cùng tab) hoặc người dùng quay lại tab -> tải lại
+    const reload = () => void load();
+    const onFocus = () => {
+      resetters.forEach((reset) => reset());
+      void load();
+    };
+    window.addEventListener(INVALIDATE_EVENT, reload);
+    window.addEventListener('focus', onFocus);
     return () => {
       cancelled = true;
+      window.removeEventListener(INVALIDATE_EVENT, reload);
+      window.removeEventListener('focus', onFocus);
     };
   }, [loader]);
   return { data, state };

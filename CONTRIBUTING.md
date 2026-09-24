@@ -11,7 +11,7 @@ Mỗi người chỉ sửa trong phần của mình. Cần sửa phần của ng
 | Phần | Thư mục | Phụ trách |
 |---|---|---|
 | Thuật toán | `packages/algo-viz/`, `fe/src/app/(main)/algorithms/`, `fe/src/components/simulation/` | Bạn A |
-| Lớp học | `be/classroom/`, `fe/src/app/(main)/classes/`, `fe/src/components/classroom/` | Bạn B |
+| Không gian | `be/classroom/`, `fe/src/app/(main)/spaces/`, `fe/src/components/spaces/` | Bạn B |
 | Giải phẫu 3D | `be/anatomy/`, `fe/src/app/(main)/anatomy/`, `fe/src/components/anatomy/` | Leader |
 | Nền tảng chung | `be/core/`, `be/users/`, `be/knowledge/`, `fe/src/app/(admin)/`, `fe/src/components/admin/`, `fe/src/components/layout/`, `fe/src/lib/` | Leader |
 
@@ -169,7 +169,7 @@ Commit cả `package.json` lẫn `package-lock.json` (hoặc `pyproject.toml` l�
 
 | Vai trò | Được làm gì |
 |---|---|
-| `user` | Học, xem nội dung, tạo lớp hoặc tham gia lớp. Trong một lớp: **người tạo lớp** là chủ lớp, **người tham gia** là thành viên. |
+| `user` | Học, xem nội dung, tạo hoặc tham gia **Không gian**. Trong một không gian: **người tạo** là chủ, **người tham gia** là thành viên. |
 | `admin` | Toàn quyền, là người duy nhất thêm/sửa nội dung học và tài liệu. |
 
 Không có role `teacher` / `student` ở cấp hệ thống. Vai trò trong lớp được lưu ở app `classroom`.
