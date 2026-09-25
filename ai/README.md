@@ -18,7 +18,7 @@ trình duyệt ──► be (Django: đăng nhập, hạn mức, ghi nhật ký,
 |---|---|
 | `app/llm/` | gọi LLM qua LangChain (Groq), ghi token, trace Langfuse |
 | `app/tools/` | tìm kiếm lai trong giáo trình, embedding, dịch, cache |
-| `app/graphs/` | các quy trình LangGraph (viết nháp; sắp có: gia sư, ra đề, chấm bài, hồ sơ học tập) |
+| `app/graphs/` | các quy trình LangGraph: viết nháp, gia sư, kiểm tra nhanh (sắp có: ra đề thích ứng, chấm bài, hồ sơ học tập) |
 | `app/prompts/` | prompt có `VERSION` — đổi prompt thì tăng version để so sánh trên Langfuse |
 | `app/verify/` | kiểm chứng bằng quy tắc (trích dẫn...) |
 
@@ -30,6 +30,8 @@ trình duyệt ──► be (Django: đăng nhập, hạn mức, ghi nhật ký,
 | POST | `/v1/translate` | dịch đoạn văn |
 | POST | `/v1/search` | tìm lai trong giáo trình |
 | POST | `/v1/draft/structure` | AI viết nháp nội dung cấu trúc giải phẫu |
+| POST | `/v1/tutor/ask` | Gia sư Hỏi AI — trả lời dạng stream (SSE: status, token, replace, done, error) |
+| POST | `/v1/tutor/quick-check` | 1 câu trắc nghiệm kiểm tra nhanh từ nguồn của câu trả lời |
 
 ## Chạy & kiểm thử
 

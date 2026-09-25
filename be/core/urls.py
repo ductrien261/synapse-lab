@@ -41,6 +41,7 @@ urlpatterns = [
     path('api/translate/', include('translation.urls')),
     path('api/knowledge/', include('knowledge.urls')),
     path('api/ai/', include('ai_gateway.urls')),
+    path('api/tutor/', include('tutor.urls')),
 
     # Health Check Endpoint
     path('api/health/', health_check, name='health-check'),

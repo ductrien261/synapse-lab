@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     'classroom',     # lớp học (bạn B)
     'translation',   # dịch tự động (qua service AI) + cache
     'ai_gateway',    # cổng gọi service AI: hạn mức, nhật ký, chi phí
+    'tutor',         # gia sư Hỏi AI
 ]
 
 MIDDLEWARE = [

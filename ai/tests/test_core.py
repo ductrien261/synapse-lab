@@ -86,3 +86,81 @@ def test_api_requires_internal_token(monkeypatch):
     assert client.get('/health').status_code == 200
     assert client.post('/v1/translate', json={'text': 'hi'}).status_code == 401
     get_settings.cache_clear()
+
+
+# ---------------- gia sư ----------------
+
+from app.graphs import quick_check as quick_graph  # noqa: E402
+from app.graphs import tutor as tutor_graph  # noqa: E402
+
+PARTS = [
+    {'index': 0, 'name_en': 'Left ventricle', 'name_vi': 'Tâm thất trái'},
+    {'index': 1, 'name_en': 'Aorta', 'name_vi': 'Động mạch chủ'},
+    {'index': 2, 'name_en': 'Right atrium', 'name_vi': 'Tâm nhĩ phải'},
+]
+
+
+def _run_tutor(monkeypatch, hits, stream_text, retry_text=None):
+    monkeypatch.setattr(tutor_graph, 'search', lambda ctx, q, **kw: (hits, {'english_query': ''}))
+    monkeypatch.setattr(tutor_graph, 'chat_stream', lambda *a, **k: iter([stream_text[:10], stream_text[10:]]))
+    monkeypatch.setattr(tutor_graph, 'chat', lambda *a, **k: retry_text or pytest.fail('không cần viết lại'))
+    events = list(tutor_graph.stream(RunContext('tutor'), {
+        'question': 'Tâm thất trái có chức năng gì?', 'history': [], 'learner': {}, 'model_title': 'Heart',
+        'part': PARTS[0], 'parts': PARTS, 'scope': 'med',
+    }))
+    return events, events[-1][1]
+
+
+def test_tutor_no_source_skips_llm(monkeypatch):
+    h = hit(1, 'Bones', 'Unrelated')
+    h.keyword_rank = None
+    monkeypatch.setattr(tutor_graph, 'chat_stream', lambda *a, **k: pytest.fail('không được gọi LLM'))
+    events, done = _run_tutor(monkeypatch, [h], 'x')
+    assert done['citations'] == [] and 'chưa tìm thấy' in done['answer']
+
+
+def test_tutor_streams_and_highlights(monkeypatch):
+    h1, h2 = hit(1, 'Left Ventricle', 'pumps blood'), hit(2, 'Aorta', 'largest artery')
+    h1.keyword_rank = 1
+    text = 'Tâm thất trái bơm máu vào Động mạch chủ đi nuôi cơ thể [1][2]. Thành cơ dày giúp tạo áp lực lớn [1].'
+    events, done = _run_tutor(monkeypatch, [h1, h2], text)
+    tokens = ''.join(e[1]['text'] for e in events if e[0] == 'token')
+    assert tokens == text
+    assert done['status'] == 'ok' and [c['n'] for c in done['citations']] == [1, 2]
+    assert done['highlights'] == [0, 1]
+
+
+def test_tutor_replaces_unverified_answer(monkeypatch):
+    h1 = hit(1, 'Left Ventricle', 'pumps blood')
+    h1.keyword_rank = 1
+    events, done = _run_tutor(monkeypatch, [h1], 'Tâm thất trái bơm máu. Nó có thành dày nhất.',
+                              retry_text='Tâm thất trái bơm máu vào vòng tuần hoàn lớn [1]. Thành cơ dày nhất [1].')
+    assert any(e[0] == 'replace' for e in events)
+    assert done['status'] == 'ok' and done['answer'].endswith('[1].')
+
+
+def test_quick_check_validation():
+    good = {'question': 'Q?', 'options': ['a', 'b', 'c', 'd'], 'correct_index': 2, 'explanation': 'Vì ... [1].'}
+    assert quick_graph.validate(good, 2) == ''
+    assert quick_graph.validate({**good, 'options': ['a', 'a', 'b', 'c']}, 2)
+    assert quick_graph.validate({**good, 'explanation': 'không nguồn'}, 2)
+    assert quick_graph.validate({**good, 'explanation': 'sai [5]'}, 2)
+
+
+def test_tutor_endpoint_streams_sse(monkeypatch):
+    monkeypatch.setenv('AI_SERVICE_TOKEN', 'secret')
+    get_settings.cache_clear()
+    from app import main
+
+    def fake_stream(ctx, payload):
+        yield 'token', {'type': 'token', 'text': 'Xin '}
+        yield 'token', {'type': 'token', 'text': 'chào'}
+        yield 'done', {'answer': 'Xin chào', 'citations': []}
+
+    monkeypatch.setattr(main.tutor_graph, 'stream', fake_stream)
+    client = TestClient(main.app)
+    res = client.post('/v1/tutor/ask', json={'question': 'hi'}, headers={'X-Internal-Token': 'secret'})
+    assert res.status_code == 200
+    body = res.text
+    assert body.count('event: token') == 2 and 'event: done' in body and '"meta"' in body
+    get_settings.cache_clear()

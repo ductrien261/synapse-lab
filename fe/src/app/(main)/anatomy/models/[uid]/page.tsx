@@ -253,7 +253,16 @@ function ModelViewer({ model }: { model: AnatomyModelDetail }) {
                 onActiveChange={setQuizActive}
               />
             )}
-            {tab === 'ai' && <AskAiTab part={current} modelTitle={modelTitle(model)} />}
+            {tab === 'ai' && (
+              <AskAiTab
+                key={model.sketchfab_uid}
+                part={current}
+                parts={parts}
+                modelTitle={modelTitle(model)}
+                modelUid={model.sketchfab_uid}
+                onFocusPart={select}
+              />
+            )}
           </div>
         </aside>
       </div>

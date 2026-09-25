@@ -1,0 +1,250 @@
+"""
+API gia sư "Hỏi AI".
+
+POST /api/tutor/ask/  {question, model_uid?, part_index?, conversation_id?}
+    -> text/event-stream. Sự kiện: meta, status, token, replace, done, error
+"""
+
+import json
+
+from django.http import StreamingHttpResponse
+from django.shortcuts import get_object_or_404
+from django.utils import timezone
+from rest_framework import serializers, status
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.throttling import UserRateThrottle
+from rest_framework.views import APIView
+
+from ai_gateway.models import AIRequest
+from ai_gateway.services import AIError, call_ai, iter_sse, open_ai_stream, record, record_cached
+from anatomy.models import AnatomyModel
+from users.permissions import is_admin
+
+from .models import AnswerCache, Conversation, TutorMessage
+from .services import cache_key, cached_answer, history, learner_context, model_parts
+
+
+class AskThrottle(UserRateThrottle):
+    rate = '20/min'
+
+
+def _sse(event: str, data: dict) -> str:
+    return f'event: {event}\ndata: {json.dumps(data, ensure_ascii=False, default=str)}\n\n'
+
+
+def _stream_response(gen) -> StreamingHttpResponse:
+    res = StreamingHttpResponse(gen, content_type='text/event-stream; charset=utf-8')
+    res['Cache-Control'] = 'no-cache'
+    res['X-Accel-Buffering'] = 'no'
+    return res
+
+
+def message_data(m: TutorMessage) -> dict:
+    qc = m.quick_check
+    if qc and 'answered_index' not in qc:
+        qc = {k: v for k, v in qc.items() if k not in ('correct_index', 'explanation')}  # chưa trả lời -> ẩn đáp án
+    return {
+        'id': m.id, 'role': m.role, 'content': m.content, 'status': m.status, 'part_index': m.part_index,
+        'citations': m.citations, 'highlights': m.highlights, 'suggestions': m.suggestions,
+        'from_cache': m.from_cache, 'feedback': m.feedback, 'quick_check': qc, 'created_at': m.created_at,
+    }
+
+
+class AskView(APIView):
+    permission_classes = [IsAuthenticated]
+    throttle_classes = [AskThrottle]
+
+    class Input(serializers.Serializer):
+        question = serializers.CharField(max_length=1000, trim_whitespace=True)
+        model_uid = serializers.CharField(max_length=32, required=False, allow_blank=True)
+        part_index = serializers.IntegerField(required=False, allow_null=True, min_value=0)
+        conversation_id = serializers.UUIDField(required=False, allow_null=True)
+
+    def post(self, request):
+        data = self.Input(data=request.data)
+        data.is_valid(raise_exception=True)
+        v = data.validated_data
+        user = request.user
+
+        model = None
+        if v.get('model_uid'):
+            qs = AnatomyModel.objects.all() if is_admin(user) else AnatomyModel.objects.filter(is_published=True)
+            model = get_object_or_404(qs, sketchfab_uid=v['model_uid'])
+
+        if v.get('conversation_id'):
+            conversation = get_object_or_404(Conversation, pk=v['conversation_id'], user=user)
+        else:
+            conversation = Conversation.objects.create(user=user, anatomy_model=model, title=v['question'][:200])
+
+        parts = model_parts(model)
+        part_index = v.get('part_index')
+        part = next((p for p in parts if p['index'] == part_index), None)
+        past = history(conversation)
+        learner = learner_context(user)
+        key = cache_key(v['question'], model.sketchfab_uid if model else '', part_index, learner['track'])
+
+        # 1) Câu hỏi đầu tiên đã có người hỏi -> trả lời ngay, 0 token
+        cached = cached_answer(key) if not past else None
+        if cached:
+            TutorMessage.objects.create(conversation=conversation, role='user', content=v['question'], part_index=part_index)
+            msg = TutorMessage.objects.create(
+                conversation=conversation, role='assistant', content=cached.answer, status=cached.status,
+                citations=cached.citations, highlights=cached.highlights, suggestions=cached.suggestions, from_cache=True,
+            )
+            AnswerCache.objects.filter(pk=cached.pk).update(hit_count=cached.hit_count + 1)
+            record_cached(user, 'tutor')
+            Conversation.objects.filter(pk=conversation.pk).update(updated_at=timezone.now())
+
+            def replay():
+                yield _sse('meta', {'conversation_id': str(conversation.pk)})
+                yield _sse('token', {'text': cached.answer})
+                yield _sse('done', message_data(msg))
+
+            return _stream_response(replay())
+
+        # 2) Gọi gia sư (stream)
+        payload = {
+            'question': v['question'], 'history': past, 'learner': learner,
+            'model_title': (model.title_vi or model.title) if model else '', 'part': part, 'parts': parts, 'scope': 'med',
+        }
+        try:
+            upstream = open_ai_stream('/v1/tutor/ask', payload, user=user, feature='tutor')
+        except AIError as exc:
+            return Response({'detail': str(exc)}, status=exc.status_code)
+
+        TutorMessage.objects.create(conversation=conversation, role='user', content=v['question'], part_index=part_index)
+        started = timezone.now()
+
+        def relay():
+            yield _sse('meta', {'conversation_id': str(conversation.pk)})
+            finished = False
+            try:
+                for event, body in iter_sse(upstream):
+                    if event in ('token', 'replace', 'status'):
+                        yield _sse(event, {'text': body.get('text', '')})
+                    elif event == 'done':
+                        finished = True
+                        latency = int((timezone.now() - started).total_seconds() * 1000)
+                        req = record(user, 'tutor', body.get('meta'), latency_ms=latency)
+                        status_ = body.get('status') or 'ok'
+                        msg = TutorMessage.objects.create(
+                            conversation=conversation, role='assistant', content=body.get('answer', ''),
+                            status=status_ if status_ in TutorMessage.Status.values else 'ok',
+                            citations=body.get('citations', []), highlights=body.get('highlights', []),
+                            suggestions=body.get('suggestions', []), ai_request=req,
+                        )
+                        if not past and status_ == 'ok':
+                            AnswerCache.objects.update_or_create(key=key, defaults={
+                                'question': v['question'], 'answer': msg.content, 'citations': msg.citations,
+                                'highlights': msg.highlights, 'suggestions': msg.suggestions, 'status': status_,
+                                'prompt_version': body.get('prompt_version', ''), 'hit_count': 0,
+                            })
+                        Conversation.objects.filter(pk=conversation.pk).update(updated_at=timezone.now())
+                        yield _sse('done', message_data(msg))
+                    elif event == 'error':
+                        finished = True
+                        record(user, 'tutor', body.get('meta'), status=AIRequest.Status.ERROR, error=body.get('message', ''))
+                        yield _sse('error', {'message': body.get('message') or 'Gia sư đang gặp lỗi.'})
+            finally:
+                upstream.close()
+                if not finished:
+                    record(user, 'tutor', None, status=AIRequest.Status.ERROR, counted=False, error='Mất kết nối giữa chừng')
+
+        return _stream_response(relay())
+
+
+class ConversationListView(APIView):
+    """GET /api/tutor/conversations/?model=<uid>"""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        qs = Conversation.objects.filter(user=request.user)
+        if request.query_params.get('model'):
+            qs = qs.filter(anatomy_model__sketchfab_uid=request.query_params['model'])
+        return Response([
+            {'id': str(c.id), 'title': c.title, 'updated_at': c.updated_at} for c in qs[:30]
+        ])
+
+
+class ConversationDetailView(APIView):
+    """GET / DELETE /api/tutor/conversations/<id>/"""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        c = get_object_or_404(Conversation, pk=pk, user=request.user)
+        return Response({'id': str(c.id), 'title': c.title, 'messages': [message_data(m) for m in c.messages.all()]})
+
+    def delete(self, request, pk):
+        get_object_or_404(Conversation, pk=pk, user=request.user).delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class FeedbackView(APIView):
+    """POST /api/tutor/messages/<id>/feedback/  {value: 1 | -1 | 0, note?}"""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        m = get_object_or_404(TutorMessage, pk=pk, conversation__user=request.user, role='assistant')
+        value = request.data.get('value')
+        m.feedback = value if value in (1, -1) else None
+        m.feedback_note = str(request.data.get('note') or '')[:500]
+        m.save(update_fields=['feedback', 'feedback_note'])
+        return Response({'feedback': m.feedback})
+
+
+class QuickCheckView(APIView):
+    """
+    POST /api/tutor/messages/<id>/quick-check/          -> tạo 1 câu trắc nghiệm từ nguồn của câu trả lời
+    POST /api/tutor/messages/<id>/quick-check/answer/  {choice} -> chấm
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk, action=None):
+        m = get_object_or_404(TutorMessage, pk=pk, conversation__user=request.user, role='assistant')
+        if action == 'answer':
+            qc = m.quick_check or {}
+            try:
+                choice = int(request.data.get('choice'))
+            except (TypeError, ValueError):
+                return Response({'detail': 'choice không hợp lệ'}, status=status.HTTP_400_BAD_REQUEST)
+            if 'correct_index' not in qc:
+                return Response({'detail': 'Chưa có câu hỏi.'}, status=status.HTTP_400_BAD_REQUEST)
+            if 'answered_index' not in qc:
+                qc['answered_index'] = choice
+                qc['correct'] = choice == qc['correct_index']
+                qc['answered_at'] = timezone.now().isoformat()
+                m.quick_check = qc
+                m.save(update_fields=['quick_check'])
+            return Response(message_data(m)['quick_check'])
+
+        if m.quick_check:
+            return Response(message_data(m)['quick_check'])
+        if not m.citations:
+            return Response({'detail': 'Câu trả lời này không có nguồn giáo trình để ra câu hỏi.'}, status=status.HTTP_400_BAD_REQUEST)
+        question = m.conversation.messages.filter(role='user', created_at__lte=m.created_at).order_by('-created_at').first()
+        try:
+            data = call_ai('/v1/tutor/quick-check', {
+                'topic': question.content if question else '',
+                'answer': m.content,
+                'sources': [{'heading': c.get('heading', ''), 'excerpt': c.get('excerpt', '')} for c in m.citations],
+            }, user=request.user, feature='quiz')
+        except AIError as exc:
+            return Response({'detail': str(exc)}, status=exc.status_code)
+        if data.get('status') != 'ok':
+            return Response({'detail': data.get('error') or 'Chưa tạo được câu hỏi.'}, status=status.HTTP_502_BAD_GATEWAY)
+        # Nguồn trong câu hỏi đánh số theo danh sách citations của câu trả lời -> đổi về số [n] gốc
+        mapping = {i: c['n'] for i, c in enumerate(m.citations, start=1)}
+        explanation = data['explanation']
+        for i, n in sorted(mapping.items(), reverse=True):
+            explanation = explanation.replace(f'[{i}]', f'[§{n}]')
+        m.quick_check = {
+            'question': data['question'], 'options': data['options'], 'correct_index': data['correct_index'],
+            'explanation': explanation.replace('[§', '['),
+        }
+        m.save(update_fields=['quick_check'])
+        return Response(message_data(m)['quick_check'])

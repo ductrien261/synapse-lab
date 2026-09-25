@@ -136,6 +136,70 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   return (text ? JSON.parse(text) : undefined) as T;
 }
 
+/**
+ * Gọi API trả về Server-Sent Events (vd. gia sư AI trả lời dần từng chữ).
+ * Dùng fetch (EventSource không gửi được token). Lỗi trước khi stream -> ApiError.
+ */
+export async function streamRequest(
+  path: string,
+  body: unknown,
+  onEvent: (event: string, data: Record<string, unknown>) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  const send = () => {
+    const token = getAccessToken();
+    return fetch(`${BASE_URL}${path}`, {
+      method: 'POST',
+      signal,
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'text/event-stream',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(body),
+    });
+  };
+
+  let res = await send();
+  if (res.status === 401 && (await refreshAccessToken())) res = await send();
+  if (!res.ok || !res.body) {
+    let data: unknown;
+    try {
+      data = await res.json();
+    } catch {
+      data = undefined;
+    }
+    throw new ApiError(extractMessage(data, res.status), res.status, data);
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    let sep: number;
+    while ((sep = buffer.indexOf('\n\n')) >= 0) {
+      const block = buffer.slice(0, sep);
+      buffer = buffer.slice(sep + 2);
+      let event = 'message';
+      const data: string[] = [];
+      for (const line of block.split('\n')) {
+        if (line.startsWith('event:')) event = line.slice(6).trim();
+        else if (line.startsWith('data:')) data.push(line.slice(5).trimStart());
+      }
+      if (data.length) {
+        try {
+          onEvent(event, JSON.parse(data.join('\n')) as Record<string, unknown>);
+        } catch {
+          // bỏ qua khối lỗi định dạng
+        }
+      }
+    }
+  }
+}
+
 // ---------------- Kiểu dữ liệu ----------------
 
 export type Role = 'user' | 'admin';

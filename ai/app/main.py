@@ -6,16 +6,20 @@ Chỉ backend (be) gọi vào, kèm header X-Internal-Token. Mỗi phản hồi 
 """
 
 import hmac
+import json
 import logging
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi.responses import StreamingResponse
 
 from .config import get_settings
 from .graphs import draft as draft_graph
+from .graphs import quick_check as quick_check_graph
+from .graphs import tutor as tutor_graph
 from .llm.chat import LLMError, LLMNotConfigured
 from .llm.tracing import run_context, shutdown
-from .schemas import DraftStructureIn, SearchIn, TranslateIn
+from .schemas import DraftStructureIn, QuickCheckIn, SearchIn, TranslateIn, TutorAskIn
 from .tools.embeddings import EmbeddingError
 from .tools.retrieval import RetrievalError, search
 from .tools.translate import translate_text
@@ -84,4 +88,43 @@ def draft_structure(body: DraftStructureIn):
             result = draft_graph.run(ctx, body.name_en, body.latin_name, body.name_vi, body.glossary, body.scope)
         except (EmbeddingError, RetrievalError, LLMError) as exc:
             result = {'status': 'failed', 'error': str(exc), 'citations': [], 'warnings': []}
+        return {**result, 'meta': ctx.meta()}
+
+
+def _sse(event: str, data: dict) -> str:
+    return f'event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n'
+
+
+@app.post('/v1/tutor/ask', dependencies=[Depends(require_token)])
+def tutor_ask(body: TutorAskIn):
+    """Gia sư: trả lời dạng stream (text/event-stream). Sự kiện: status, token, replace, done, error."""
+    payload = body.model_dump(exclude={'user_id'})
+    payload['part'] = body.part.model_dump() if body.part else None
+    payload['parts'] = [p.model_dump() for p in body.parts]
+
+    def events():
+        with run_context('tutor', 'tutor', body.user_id, {'question': body.question[:200], 'model': body.model_title}) as ctx:
+            try:
+                for event, data in tutor_graph.stream(ctx, payload):
+                    if event == 'done':
+                        data = {**data, 'meta': ctx.meta()}
+                    yield _sse(event, data)
+            except Exception as exc:  # noqa: BLE001 - báo lỗi cho người học, kèm token đã tốn
+                logging.exception('tutor failed')
+                message = str(exc) if isinstance(exc, (LLMError, EmbeddingError, RetrievalError)) else 'Gia sư đang gặp lỗi, thử lại sau.'
+                yield _sse('error', {'message': message, 'meta': ctx.meta()})
+
+    return StreamingResponse(events(), media_type='text/event-stream',
+                             headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'})
+
+
+@app.post('/v1/tutor/quick-check', dependencies=[Depends(require_token)])
+def tutor_quick_check(body: QuickCheckIn):
+    with run_context('quick_check', 'quiz', body.user_id, {'topic': body.topic}) as ctx:
+        if not body.sources:
+            return {'status': 'failed', 'error': 'Câu trả lời không có nguồn giáo trình để ra câu hỏi.', 'meta': ctx.meta()}
+        try:
+            result = quick_check_graph.run(ctx, body.topic, body.answer, body.sources)
+        except LLMError as exc:
+            result = {'status': 'failed', 'error': str(exc)}
         return {**result, 'meta': ctx.meta()}

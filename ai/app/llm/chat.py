@@ -41,6 +41,7 @@ def _model(temperature: float) -> ChatOpenAI:
         temperature=temperature,
         max_retries=4,
         timeout=90,
+        stream_usage=True,  # lấy số token cả khi trả lời dạng stream
         extra_body={'reasoning_format': 'hidden'},  # Qwen: ẩn phần "suy nghĩ"
     )
 
@@ -87,6 +88,36 @@ def chat(ctx: RunContext, step: str, system: str, user: str, *, json_mode: bool 
         latency_ms=int((time.monotonic() - started) * 1000),
     ))
     return THINK_RE.sub('', msg.content if isinstance(msg.content, str) else str(msg.content)).strip()
+
+
+def chat_stream(ctx: RunContext, step: str, system: str, user: str, *, temperature: float = 0.3,
+                history: list[BaseMessage] | None = None):
+    """Như chat() nhưng trả từng mẩu chữ (để hiện dần cho người học). Ghi token khi kết thúc."""
+    settings = get_settings()
+    if not settings.groq_api_key:
+        raise LLMNotConfigured('Chưa cấu hình GROQ_API_KEY.')
+    messages = [SystemMessage(system), *(history or []), HumanMessage(user)]
+    config = {'callbacks': ctx.callbacks, 'run_name': step, 'metadata': {'feature': ctx.feature}}
+    _throttle()
+    started = time.monotonic()
+    usage: dict = {}
+    model_name = settings.groq_model
+    try:
+        for chunk in _model(temperature).stream(messages, config=config):
+            if getattr(chunk, 'usage_metadata', None):
+                usage = chunk.usage_metadata
+            model_name = (getattr(chunk, 'response_metadata', None) or {}).get('model_name') or model_name
+            text = chunk.content if isinstance(chunk.content, str) else ''
+            if text:
+                yield text
+    except Exception as exc:  # noqa: BLE001
+        ctx.record(UsageEntry(step=step, kind='chat', provider='groq', model=model_name,
+                              input_tokens=int(usage.get('input_tokens', 0)), output_tokens=int(usage.get('output_tokens', 0)),
+                              latency_ms=int((time.monotonic() - started) * 1000), status='error', error=str(exc)[:300]))
+        raise LLMError(f'LLM lỗi: {exc.__class__.__name__}') from exc
+    ctx.record(UsageEntry(step=step, kind='chat', provider='groq', model=model_name,
+                          input_tokens=int(usage.get('input_tokens', 0)), output_tokens=int(usage.get('output_tokens', 0)),
+                          latency_ms=int((time.monotonic() - started) * 1000)))
 
 
 def parse_json(text: str) -> dict:

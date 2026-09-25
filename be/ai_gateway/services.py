@@ -200,3 +200,57 @@ def ai_health() -> dict | None:
         return res.json() if res.ok else None
     except requests.RequestException:
         return None
+
+
+# ------------------------------------------------------------
+# Gọi service AI dạng stream (Server-Sent Events) — dùng cho gia sư
+# ------------------------------------------------------------
+
+def check_quota(user, feature: str):
+    if is_admin(user):
+        return
+    status = quota_status(user)
+    if status.exhausted:
+        record(user, feature, None, status=AIRequest.Status.QUOTA, counted=False)
+        raise QuotaExceeded(f'Bạn đã dùng hết {status.limit:,} token AI hôm nay. Hạn mức làm mới lúc 0h.'.replace(',', '.'))
+
+
+def open_ai_stream(path: str, payload: dict, *, user, feature: str, count_quota: bool = True, timeout: int = 180):
+    """Mở kết nối stream tới service AI. Lỗi trước khi stream bắt đầu -> raise (để trả JSON lỗi)."""
+    if count_quota:
+        check_quota(user, feature)
+    url = settings.AI_SERVICE_URL.rstrip('/') + path
+    body = {**payload, 'user_id': str(getattr(user, 'pk', '') or '')}
+    try:
+        res = requests.post(url, json=body, headers={'X-Internal-Token': settings.AI_SERVICE_TOKEN},
+                            stream=True, timeout=(5, timeout))
+    except requests.RequestException as exc:
+        record(user, feature, None, status=AIRequest.Status.ERROR, counted=False, error=f'Không kết nối được service AI: {exc}')
+        raise AIUnavailable('Service AI chưa chạy hoặc không kết nối được.') from exc
+    if not res.ok:
+        record(user, feature, None, status=AIRequest.Status.ERROR, counted=False, error=f'Service AI trả lỗi {res.status_code}')
+        res.close()
+        raise (AIUnavailable if res.status_code in (401, 503) else AIError)(f'Service AI trả lỗi {res.status_code}.')
+    res.encoding = 'utf-8'
+    return res
+
+
+def iter_sse(res):
+    """Đọc luồng SSE -> (event, data dict)."""
+    import json
+
+    event, data_lines = 'message', []
+    for line in res.iter_lines(decode_unicode=True):
+        if line is None:
+            continue
+        if line == '':
+            if data_lines:
+                try:
+                    yield event, json.loads('\n'.join(data_lines))
+                except ValueError:
+                    pass
+            event, data_lines = 'message', []
+        elif line.startswith('event:'):
+            event = line[6:].strip()
+        elif line.startswith('data:'):
+            data_lines.append(line[5:].lstrip())
