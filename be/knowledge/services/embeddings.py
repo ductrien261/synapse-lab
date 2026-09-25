@@ -26,6 +26,10 @@ class EmbeddingNotConfigured(EmbeddingError):
     pass
 
 
+class EmbeddingQuotaExceeded(EmbeddingError):
+    pass
+
+
 class _HTTPError(EmbeddingError):
     def __init__(self, status: int, body: str):
         super().__init__(f'Gemini embedding lỗi {status}: {body}')
@@ -44,6 +48,7 @@ def _request(method: str, body: dict, interval: float) -> dict:
     if not settings.GEMINI_API_KEY:
         raise EmbeddingNotConfigured('Chưa cấu hình GEMINI_API_KEY để tạo vector.')
     url = BASE.format(model=settings.GEMINI_EMBED_MODEL, method=method)
+    last = ''
     for attempt in range(6):
         with _lock:
             wait = interval - (time.monotonic() - _state['last'])
@@ -53,15 +58,26 @@ def _request(method: str, body: dict, interval: float) -> dict:
         try:
             res = requests.post(url, json=body, headers={'x-goog-api-key': settings.GEMINI_API_KEY}, timeout=60)
         except (requests.ConnectionError, requests.Timeout):
+            last = 'mất kết nối'
             time.sleep(2 ** attempt * 2)
             continue
+        if res.status_code == 429 and 'PerDay' in res.text:
+            # hết hạn mức trong ngày: chờ cũng vô ích -> báo ngay
+            raise EmbeddingQuotaExceeded(
+                'Đã hết hạn mức Gemini embedding trong ngày (gói miễn phí). '
+                'Các trang đã nạp vẫn được giữ; mai chọn lại chương để nạp tiếp phần còn lại.'
+            )
         if res.status_code == 429 or res.status_code >= 500:
+            last = f'{res.status_code} {"quá tải / giới hạn mỗi phút" if res.status_code == 429 else "lỗi máy chủ Google"}'
             time.sleep(2 ** attempt * 3)
             continue
         if not res.ok:
             raise _HTTPError(res.status_code, res.text[:300])
         return res.json()
-    raise EmbeddingError('Gemini embedding liên tục lỗi (quá tải hoặc mất mạng).')
+    raise EmbeddingError(
+        f'Gemini embedding liên tục lỗi ({last or "không rõ"}). Các trang đã nạp vẫn được giữ; '
+        'đợi vài phút rồi chọn lại chương để nạp tiếp phần còn lại.'
+    )
 
 
 def _item(text: str, task: str) -> dict:

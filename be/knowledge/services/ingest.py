@@ -66,8 +66,21 @@ def active_job() -> IngestJob | None:
 def save_sections(document: Document, section_key: str, section_title: str, sections: list[Section], on_batch=None) -> int:
     """Thay toàn bộ đoạn của 1 trang nguồn bằng bản mới. Trả về số đoạn."""
     drafts = chunk_sections(sections)
-    texts = [contextual_text(document.title, d.section.breadcrumb, d.text) for d in drafts]
-    vectors = embed_documents(texts, on_batch) if drafts else []
+    # Đoạn giống hệt (cùng tiêu đề + nội dung) đã có vector trong tài liệu này -> dùng lại, khỏi gọi Gemini
+    known: dict[tuple[str, str], object] = {}
+    if drafts:
+        headings = {d.section.breadcrumb[:500] for d in drafts}
+        for heading, content, emb in DocumentChunk.objects.filter(
+            document=document, heading__in=headings, embedding__isnull=False
+        ).values_list('heading', 'content', 'embedding'):
+            known[(heading, content)] = emb
+    keys = [(d.section.breadcrumb[:500], d.text) for d in drafts]
+    missing = [i for i, k in enumerate(keys) if k not in known]
+    new_vectors = embed_documents(
+        [contextual_text(document.title, drafts[i].section.breadcrumb, drafts[i].text) for i in missing], on_batch
+    ) if missing else []
+    fresh = dict(zip(missing, new_vectors))
+    vectors = [fresh[i] if i in fresh else known[keys[i]] for i in range(len(drafts))]
 
     with transaction.atomic():
         DocumentChunk.objects.filter(document=document, section_key=section_key).delete()
