@@ -43,9 +43,14 @@ export default function SettingsPage() {
 
       {!isAdmin && (
         <SettingsSection title="Dữ liệu học tập" tone="danger">
-          <SettingsRow label="Xóa hồ sơ học tập" hint="Mức nắm vững, chỗ hay nhầm, lịch sử ôn tập. Không ảnh hưởng tài khoản và ghi chú.">
-            <ResetLearningButton onDone={() => notify('Đã xóa dữ liệu học tập.')} />
-          </SettingsRow>
+          <div className="px-6 pb-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <p className="text-sm text-stone-500 max-w-md">
+              Xóa mức nắm vững, những chỗ hay nhầm và lịch sử ôn tập. Tài khoản và ghi chú vẫn giữ nguyên.
+            </p>
+            <div className="shrink-0">
+              <ResetLearningButton onDone={() => notify('Đã xóa dữ liệu học tập.')} />
+            </div>
+          </div>
         </SettingsSection>
       )}
 
