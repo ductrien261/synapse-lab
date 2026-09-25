@@ -11,7 +11,7 @@ import traceback
 from datetime import timedelta
 
 from django.db import close_old_connections, transaction
-from django.db.models import F
+from django.db.models import F, Q
 from django.utils import timezone
 
 from ..models import AnatomyModel, AnatomyToolCollection, AnatomyToolItem, BodySystem, ImportJob, Structure, StructureDraft
@@ -32,6 +32,7 @@ from .importer import import_model
 from .sketchfab import SketchfabError, parse_uid
 
 STALE_AFTER = timedelta(minutes=10)
+DEAD_AFTER = timedelta(minutes=1)
 
 # Gợi ý hệ cơ quan theo tên Collection (admin vẫn đổi được)
 SYSTEM_HINTS = [
@@ -77,12 +78,27 @@ def _cancelled(job: ImportJob) -> bool:
     return job.cancel_requested
 
 
+def is_alive(job_id) -> bool:
+    """Luồng nền của lượt này còn chạy trong tiến trình hiện tại không."""
+    name = f'import-job-{job_id}'
+    return any(t.name == name and t.is_alive() for t in threading.enumerate())
+
+
 def expire_stale_jobs():
-    """Server khởi động lại giữa chừng -> lượt đang chạy bị 'treo'; đánh dấu lỗi."""
-    ImportJob.objects.filter(
-        status__in=[ImportJob.Status.RUNNING, ImportJob.Status.QUEUED],
-        updated_at__lt=timezone.now() - STALE_AFTER,
-    ).update(status=ImportJob.Status.FAILED, finished_at=timezone.now())
+    """
+    Server khởi động lại giữa chừng -> lượt đang chạy bị 'treo'; đánh dấu lỗi.
+    - Không còn luồng chạy và im lặng > 1 phút -> treo (vd. vừa restart)
+    - Im lặng > 10 phút -> treo (phòng khi chạy nhiều tiến trình)
+    """
+    now = timezone.now()
+    active = ImportJob.objects.filter(status__in=[ImportJob.Status.RUNNING, ImportJob.Status.QUEUED])
+    dead = [
+        j.pk for j in active.filter(updated_at__lt=now - DEAD_AFTER).only('id')
+        if not is_alive(j.pk)
+    ]
+    ImportJob.objects.filter(Q(pk__in=dead) | Q(pk__in=active.filter(updated_at__lt=now - STALE_AFTER).values('pk'))).update(
+        status=ImportJob.Status.FAILED, finished_at=now
+    )
 
 
 def has_active_job() -> ImportJob | None:

@@ -24,7 +24,7 @@ from .serializers import (
 from .services.anatomytool import node_url
 from .services.annotations import sync_annotations
 from .services.drafting import apply_draft, draft_structure
-from .services.jobs import has_active_job, start_job
+from .services.jobs import has_active_job, is_alive, start_job
 
 FILLED = Q(annotations__structure__definition__gt='') | Q(annotations__structure__function__gt='')
 
@@ -304,7 +304,11 @@ class CancelJobView(APIView):
         job = get_object_or_404(ImportJob, pk=pk)
         if job.status in (ImportJob.Status.QUEUED, ImportJob.Status.RUNNING):
             job.cancel_requested = True
-            job.save(update_fields=['cancel_requested', 'updated_at'])
+            if not is_alive(job.pk):
+                # luồng đã chết (vd. vừa restart server) -> dừng hẳn luôn, khỏi chờ
+                job.status = ImportJob.Status.CANCELLED
+                job.finished_at = timezone.now()
+            job.save(update_fields=['cancel_requested', 'status', 'finished_at', 'updated_at'])
         return Response(ImportJobSerializer(job).data)
 
 
