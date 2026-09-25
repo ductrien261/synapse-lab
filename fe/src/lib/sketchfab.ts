@@ -172,3 +172,44 @@ export function useSketchfabViewer(uid: string) {
 
   return { iframeRef, status, annotations, selected, select, recenter, onPick, setLabelsVisible };
 }
+
+/**
+ * Đọc danh sách chú thích của 1 mô hình trong một iframe tạm (dùng cho "Đồng bộ tất cả" ở trang admin).
+ * Tự hủy nếu quá thời gian (mô hình nặng / lỗi mạng).
+ */
+export async function readModelAnnotations(uid: string, iframe: HTMLIFrameElement, timeoutMs = 60000): Promise<ViewerAnnotation[]> {
+  await loadScript();
+  if (!window.Sketchfab) throw new Error('Không tải được Sketchfab Viewer API');
+  const Client = window.Sketchfab;
+  return new Promise<ViewerAnnotation[]>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('Quá thời gian tải mô hình')), timeoutMs);
+    const client = new Client('1.12.1', iframe);
+    client.init(uid, {
+      autostart: 1,
+      preload: 0,
+      ui_infos: 0,
+      ui_controls: 0,
+      ui_annotations: 0,
+      success: (api: SketchfabApi) => {
+        api.start();
+        api.addEventListener('viewerready', () => {
+          api.getAnnotationList((err, list) => {
+            clearTimeout(timer);
+            if (err || !Array.isArray(list)) return reject(new Error('Không đọc được chú thích'));
+            resolve(
+              list.map((a, index) => ({
+                index,
+                name: a.name ?? `Chú thích ${index + 1}`,
+                content: typeof a.content === 'string' ? a.content : a.content?.raw ?? '',
+              })),
+            );
+          });
+        });
+      },
+      error: () => {
+        clearTimeout(timer);
+        reject(new Error('Sketchfab không mở được mô hình'));
+      },
+    });
+  });
+}

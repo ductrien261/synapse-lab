@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { Box, EyeFill, EyeSlashFill, PencilSquare, Search, Trash3 } from 'react-bootstrap-icons';
 import { adminAnatomyApi, type AdminModelRow } from '@/lib/admin-anatomy';
 import { modelTitle, useBodySystems } from '@/lib/anatomy-catalog';
+import { BatchSync } from './BatchSync';
 
 type StatusFilter = '' | 'draft' | 'published';
 
@@ -157,6 +158,9 @@ export function ModelsTable({ reloadSignal }: { reloadSignal: number }) {
         </div>
       )}
       {notice && <div className="px-4 py-2 text-sm text-emerald-700 bg-emerald-50 border-b border-emerald-100">{notice}</div>}
+
+      {/* Đồng bộ chú thích hàng loạt */}
+      <BatchSync models={rows.filter((r) => r.annotation_count === 0)} onDone={() => setRefresh((n) => n + 1)} />
 
       {/* Bảng */}
       <div className="overflow-x-auto">
