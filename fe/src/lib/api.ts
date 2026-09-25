@@ -153,7 +153,7 @@ export async function streamRequest(
       signal,
       headers: {
         'Content-Type': 'application/json',
-        Accept: 'text/event-stream',
+        Accept: 'text/event-stream, application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
       body: JSON.stringify(body),

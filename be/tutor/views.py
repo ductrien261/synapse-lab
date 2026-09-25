@@ -12,6 +12,7 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import serializers, status
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.renderers import BaseRenderer, JSONRenderer
 from rest_framework.response import Response
 from rest_framework.throttling import UserRateThrottle
 from rest_framework.views import APIView
@@ -23,6 +24,20 @@ from users.permissions import is_admin
 
 from .models import AnswerCache, Conversation, TutorMessage
 from .services import cache_key, cacheable, cached_answer, history, learner_context, model_parts
+
+
+class EventStreamRenderer(BaseRenderer):
+    """
+    Cho DRF chấp nhận header Accept: text/event-stream (không có -> lỗi 406).
+    Luồng trả lời thật là StreamingHttpResponse nên không đi qua đây; chỉ lỗi (400/429...) mới dùng -> trả JSON.
+    """
+
+    media_type = 'text/event-stream'
+    format = 'sse'
+    charset = 'utf-8'
+
+    def render(self, data, accepted_media_type=None, renderer_context=None):
+        return json.dumps(data, ensure_ascii=False, default=str).encode('utf-8')
 
 
 class AskThrottle(UserRateThrottle):
@@ -53,6 +68,7 @@ def message_data(m: TutorMessage) -> dict:
 
 class AskView(APIView):
     permission_classes = [IsAuthenticated]
+    renderer_classes = [JSONRenderer, EventStreamRenderer]
     throttle_classes = [AskThrottle]
 
     class Input(serializers.Serializer):
