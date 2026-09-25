@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   title: 'Lĩnh vực học tập trực quan',
   description:
     'Các lĩnh vực trên Synapse Lab: giải phẫu học người với mô hình 3D có chú thích và giải thuật với mô phỏng từng bước. Danh mục được mở rộng liên tục.',
-  alternates: { canonical: '/linh-vuc' },
+  alternates: { canonical: '/domains' },
 };
 
 const anatomy = DOMAINS.find((d) => d.key === 'anatomy')!;
@@ -77,14 +77,14 @@ export default function DomainsPage() {
         </div>
       </Section>
 
-      <Section id="de-xuat" tone="white">
+      <Section id="suggest" tone="white">
         <div className="rounded-2xl border border-dashed border-slate-300 bg-[#F4F7FC] p-8 md:p-14">
           <SectionHeading
             eyebrow="Lĩnh vực tiếp theo"
             title="Chủ đề nào bạn muốn được trực quan hóa?"
             lead="Nền tảng được thiết kế để bổ sung lĩnh vực mới mà không thay đổi trải nghiệm học. Hãy cho chúng tôi biết môn học hoặc chủ đề bạn cần — đề xuất từ người dùng được ưu tiên trong lộ trình phát triển."
           >
-            <ButtonLink href="/gioi-thieu#lien-he">Gửi đề xuất</ButtonLink>
+            <ButtonLink href="/about#contact">Gửi đề xuất</ButtonLink>
           </SectionHeading>
         </div>
       </Section>

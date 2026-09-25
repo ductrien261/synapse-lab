@@ -5,19 +5,19 @@ import { CAPABILITIES, DOMAINS, SITE } from '@/lib/marketing';
 const COLUMNS = [
   {
     title: 'Nền tảng',
-    links: CAPABILITIES.filter((c) => !c.soon).map((c) => ({ href: `/nen-tang#${c.anchor}`, label: c.title })),
+    links: CAPABILITIES.filter((c) => !c.soon).map((c) => ({ href: `/platform#${c.anchor}`, label: c.title })),
   },
   {
     title: 'Lĩnh vực',
-    links: DOMAINS.map((d) => ({ href: `/linh-vuc#${d.key}`, label: d.title })),
+    links: DOMAINS.map((d) => ({ href: `/domains#${d.key}`, label: d.title })),
   },
   {
     title: 'Tài nguyên',
     links: [
-      { href: '/cong-nghe-ai', label: 'Công nghệ AI' },
-      { href: '/nguon-tri-thuc', label: 'Nguồn tri thức' },
-      { href: '/#cau-hoi', label: 'Câu hỏi thường gặp' },
-      { href: '/gioi-thieu', label: 'Giới thiệu' },
+      { href: '/ai', label: 'Công nghệ AI' },
+      { href: '/sources', label: 'Nguồn tri thức' },
+      { href: '/#faq', label: 'Câu hỏi thường gặp' },
+      { href: '/about', label: 'Giới thiệu' },
     ],
   },
 ];

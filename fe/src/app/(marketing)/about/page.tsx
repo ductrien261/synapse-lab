@@ -6,7 +6,7 @@ import { SITE } from '@/lib/marketing';
 export const metadata: Metadata = {
   title: 'Giới thiệu',
   description: 'Synapse Lab được xây dựng với sứ mệnh giúp kiến thức phức tạp trở nên trực quan, dễ tiếp cận và luôn có thể kiểm chứng.',
-  alternates: { canonical: '/gioi-thieu' },
+  alternates: { canonical: '/about' },
 };
 
 const VALUES = [
@@ -52,7 +52,7 @@ export default function AboutPage() {
         </ul>
       </Section>
 
-      <Section id="lien-he" tone="white">
+      <Section id="contact" tone="white">
         <div className="grid items-center gap-10 md:grid-cols-2 lg:gap-20">
           <SectionHeading
             eyebrow="Liên hệ"
@@ -77,7 +77,7 @@ export default function AboutPage() {
               <p className="text-base leading-relaxed text-slate-600">
                 Kênh liên hệ chính thức đang được cập nhật. Trong thời gian này, bạn có thể bắt đầu trải nghiệm Synapse Lab miễn phí.
               </p>
-              <ButtonLink href="/#trai-nghiem" className="mt-6">
+              <ButtonLink href="/#try" className="mt-6">
                 Trải nghiệm ngay
               </ButtonLink>
             </div>

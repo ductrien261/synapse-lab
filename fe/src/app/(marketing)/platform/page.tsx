@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   title: 'Nền tảng học tập trực quan và tương tác',
   description:
     'Tìm hiểu các công cụ của Synapse Lab: trực quan hóa 3D, mô phỏng từng bước, trợ lý AI có dẫn nguồn, ôn tập thích ứng và hồ sơ học tập minh bạch.',
-  alternates: { canonical: '/nen-tang' },
+  alternates: { canonical: '/platform' },
 };
 
 const VISUALS: Record<CapabilityKey, ReactNode> = {
@@ -40,7 +40,7 @@ export default function PlatformPage() {
           name: SITE.name,
           applicationCategory: 'EducationalApplication',
           operatingSystem: 'Web',
-          url: `${SITE.url}/nen-tang`,
+          url: `${SITE.url}/platform`,
           description: SITE.description,
           offers: { '@type': 'Offer', price: '0', priceCurrency: 'VND' },
           featureList: CAPABILITIES.filter((c) => !c.soon).map((c) => c.title),
@@ -51,7 +51,7 @@ export default function PlatformPage() {
         title="Nền tảng học tập trực quan, tương tác và có kiểm chứng"
         lead="Synapse Lab kết hợp trực quan hóa, mô phỏng và trí tuệ nhân tạo trong một môi trường học thống nhất — giúp người học hiểu bản chất, ghi nhớ lâu và luôn biết kiến thức đến từ đâu."
       >
-        <ButtonLink href="/#trai-nghiem">Trải nghiệm ngay</ButtonLink>
+        <ButtonLink href="/#try">Trải nghiệm ngay</ButtonLink>
         <ButtonLink href="/register" variant="secondary">
           Tạo tài khoản miễn phí
         </ButtonLink>

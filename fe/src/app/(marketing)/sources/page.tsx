@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   title: 'Nguồn tri thức và tiêu chuẩn nội dung',
   description:
     'Synapse Lab xây dựng nội dung từ học liệu có giấy phép mở như OpenStax, AnatomyTOOL và Sketchfab, với quy trình trích dẫn và kiểm duyệt trước khi xuất bản.',
-  alternates: { canonical: '/nguon-tri-thuc' },
+  alternates: { canonical: '/sources' },
 };
 
 const WORKFLOW = [
@@ -81,7 +81,7 @@ export default function SourcesPage() {
             title="Cộng đồng đóng góp học liệu"
             lead="Giảng viên và người học sẽ có thể chia sẻ học liệu mở lên nền tảng. Mỗi đóng góp được kiểm duyệt, gắn nhãn nguồn gốc và giấy phép trước khi đưa vào kho tri thức chung."
           >
-            <ButtonLink href="/gioi-thieu#lien-he" variant="secondary">
+            <ButtonLink href="/about#contact" variant="secondary">
               Đăng ký quan tâm
             </ButtonLink>
           </SectionHeading>

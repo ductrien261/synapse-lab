@@ -14,11 +14,11 @@ export const SITE = {
 };
 
 export const NAV = [
-  { href: '/nen-tang', label: 'Nền tảng' },
-  { href: '/linh-vuc', label: 'Lĩnh vực' },
-  { href: '/cong-nghe-ai', label: 'Công nghệ AI' },
-  { href: '/nguon-tri-thuc', label: 'Nguồn tri thức' },
-  { href: '/gioi-thieu', label: 'Giới thiệu' },
+  { href: '/platform', label: 'Nền tảng' },
+  { href: '/domains', label: 'Lĩnh vực' },
+  { href: '/ai', label: 'Công nghệ AI' },
+  { href: '/sources', label: 'Nguồn tri thức' },
+  { href: '/about', label: 'Giới thiệu' },
 ];
 
 export type CapabilityKey = 'visual-3d' | 'simulation' | 'assistant' | 'review' | 'profile' | 'spaces';
@@ -35,7 +35,7 @@ export interface Capability {
 export const CAPABILITIES: Capability[] = [
   {
     key: 'visual-3d',
-    anchor: 'truc-quan-3d',
+    anchor: '3d-visualization',
     title: 'Trực quan hóa 3D',
     summary: 'Khám phá cấu trúc phức tạp trên mô hình ba chiều: xoay, phóng to và chọn từng thành phần để xem giải thích chi tiết.',
     points: [
@@ -46,35 +46,35 @@ export const CAPABILITIES: Capability[] = [
   },
   {
     key: 'simulation',
-    anchor: 'mo-phong',
+    anchor: 'simulation',
     title: 'Mô phỏng từng bước',
     summary: 'Quan sát một quá trình diễn ra theo từng bước, điều khiển tốc độ, tua lại và đối chiếu với mã nguồn hoặc lý thuyết tương ứng.',
     points: ['Điều khiển phát, tạm dừng, tua từng bước', 'Đồng bộ trạng thái với mã nguồn', 'Diễn giải bằng tiếng Việt ở mỗi bước'],
   },
   {
     key: 'assistant',
-    anchor: 'tro-ly-ai',
+    anchor: 'ai-assistant',
     title: 'Trợ lý AI có dẫn nguồn',
     summary: 'Đặt câu hỏi ngay trong ngữ cảnh đang học. Câu trả lời được tổng hợp từ học liệu đã kiểm duyệt và đánh số trích dẫn.',
     points: ['Hiểu ngữ cảnh bạn đang xem', 'Trích dẫn tới mục cụ thể trong học liệu', 'Thông báo rõ khi nguồn chưa có thông tin'],
   },
   {
     key: 'review',
-    anchor: 'on-tap',
+    anchor: 'adaptive-review',
     title: 'Ôn tập thích ứng',
     summary: 'Lịch ôn tập riêng cho từng khái niệm theo phương pháp lặp lại ngắt quãng, ưu tiên nội dung bạn dễ quên hoặc hay nhầm lẫn.',
     points: ['Khoảng cách ôn tăng dần từ 10 phút đến 16 ngày', 'Câu hỏi đa dạng: nhận diện, trắc nghiệm, tình huống', 'Ghi nhận và sửa các lỗi nhầm lẫn thường gặp'],
   },
   {
     key: 'profile',
-    anchor: 'ho-so-hoc-tap',
+    anchor: 'learning-profile',
     title: 'Hồ sơ học tập minh bạch',
     summary: 'Theo dõi mức độ nắm vững, điểm cần cải thiện và mục tiêu học tập. Bạn xem và chỉnh sửa được mọi điều hệ thống ghi nhận về mình.',
     points: ['Mức độ nắm vững theo từng khái niệm', 'Mục tiêu và ghi chú do bạn tự đặt', 'Xóa hoặc đặt lại dữ liệu bất cứ lúc nào'],
   },
   {
     key: 'spaces',
-    anchor: 'khong-gian',
+    anchor: 'spaces',
     title: 'Không gian cộng tác',
     summary: 'Tạo không gian học nhóm, thảo luận hoặc thuyết trình; thành viên tham gia bằng mã mời.',
     points: ['Học nhóm theo thời gian thực', 'Tham gia nhanh bằng mã mời', 'Phù hợp cho lớp học và nhóm nghiên cứu'],

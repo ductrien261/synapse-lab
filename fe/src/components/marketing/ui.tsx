@@ -163,7 +163,7 @@ export function CtaBand({
           <p className="mt-5 max-w-2xl text-base leading-relaxed text-slate-600 md:text-lg">{text}</p>
         </div>
         <div className="flex flex-wrap gap-4">
-          <ButtonLink href="/#trai-nghiem">Trải nghiệm ngay</ButtonLink>
+          <ButtonLink href="/#try">Trải nghiệm ngay</ButtonLink>
           <ButtonLink href="/register" variant="secondary">
             Tạo tài khoản
           </ButtonLink>

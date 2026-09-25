@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   title: 'Công nghệ AI có dẫn nguồn',
   description:
     'Cách trợ lý AI của Synapse Lab hoạt động: truy xuất học liệu đã kiểm duyệt, trả lời kèm trích dẫn, kiểm chứng tự động và cá nhân hóa theo hồ sơ học tập do người học kiểm soát.',
-  alternates: { canonical: '/cong-nghe-ai' },
+  alternates: { canonical: '/ai' },
 };
 
 const PIPELINE = [
@@ -32,7 +32,7 @@ export default function AiPage() {
         lead="Synapse Lab ứng dụng mô hình ngôn ngữ lớn theo kiến trúc truy xuất học liệu (RAG): mọi câu trả lời đều được tổng hợp từ nguồn đã kiểm duyệt và có thể kiểm chứng."
       >
         <ButtonLink href="/register">Dùng thử trợ lý AI</ButtonLink>
-        <ButtonLink href="/nguon-tri-thuc" variant="secondary">
+        <ButtonLink href="/sources" variant="secondary">
           Xem nguồn tri thức
         </ButtonLink>
       </PageHero>

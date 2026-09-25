@@ -75,7 +75,7 @@ export default function HomePage() {
                 quan sát, thao tác và tự kiểm chứng.
               </p>
               <div className="mt-8 flex flex-wrap gap-4">
-                <ButtonLink href="#trai-nghiem">
+                <ButtonLink href="#try">
                   Trải nghiệm ngay <ArrowRight className="h-4 w-4" />
                 </ButtonLink>
                 <ButtonLink href="/register" variant="secondary">
@@ -155,7 +155,7 @@ export default function HomePage() {
               </div>
               <h3 className="mt-6 text-xl font-bold tracking-tight text-[#0F2258]">{c.title}</h3>
               <p className="mt-3 flex-1 text-[15px] leading-relaxed text-slate-600">{c.summary}</p>
-              <Link href={`/nen-tang#${c.anchor}`} className="mt-6 inline-flex items-center gap-1.5 text-[15px] font-semibold text-[#1E3F82] hover:text-[#0F2258]">
+              <Link href={`/platform#${c.anchor}`} className="mt-6 inline-flex items-center gap-1.5 text-[15px] font-semibold text-[#1E3F82] hover:text-[#0F2258]">
                 Tìm hiểu thêm <ArrowRight className="h-4 w-4" />
               </Link>
             </li>
@@ -164,7 +164,7 @@ export default function HomePage() {
       </Section>
 
       {/* Trải nghiệm */}
-      <Section id="trai-nghiem" tone="white">
+      <Section id="try" tone="white">
         <SectionHeading
           align="center"
           eyebrow="Trải nghiệm"
@@ -191,7 +191,7 @@ export default function HomePage() {
           title="Một nền tảng, nhiều lĩnh vực tri thức"
           lead="Mỗi lĩnh vực được xây dựng trên cùng một phương pháp trực quan và cùng tiêu chuẩn kiểm chứng nội dung. Danh mục được mở rộng liên tục."
         >
-          <ButtonLink href="/linh-vuc" variant="link">
+          <ButtonLink href="/domains" variant="link">
             Xem tất cả lĩnh vực
           </ButtonLink>
         </SectionHeading>
@@ -215,7 +215,7 @@ export default function HomePage() {
             <p className="mt-3 flex-1 text-[15px] leading-relaxed text-slate-600">
               Kiến trúc nền tảng cho phép bổ sung lĩnh vực mới mà không thay đổi trải nghiệm học. Đề xuất của người dùng được ưu tiên xem xét.
             </p>
-            <ButtonLink href="/linh-vuc#de-xuat" variant="link" className="mt-6 self-start">
+            <ButtonLink href="/domains#suggest" variant="link" className="mt-6 self-start">
               Đề xuất lĩnh vực
             </ButtonLink>
           </li>
@@ -230,7 +230,7 @@ export default function HomePage() {
           title="Trí tuệ nhân tạo phục vụ việc học, không thay thế sự chính xác"
           lead="Trợ lý AI của Synapse Lab được thiết kế với nguyên tắc kiểm chứng là ưu tiên hàng đầu."
         >
-          <ButtonLink href="/cong-nghe-ai" variant="light">
+          <ButtonLink href="/ai" variant="light">
             Tìm hiểu công nghệ AI
           </ButtonLink>
         </SectionHeading>
@@ -246,7 +246,7 @@ export default function HomePage() {
       </Section>
 
       {/* Hỏi đáp */}
-      <Section id="cau-hoi" tone="white">
+      <Section id="faq" tone="white">
         <SectionHeading align="center" title="Câu hỏi thường gặp" lead="Những thông tin cần biết trước khi bắt đầu với Synapse Lab." />
         <div className="mt-12 md:mt-16">
           <Faq items={FAQS} />
@@ -263,7 +263,7 @@ export default function HomePage() {
             </p>
           </div>
           <div className="flex flex-wrap gap-4">
-            <ButtonLink href="#trai-nghiem">Trải nghiệm ngay</ButtonLink>
+            <ButtonLink href="#try">Trải nghiệm ngay</ButtonLink>
             <ButtonLink href="/register" variant="secondary">
               Tạo tài khoản
             </ButtonLink>

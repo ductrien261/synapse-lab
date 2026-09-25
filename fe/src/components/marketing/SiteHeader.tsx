@@ -52,7 +52,7 @@ export function SiteHeader() {
               <Link href="/login" className="rounded-lg px-4 py-2.5 text-[15px] font-semibold text-[#0F2258] hover:bg-slate-50">
                 Đăng nhập
               </Link>
-              <Link href="/#trai-nghiem" className="rounded-lg bg-[#1E3F82] px-5 py-2.5 text-[15px] font-semibold text-white hover:bg-[#163070]">
+              <Link href="/#try" className="rounded-lg bg-[#1E3F82] px-5 py-2.5 text-[15px] font-semibold text-white hover:bg-[#163070]">
                 Trải nghiệm ngay
               </Link>
             </>
@@ -91,7 +91,7 @@ export function SiteHeader() {
               </Link>
             ) : (
               <>
-                <Link href="/#trai-nghiem" onClick={() => setOpen(false)} className="rounded-lg bg-[#1E3F82] px-5 py-3 text-center font-semibold text-white">
+                <Link href="/#try" onClick={() => setOpen(false)} className="rounded-lg bg-[#1E3F82] px-5 py-3 text-center font-semibold text-white">
                   Trải nghiệm ngay
                 </Link>
                 <Link href="/login" className="rounded-lg border border-slate-300 px-5 py-3 text-center font-semibold text-[#0F2258]">
