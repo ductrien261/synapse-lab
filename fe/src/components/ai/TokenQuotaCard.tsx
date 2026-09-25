@@ -11,14 +11,15 @@ function tone(q: AiQuota) {
 }
 
 /** Thanh token AI trong ngày: dùng tới đâu trừ tới đó, 0h làm mới. */
-export function TokenQuotaCard({ compact = false }: { compact?: boolean }) {
+export function TokenQuotaCard({ compact = false, bare = false }: { compact?: boolean; bare?: boolean }) {
   const quota = useAiQuota();
 
   if (!quota) {
-    return <div className={`${compact ? 'h-10' : 'h-28'} rounded-2xl bg-stone-100 animate-pulse`} />;
+    return <div className={`${compact ? 'h-10' : bare ? 'h-14' : 'h-28'} rounded-2xl bg-stone-100 animate-pulse`} />;
   }
 
   if (quota.unlimited) {
+    if (bare) return <p className="text-sm text-stone-600">Quản trị viên không bị giới hạn · đã dùng {formatTokens(quota.used)} token hôm nay.</p>;
     return compact ? null : (
       <section className="bg-white rounded-3xl border border-stone-200/90 p-6">
         <h2 className="text-base font-bold text-stone-900 flex items-center gap-2">
@@ -42,6 +43,23 @@ export function TokenQuotaCard({ compact = false }: { compact?: boolean }) {
           <div className={`h-full rounded-full ${t.bar}`} style={{ width: `${100 - pct}%` }} />
         </div>
         <span className="tabular-nums">còn {formatTokens(quota.remaining)}</span>
+      </div>
+    );
+  }
+
+  if (bare) {
+    return (
+      <div>
+        <div className="flex items-baseline justify-between gap-2 text-sm">
+          <span className="text-stone-600">
+            Đã dùng <b className="text-stone-800 tabular-nums">{formatTokens(quota.used)}</b> / {formatTokens(quota.limit)}
+          </span>
+          <span className={`font-bold tabular-nums ${t.text}`}>còn {formatTokens(quota.remaining)}</span>
+        </div>
+        <div className="mt-2 h-2.5 rounded-full bg-stone-100 overflow-hidden" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
+          <div className={`h-full rounded-full transition-[width] duration-700 ${t.bar}`} style={{ width: `${pct}%` }} />
+        </div>
+        <p className="mt-2 text-xs text-stone-500">Làm mới lúc 0h mỗi ngày. Câu trả lời có sẵn trong bộ nhớ đệm không tốn token.</p>
       </div>
     );
   }
