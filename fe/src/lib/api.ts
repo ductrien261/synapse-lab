@@ -93,6 +93,8 @@ interface RequestOptions extends RequestInit {
 
 export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { auth = true, headers, ...init } = options;
+  // Khách chưa đăng nhập gặp 401 thì chỉ báo lỗi, không chuyển trang; phiên hết hạn mới về trang đăng nhập
+  const hadToken = auth && Boolean(getAccessToken());
 
   const send = () => {
     const token = auth ? getAccessToken() : null;
@@ -109,7 +111,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
 
   let res = await send();
 
-  if (res.status === 401 && auth) {
+  if (res.status === 401 && hadToken) {
     if (await refreshAccessToken()) {
       res = await send();
     } else {

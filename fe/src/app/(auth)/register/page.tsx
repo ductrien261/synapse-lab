@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { nextPath } from '@/lib/auth-redirect';
 import { authApi, getAccessToken, setTokens } from '@/lib/api';
 
 export default function RegisterPage() {
@@ -13,7 +14,7 @@ export default function RegisterPage() {
 
   // Đã đăng nhập rồi thì vào thẳng trang chủ
   useEffect(() => {
-    if (getAccessToken()) router.replace('/');
+    if (getAccessToken()) router.replace(nextPath());
   }, [router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -23,7 +24,7 @@ export default function RegisterPage() {
     try {
       const data = await authApi.register(form);
       setTokens(data.access, data.refresh);
-      router.push('/');
+      router.push(nextPath());
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Đã có lỗi xảy ra');
     } finally {

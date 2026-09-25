@@ -40,7 +40,7 @@ interface Props {
 
 export function AppSidebar({ collapsed, onToggle }: Props) {
   const pathname = usePathname();
-  const { user } = useUser();
+  const { user, guest } = useUser();
   const track = user?.track ?? null;
   const isAdmin = user?.role === 'admin';
 
@@ -50,7 +50,7 @@ export function AppSidebar({ collapsed, onToggle }: Props) {
 
   const recent = useRecent(track);
 
-  const isActive = (href: string) => (href === '/' ? pathname === '/' : pathname.startsWith(href));
+  const isActive = (href: string) => pathname.startsWith(href);
 
   return (
     <aside
@@ -61,12 +61,12 @@ export function AppSidebar({ collapsed, onToggle }: Props) {
       <div className="flex-1 overflow-y-auto overflow-x-hidden p-3 pt-4 flex flex-col gap-5">
         {/* ---------- Học tập ---------- */}
         <NavSection title="Học tập" collapsed={collapsed}>
-          <NavLink href="/" label="Tổng quan" icon={Grid1x2Fill} active={isActive('/')} collapsed={collapsed} />
+          {!guest && <NavLink href="/dashboard" label="Tổng quan" icon={Grid1x2Fill} active={isActive('/dashboard')} collapsed={collapsed} />}
           {showAlgorithms && (
             <AlgorithmsNav active={isActive('/algorithms')} collapsed={collapsed} />
           )}
           {showAnatomy && <AnatomyNav active={isActive('/anatomy')} collapsed={collapsed} />}
-          <NavLink href="/spaces" label="Không gian" icon={PeopleFill} active={isActive('/spaces')} collapsed={collapsed} />
+          {!guest && <NavLink href="/spaces" label="Không gian" icon={PeopleFill} active={isActive('/spaces')} collapsed={collapsed} />}
         </NavSection>
 
         {/* ---------- Gần đây ---------- */}

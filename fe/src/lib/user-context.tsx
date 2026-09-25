@@ -26,6 +26,8 @@ interface UserContextValue {
   loading: boolean;
   /** Lỗi không phải do đăng nhập (mất mạng, backend sập...) */
   error: string | null;
+  /** Khách (chưa đăng nhập) đang xem trang cho phép dùng thử */
+  guest: boolean;
   refresh: () => Promise<void>;
   updateMe: (data: ProfileUpdate) => Promise<CurrentUser>;
   logout: () => void;
@@ -33,7 +35,7 @@ interface UserContextValue {
 
 const UserContext = createContext<UserContextValue | null>(null);
 
-export function UserProvider({ children }: { children: ReactNode }) {
+export function UserProvider({ children, allowGuest = false }: { children: ReactNode; allowGuest?: boolean }) {
   const router = useRouter();
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [loading, setLoading] = useState(true);
@@ -50,7 +52,14 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const load = useCallback((): Promise<void> => {
     if (!getAccessToken()) {
       clearTokens();
-      router.replace('/login');
+      if (allowGuest) {
+        // Trang dùng thử: không bắt đăng nhập
+        return Promise.resolve().then(() => {
+          setUser(null);
+          setLoading(false);
+        });
+      }
+      router.replace(`/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`);
       return Promise.resolve();
     }
     return authApi
@@ -64,7 +73,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         else setError(err instanceof Error ? err.message : 'Không tải được thông tin tài khoản');
       })
       .finally(() => setLoading(false));
-  }, [logout, router]);
+  }, [logout, router, allowGuest]);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -81,9 +90,10 @@ export function UserProvider({ children }: { children: ReactNode }) {
     void load();
   }, [load]);
 
+  const guest = allowGuest && !user && !loading && !error;
   const value = useMemo(
-    () => ({ user, loading, error, refresh, updateMe, logout }),
-    [user, loading, error, refresh, updateMe, logout],
+    () => ({ user, loading, error, guest, refresh, updateMe, logout }),
+    [user, loading, error, guest, refresh, updateMe, logout],
   );
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;

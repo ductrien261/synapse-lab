@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { nextPath } from '@/lib/auth-redirect';
 import { ApiError, authApi, getAccessToken, setTokens } from '@/lib/api';
 
 export default function LoginPage() {
@@ -14,7 +15,7 @@ export default function LoginPage() {
 
   // Đã đăng nhập rồi thì vào thẳng trang chủ
   useEffect(() => {
-    if (getAccessToken()) router.replace('/');
+    if (getAccessToken()) router.replace(nextPath());
   }, [router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -24,7 +25,7 @@ export default function LoginPage() {
     try {
       const data = await authApi.login(email, password);
       setTokens(data.access, data.refresh);
-      router.push('/');
+      router.push(nextPath());
     } catch (err: unknown) {
       setError(err instanceof ApiError && err.status === 401 ? 'Email hoặc mật khẩu không đúng' : err instanceof Error ? err.message : 'Đã có lỗi xảy ra');
     } finally {

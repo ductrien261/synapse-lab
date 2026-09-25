@@ -5,9 +5,9 @@ import { useUser } from '@/lib/user-context';
 
 /** Chỉ hiện nội dung khi đã tải xong người dùng; chưa đăng nhập thì UserProvider tự chuyển về /login. */
 export function RequireAuth({ children }: { children: ReactNode }) {
-  const { user, loading, error, refresh } = useUser();
+  const { user, guest, loading, error, refresh } = useUser();
 
-  if (user) return <>{children}</>;
+  if (user || guest) return <>{children}</>;
 
   if (error && !loading) {
     return (

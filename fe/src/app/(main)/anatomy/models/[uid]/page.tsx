@@ -25,6 +25,8 @@ import { NotesTab } from '@/components/anatomy/NotesTab';
 import { QuizTab } from '@/components/anatomy/QuizTab';
 import { AskAiTab } from '@/components/anatomy/AskAiTab';
 import { TranslatableText } from '@/components/anatomy/TranslatableText';
+import { GuestLock } from '@/components/auth/GuestLock';
+import { useUser } from '@/lib/user-context';
 import { partName, type PartItem } from '@/components/anatomy/types';
 
 export default function AnatomyModelPage() {
@@ -94,10 +96,17 @@ const TABS: { key: TabKey; label: string; icon: ComponentType<{ className?: stri
   { key: 'ai', label: 'Hỏi AI', icon: Robot },
 ];
 
+const GUEST_TEXT: Record<Exclude<TabKey, 'info'>, { title: string; text: string }> = {
+  notes: { title: 'Ghi chú cá nhân', text: 'Lưu ghi chú gắn với từng bộ phận và xem lại bất cứ lúc nào.' },
+  quiz: { title: 'Ôn tập thích ứng', text: 'Luyện nhận diện và trắc nghiệm theo lịch ôn tập riêng của bạn.' },
+  ai: { title: 'Trợ lý AI có dẫn nguồn', text: 'Hỏi bất kỳ điều gì về mô hình này, câu trả lời luôn kèm trích dẫn giáo trình.' },
+};
+
 function ModelViewer({ model }: { model: AnatomyModelDetail }) {
   const { iframeRef, status, annotations: viewerAnnotations, selected, select, recenter, onPick, setLabelsVisible } =
     useSketchfabViewer(model.sketchfab_uid);
   const [tab, setTab] = useState<TabKey>('info');
+  const { guest } = useUser();
   const [quizActive, setQuizActive] = useState(false);
 
   // Đang ôn tập: ẩn tên chú thích trên khung 3D để không lộ đáp án
@@ -244,8 +253,14 @@ function ModelViewer({ model }: { model: AnatomyModelDetail }) {
 
           <div className="flex-1 overflow-y-auto">
             {tab === 'info' && <InfoTab part={current} />}
-            {tab === 'notes' && <NotesTab modelUid={model.sketchfab_uid} part={current} parts={parts} onJump={select} />}
-            {tab === 'quiz' && (
+            {guest && tab !== 'info' && (
+              <GuestLock
+                title={GUEST_TEXT[tab].title}
+                text={GUEST_TEXT[tab].text}
+              />
+            )}
+            {!guest && tab === 'notes' && <NotesTab modelUid={model.sketchfab_uid} part={current} parts={parts} onJump={select} />}
+            {!guest && tab === 'quiz' && (
               <QuizTab
                 key={model.sketchfab_uid}
                 modelUid={model.sketchfab_uid}
@@ -255,7 +270,7 @@ function ModelViewer({ model }: { model: AnatomyModelDetail }) {
                 onActiveChange={setQuizActive}
               />
             )}
-            {tab === 'ai' && (
+            {!guest && tab === 'ai' && (
               <AskAiTab
                 key={model.sketchfab_uid}
                 part={current}
