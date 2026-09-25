@@ -22,13 +22,12 @@ interface Result {
 
 /**
  * "Đồng bộ tất cả": lần lượt mở từng mô hình chưa quét trong một khung ẩn, đọc chú thích từ Sketchfab
- * và lưu lại — không cần mở từng mô hình bằng tay. Tùy chọn: xong thì AI viết nháp luôn.
+ * và lưu lại — không cần mở từng mô hình bằng tay. Xong thì có nút cho AI viết nháp các bộ phận mới.
  */
 export function BatchSync({ models, onDone }: { models: AdminModelRow[]; onDone: () => void }) {
   const [running, setRunning] = useState(false);
   const [current, setCurrent] = useState<{ i: number; title: string } | null>(null);
   const [results, setResults] = useState<Result[]>([]);
-  const [withDrafts, setWithDrafts] = useState(true);
   const [job, setJob] = useState<ImportJob | null>(null);
   const [error, setError] = useState('');
   const stop = useRef(false);
@@ -73,13 +72,14 @@ export function BatchSync({ models, onDone }: { models: AdminModelRow[]; onDone:
     setCurrent(null);
     setRunning(false);
     onDone();
+  };
 
-    if (withDrafts && !stop.current) {
-      try {
-        setJob(await adminAnatomyApi.generateDrafts({}));
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Chưa bắt đầu AI viết nháp được');
-      }
+  const draftAll = async () => {
+    setError('');
+    try {
+      setJob(await adminAnatomyApi.generateDrafts({}));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Chưa bắt đầu AI viết nháp được');
     }
   };
 
@@ -108,12 +108,6 @@ export function BatchSync({ models, onDone }: { models: AdminModelRow[]; onDone:
             </>
           )}
         </div>
-        {!running && models.length > 0 && (
-          <label className="inline-flex items-center gap-1.5 text-xs text-stone-600 cursor-pointer">
-            <input type="checkbox" checked={withDrafts} onChange={(e) => setWithDrafts(e.target.checked)} className="w-3.5 h-3.5 accent-violet-600" />
-            <Stars className="w-3.5 h-3.5 text-violet-600" /> Xong thì AI viết nháp luôn
-          </label>
-        )}
         {running ? (
           <button
             type="button"
@@ -123,6 +117,14 @@ export function BatchSync({ models, onDone }: { models: AdminModelRow[]; onDone:
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-stone-300 bg-white text-xs font-bold text-stone-600 hover:text-rose-600 cursor-pointer"
           >
             <StopCircle className="w-3.5 h-3.5" /> Dừng sau mô hình này
+          </button>
+        ) : okCount > 0 && !job ? (
+          <button
+            type="button"
+            onClick={() => void draftAll()}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-sm font-bold cursor-pointer"
+          >
+            <Stars className="w-4 h-4" /> AI viết nháp cho bộ phận mới
           </button>
         ) : (
           models.length > 0 && (
