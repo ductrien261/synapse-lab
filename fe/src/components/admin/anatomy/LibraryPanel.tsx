@@ -10,7 +10,7 @@ const PAGE = 48;
 
 /**
  * Thư viện "3D models, games" của AnatomyTOOL (~500 mục): quét 1 lần, lọc/tìm, tick rồi nhập.
- * Hệ cơ quan mặc định lấy theo tên (tự đoán), có thể ép một hệ cho cả lượt.
+ * Hệ cơ quan lấy theo tên (tự đoán); sửa sau ở tab Mô hình nếu cần.
  */
 export function LibraryPanel({
   active,
@@ -30,7 +30,6 @@ export function LibraryPanel({
   const [only3d, setOnly3d] = useState(true);
   const [systemFilter, setSystemFilter] = useState('');
   const [picked, setPicked] = useState<Set<string>>(new Set());
-  const [importSystem, setImportSystem] = useState(''); // '' = tự đoán theo tên
   const [limit, setLimit] = useState(PAGE);
 
   useEffect(() => {
@@ -88,7 +87,7 @@ export function LibraryPanel({
     });
 
   const startImport = () =>
-    run(() => adminAnatomyApi.startImport({ items: [...picked].map((nid) => ({ nid, system: importSystem || null })) })).then(() =>
+    run(() => adminAnatomyApi.startImport({ items: [...picked].map((nid) => ({ nid, system: null })) })).then(() =>
       setPicked(new Set()),
     );
 
@@ -274,19 +273,6 @@ export function LibraryPanel({
                 Đã chọn <b className="text-stone-800">{picked.size}</b> · khoảng {minutes} phút
               </span>
             )}
-            <select
-              value={importSystem}
-              onChange={(e) => setImportSystem(e.target.value)}
-              className="px-3 py-2 rounded-lg border border-stone-200 bg-white text-sm"
-              aria-label="Hệ cơ quan khi nhập"
-            >
-              <option value="">Hệ: tự đoán theo tên</option>
-              {systems.map((s) => (
-                <option key={s.slug} value={s.slug}>
-                  Hệ: {s.name_vi}
-                </option>
-              ))}
-            </select>
             <button
               type="button"
               disabled={active || picked.size === 0}
