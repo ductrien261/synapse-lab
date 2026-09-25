@@ -29,3 +29,14 @@ class IsAdminOrReadOnly(BasePermission):
         if request.method in SAFE_METHODS:
             return bool(request.user and request.user.is_authenticated)
         return is_admin(request.user)
+
+
+class IsAdminOrPublicRead(BasePermission):
+    """Ai cũng xem được (kể cả khách chưa đăng nhập); chỉ admin thêm/sửa/xóa. Dùng cho nội dung đã xuất bản."""
+
+    message = 'Chỉ quản trị viên mới được thêm, sửa hoặc xóa nội dung.'
+
+    def has_permission(self, request, view):
+        if request.method in SAFE_METHODS:
+            return True
+        return is_admin(request.user)

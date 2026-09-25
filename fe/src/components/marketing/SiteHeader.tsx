@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState, useSyncExternalStore } from 'react';
+import { useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { List, XLg } from 'react-bootstrap-icons';
 import { getAccessToken } from '@/lib/api';
 import { APP_HOME } from '@/lib/auth-redirect';
@@ -28,19 +28,7 @@ export function SiteHeader() {
           <Image src="/images/logo-horizontal.png" alt="Synapse Lab" width={170} height={42} className="h-9 w-auto" priority />
         </Link>
 
-        <nav aria-label="Điều hướng chính" className="hidden items-center gap-8 lg:flex">
-          {NAV.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`text-[15px] font-medium transition-colors ${
-                pathname.startsWith(item.href) ? 'text-[#1E3F82]' : 'text-slate-600 hover:text-[#0F2258]'
-              }`}
-            >
-              {item.label}
-            </Link>
-          ))}
-        </nav>
+        <DesktopNav pathname={pathname} />
 
         <div className="hidden items-center gap-3 lg:flex">
           {signedIn ? (
@@ -52,7 +40,7 @@ export function SiteHeader() {
               <Link href="/login" className="rounded-lg px-4 py-2.5 text-[15px] font-semibold text-[#0F2258] hover:bg-slate-50">
                 Đăng nhập
               </Link>
-              <Link href="/#try" className="rounded-lg bg-[#1E3F82] px-5 py-2.5 text-[15px] font-semibold text-white hover:bg-[#163070]">
+              <Link href="/library" className="rounded-lg bg-[#1E3F82] px-5 py-2.5 text-[15px] font-semibold text-white hover:bg-[#163070]">
                 Trải nghiệm ngay
               </Link>
             </>
@@ -78,7 +66,7 @@ export function SiteHeader() {
                 key={item.href}
                 href={item.href}
                 onClick={() => setOpen(false)}
-                className="border-b border-slate-100 py-3.5 text-base font-medium text-[#0F2258]"
+                className={`border-b border-slate-100 py-3.5 text-base font-medium ${isCurrent(pathname, item.href) ? 'text-[#1E3F82]' : 'text-[#0F2258]'}`}
               >
                 {item.label}
               </Link>
@@ -91,7 +79,7 @@ export function SiteHeader() {
               </Link>
             ) : (
               <>
-                <Link href="/#try" onClick={() => setOpen(false)} className="rounded-lg bg-[#1E3F82] px-5 py-3 text-center font-semibold text-white">
+                <Link href="/library" onClick={() => setOpen(false)} className="rounded-lg bg-[#1E3F82] px-5 py-3 text-center font-semibold text-white">
                   Trải nghiệm ngay
                 </Link>
                 <Link href="/login" className="rounded-lg border border-slate-300 px-5 py-3 text-center font-semibold text-[#0F2258]">
@@ -103,5 +91,59 @@ export function SiteHeader() {
         </div>
       )}
     </header>
+  );
+}
+
+const isCurrent = (pathname: string, href: string) => (href === '/' ? pathname === '/' : pathname.startsWith(href));
+
+/** Menu chính: gạch chân trượt theo mục đang trỏ chuột, trở về mục đang xem khi rời chuột. */
+function DesktopNav({ pathname }: { pathname: string }) {
+  const refs = useRef<(HTMLAnchorElement | null)[]>([]);
+  const activeIndex = NAV.findIndex((item) => isCurrent(pathname, item.href));
+  const [hover, setHover] = useState<number | null>(null);
+  const [bar, setBar] = useState<{ left: number; width: number } | null>(null);
+  const target = hover ?? activeIndex;
+
+  useLayoutEffect(() => {
+    let alive = true;
+    const measure = () => {
+      if (!alive) return;
+      const el = target >= 0 ? refs.current[target] : null;
+      setBar(el ? { left: el.offsetLeft, width: el.offsetWidth } : null);
+    };
+    const frame = requestAnimationFrame(measure);
+    void document.fonts?.ready.then(measure);
+    window.addEventListener('resize', measure);
+    return () => {
+      alive = false;
+      cancelAnimationFrame(frame);
+      window.removeEventListener('resize', measure);
+    };
+  }, [target]);
+
+  return (
+    <nav aria-label="Điều hướng chính" className="relative hidden items-center gap-9 self-stretch lg:flex" onMouseLeave={() => setHover(null)}>
+      {NAV.map((item, i) => (
+        <Link
+          key={item.href}
+          href={item.href}
+          ref={(el) => {
+            refs.current[i] = el;
+          }}
+          onMouseEnter={() => setHover(i)}
+          aria-current={i === activeIndex ? 'page' : undefined}
+          className={`flex h-full items-center text-[15px] font-medium transition-colors ${
+            i === activeIndex ? 'text-[#1E3F82]' : 'text-slate-600 hover:text-[#0F2258]'
+          }`}
+        >
+          {item.label}
+        </Link>
+      ))}
+      <span
+        aria-hidden
+        className="absolute bottom-0 h-[2.5px] rounded-full bg-[#1E3F82] transition-all duration-300 ease-out"
+        style={{ left: bar?.left ?? 0, width: bar?.width ?? 0, opacity: bar ? 1 : 0 }}
+      />
+    </nav>
   );
 }

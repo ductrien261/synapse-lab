@@ -3,6 +3,8 @@ import Link from 'next/link';
 import { ArrowRight, CheckCircleFill, Journals, PatchCheck, ShieldCheck } from 'react-bootstrap-icons';
 import { ExperienceTabs } from '@/components/marketing/ExperienceTabs';
 import { Faq } from '@/components/marketing/Faq';
+import { FloatingIcons } from '@/components/marketing/FloatingIcons';
+import { Reveal } from '@/components/marketing/motion';
 import { HeroDemo } from '@/components/marketing/HeroDemo';
 import { CapabilityIcon } from '@/components/marketing/icons';
 import { CitationCard } from '@/components/marketing/Illustrations';
@@ -62,8 +64,9 @@ export default function HomePage() {
       />
 
       {/* Hero */}
-      <section className="bg-white py-16 md:py-24 lg:py-28">
-        <Container>
+      <section className="relative overflow-hidden bg-white py-16 md:py-24 lg:py-28">
+        <FloatingIcons />
+        <Container className="relative">
           <div className="grid items-center gap-12 md:grid-cols-2 md:gap-16">
             <div>
               <p className="mb-4 text-sm font-semibold tracking-wide text-[#1E3F82]">{SITE.tagline}</p>
@@ -86,7 +89,9 @@ export default function HomePage() {
                 <CheckCircleFill className="h-4 w-4 text-emerald-600" /> Không cần đăng ký để bắt đầu khám phá
               </p>
             </div>
-            <HeroDemo />
+            <Reveal delay={150}>
+              <HeroDemo />
+            </Reveal>
           </div>
         </Container>
       </section>
@@ -137,7 +142,7 @@ export default function HomePage() {
       </Section>
 
       {/* Tính năng */}
-      <Section tone="muted">
+      <Section id="features" tone="muted">
         <SectionHeading
           align="center"
           eyebrow="Nền tảng"
@@ -145,8 +150,8 @@ export default function HomePage() {
           lead="Từ tiếp cận khái niệm mới đến củng cố lâu dài, các công cụ vận hành liền mạch trên cùng một nền tảng."
         />
         <ul className="mt-12 grid gap-6 sm:grid-cols-2 md:mt-20 lg:grid-cols-3">
-          {CAPABILITIES.map((c) => (
-            <li key={c.key} className="flex flex-col rounded-xl border border-slate-200 bg-white p-7">
+          {CAPABILITIES.map((c, i) => (
+            <Reveal as="li" key={c.key} delay={(i % 3) * 110} className="flex flex-col rounded-xl border border-slate-200 bg-white p-7 transition-shadow hover:shadow-[0_18px_40px_-24px_rgba(15,34,88,0.35)]">
               <div className="flex items-center justify-between">
                 <span className="flex h-12 w-12 items-center justify-center rounded-lg bg-[#E8F0FB] text-[#1E3F82]">
                   <CapabilityIcon name={c.key} />
@@ -155,10 +160,12 @@ export default function HomePage() {
               </div>
               <h3 className="mt-6 text-xl font-bold tracking-tight text-[#0F2258]">{c.title}</h3>
               <p className="mt-3 flex-1 text-[15px] leading-relaxed text-slate-600">{c.summary}</p>
-              <Link href={`/platform#${c.anchor}`} className="mt-6 inline-flex items-center gap-1.5 text-[15px] font-semibold text-[#1E3F82] hover:text-[#0F2258]">
-                Tìm hiểu thêm <ArrowRight className="h-4 w-4" />
-              </Link>
-            </li>
+              {c.href && (
+                <Link href={c.href} className="mt-6 inline-flex items-center gap-1.5 text-[15px] font-semibold text-[#1E3F82] hover:text-[#0F2258]">
+                  {c.href.startsWith('/register') ? 'Bắt đầu miễn phí' : 'Khám phá'} <ArrowRight className="h-4 w-4" />
+                </Link>
+              )}
+            </Reveal>
           ))}
         </ul>
       </Section>
@@ -191,13 +198,13 @@ export default function HomePage() {
           title="Một nền tảng, nhiều lĩnh vực tri thức"
           lead="Mỗi lĩnh vực được xây dựng trên cùng một phương pháp trực quan và cùng tiêu chuẩn kiểm chứng nội dung. Danh mục được mở rộng liên tục."
         >
-          <ButtonLink href="/domains" variant="link">
-            Xem tất cả lĩnh vực
+          <ButtonLink href="/library" variant="link">
+            Mở kho học liệu
           </ButtonLink>
         </SectionHeading>
         <ul className="mt-12 grid gap-6 md:mt-16 lg:grid-cols-3">
-          {DOMAINS.map((d) => (
-            <li key={d.key} className="flex flex-col rounded-xl border border-slate-200 p-8">
+          {DOMAINS.map((d, i) => (
+            <Reveal as="li" key={d.key} delay={i * 110} className="flex flex-col rounded-xl border border-slate-200 p-8">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-semibold text-slate-500">{d.field}</span>
                 <Badge tone="green">Đang hoạt động</Badge>
@@ -207,7 +214,7 @@ export default function HomePage() {
               <ButtonLink href={d.href} variant="link" className="mt-6 self-start">
                 {d.cta}
               </ButtonLink>
-            </li>
+            </Reveal>
           ))}
           <li className="flex flex-col rounded-xl border border-dashed border-slate-300 bg-[#F4F7FC] p-8">
             <span className="text-sm font-semibold text-slate-500">Lĩnh vực tiếp theo</span>
@@ -215,7 +222,7 @@ export default function HomePage() {
             <p className="mt-3 flex-1 text-[15px] leading-relaxed text-slate-600">
               Kiến trúc nền tảng cho phép bổ sung lĩnh vực mới mà không thay đổi trải nghiệm học. Đề xuất của người dùng được ưu tiên xem xét.
             </p>
-            <ButtonLink href="/domains#suggest" variant="link" className="mt-6 self-start">
+            <ButtonLink href="/about#contact" variant="link" className="mt-6 self-start">
               Đề xuất lĩnh vực
             </ButtonLink>
           </li>
@@ -223,24 +230,24 @@ export default function HomePage() {
       </Section>
 
       {/* AI có trách nhiệm */}
-      <Section tone="dark">
+      <Section tone="dark" className="relative overflow-hidden">
         <SectionHeading
           dark
           eyebrow="AI có trách nhiệm"
           title="Trí tuệ nhân tạo phục vụ việc học, không thay thế sự chính xác"
           lead="Trợ lý AI của Synapse Lab được thiết kế với nguyên tắc kiểm chứng là ưu tiên hàng đầu."
         >
-          <ButtonLink href="/ai" variant="light">
+          <ButtonLink href="/sources#ai" variant="light">
             Tìm hiểu công nghệ AI
           </ButtonLink>
         </SectionHeading>
         <ul className="mt-12 grid gap-10 md:mt-16 md:grid-cols-3">
-          {PRINCIPLES.map(({ icon: Icon, title, text }) => (
-            <li key={title} className="border-t border-white/15 pt-8">
+          {PRINCIPLES.map(({ icon: Icon, title, text }, i) => (
+            <Reveal as="li" key={title} delay={i * 120} className="border-t border-white/15 pt-8">
               <Icon className="h-8 w-8 text-[#8FB1E3]" aria-hidden />
               <h3 className="mt-5 text-xl font-bold">{title}</h3>
               <p className="mt-3 text-[15px] leading-relaxed text-white/70">{text}</p>
-            </li>
+            </Reveal>
           ))}
         </ul>
       </Section>

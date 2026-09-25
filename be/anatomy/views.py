@@ -1,7 +1,7 @@
 from django.db.models import Count, Q
 from rest_framework import viewsets
 
-from users.permissions import IsAdminOrReadOnly, is_admin
+from users.permissions import IsAdminOrPublicRead, is_admin
 
 from .models import AnatomyModel, BodySystem, Structure
 from .serializers import (
@@ -16,7 +16,7 @@ class BodySystemViewSet(viewsets.ModelViewSet):
     """Hệ cơ quan. Học viên: chỉ xem hệ đã bật; admin: toàn quyền."""
 
     serializer_class = BodySystemSerializer
-    permission_classes = [IsAdminOrReadOnly]
+    permission_classes = [IsAdminOrPublicRead]
     lookup_field = 'slug'
 
     def get_queryset(self):
@@ -32,7 +32,7 @@ class AnatomyModelViewSet(viewsets.ModelViewSet):
     Lọc: ?system=<slug>&search=<từ khóa>
     """
 
-    permission_classes = [IsAdminOrReadOnly]
+    permission_classes = [IsAdminOrPublicRead]
     lookup_field = 'sketchfab_uid'
 
     def get_serializer_class(self):
@@ -67,7 +67,7 @@ class StructureViewSet(viewsets.ModelViewSet):
     """Cấu trúc giải phẫu (nội dung kiến thức). Học viên chỉ thấy bản đã duyệt."""
 
     serializer_class = StructureSerializer
-    permission_classes = [IsAdminOrReadOnly]
+    permission_classes = [IsAdminOrPublicRead]
 
     def get_queryset(self):
         qs = Structure.objects.prefetch_related('references__document')

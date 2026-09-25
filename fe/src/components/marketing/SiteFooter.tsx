@@ -1,23 +1,26 @@
 import Image from 'next/image';
 import Link from 'next/link';
-import { CAPABILITIES, DOMAINS, SITE } from '@/lib/marketing';
+import { DOMAINS, SITE } from '@/lib/marketing';
 
 const COLUMNS = [
   {
     title: 'Nền tảng',
-    links: CAPABILITIES.filter((c) => !c.soon).map((c) => ({ href: `/platform#${c.anchor}`, label: c.title })),
-  },
-  {
-    title: 'Lĩnh vực',
-    links: DOMAINS.map((d) => ({ href: `/domains#${d.key}`, label: d.title })),
-  },
-  {
-    title: 'Tài nguyên',
     links: [
-      { href: '/ai', label: 'Công nghệ AI' },
-      { href: '/sources', label: 'Nguồn tri thức' },
+      { href: '/#features', label: 'Tính năng' },
+      { href: '/#try', label: 'Trải nghiệm' },
       { href: '/#faq', label: 'Câu hỏi thường gặp' },
+    ],
+  },
+  {
+    title: 'Kho học liệu',
+    links: DOMAINS.map((d) => ({ href: d.href, label: d.title })),
+  },
+  {
+    title: 'Về Synapse Lab',
+    links: [
       { href: '/about', label: 'Giới thiệu' },
+      { href: '/sources', label: 'Nguồn tri thức' },
+      { href: '/about#contact', label: 'Liên hệ' },
     ],
   },
 ];

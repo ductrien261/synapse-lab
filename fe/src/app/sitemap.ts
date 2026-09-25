@@ -1,7 +1,7 @@
 import type { MetadataRoute } from 'next';
 import { SITE } from '@/lib/marketing';
 
-const PAGES = ['', '/platform', '/domains', '/ai', '/sources', '/about', '/anatomy', '/algorithms'];
+const PAGES = ['', '/about', '/sources', '/library', '/anatomy', '/algorithms'];
 
 export default function sitemap(): MetadataRoute.Sitemap {
   return PAGES.map((path) => ({

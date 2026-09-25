@@ -134,3 +134,31 @@ h1, h2, h3, h4, h5, h6 {
 .btn-outlined:hover {
   background-color: var(--surface-hover);
 }
+
+/* ============================================================
+   Hiệu ứng trang giới thiệu
+   ============================================================ */
+@keyframes mk-float {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(var(--mk-rotate, 0deg)); }
+  50% { transform: translate3d(0, -18px, 0) rotate(calc(var(--mk-rotate, 0deg) + 6deg)); }
+}
+@keyframes mk-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+@keyframes mk-pulse-ring {
+  0% { transform: scale(0.9); opacity: 0.55; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+
+.mk-float { animation: mk-float var(--mk-duration, 9s) ease-in-out infinite; animation-delay: var(--mk-delay, 0s); }
+.mk-marquee { animation: mk-marquee 32s linear infinite; }
+.mk-pulse-ring { animation: mk-pulse-ring 2.4s ease-out infinite; }
+
+.mk-reveal { opacity: 0; transform: translateY(28px); transition: opacity 0.8s cubic-bezier(0.22, 1, 0.36, 1), transform 0.8s cubic-bezier(0.22, 1, 0.36, 1); transition-delay: var(--mk-reveal-delay, 0ms); }
+.mk-reveal.mk-visible { opacity: 1; transform: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .mk-float, .mk-marquee, .mk-pulse-ring { animation: none; }
+  .mk-reveal { opacity: 1; transform: none; transition: none; }
+}

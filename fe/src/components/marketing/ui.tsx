@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { ArrowRight, ChevronRight } from 'react-bootstrap-icons';
+import { FloatingIcons } from './FloatingIcons';
+import { Reveal } from './motion';
 
 // Khối dựng trang giới thiệu (bố cục theo tinh thần Relume: khoảng trắng rộng, chữ lớn, lưới rõ ràng)
 
@@ -60,14 +62,14 @@ export function SectionHeading({
   const Tag = as;
   const size = as === 'h1' ? 'text-4xl md:text-6xl' : 'text-3xl md:text-5xl';
   return (
-    <div className={`${align === 'center' ? 'mx-auto text-center' : ''} max-w-3xl`}>
+    <Reveal className={`${align === 'center' ? 'mx-auto text-center' : ''} max-w-3xl`}>
       {eyebrow && <Eyebrow dark={dark}>{eyebrow}</Eyebrow>}
       <Tag className={`${size} font-bold leading-[1.1] tracking-[-0.03em] ${dark ? 'text-white' : 'text-[#0F2258]'}`}>{title}</Tag>
       {lead && (
         <p className={`mt-5 text-base leading-relaxed md:mt-6 md:text-lg ${dark ? 'text-white/75' : 'text-slate-600'}`}>{lead}</p>
       )}
       {children && <div className={`mt-6 flex flex-wrap items-center gap-4 md:mt-8 ${align === 'center' ? 'justify-center' : ''}`}>{children}</div>}
-    </div>
+    </Reveal>
   );
 }
 
@@ -137,8 +139,9 @@ export function PageHero({
   children?: ReactNode;
 }) {
   return (
-    <section className="border-b border-slate-200 bg-white py-16 md:py-24 lg:py-28">
-      <Container>
+    <section className="relative overflow-hidden border-b border-slate-200 bg-white py-20 md:py-28 lg:py-32">
+      <FloatingIcons />
+      <Container className="relative">
         <SectionHeading as="h1" eyebrow={eyebrow} title={title} lead={lead}>
           {children}
         </SectionHeading>
@@ -163,7 +166,7 @@ export function CtaBand({
           <p className="mt-5 max-w-2xl text-base leading-relaxed text-slate-600 md:text-lg">{text}</p>
         </div>
         <div className="flex flex-wrap gap-4">
-          <ButtonLink href="/#try">Trải nghiệm ngay</ButtonLink>
+          <ButtonLink href="/library">Trải nghiệm ngay</ButtonLink>
           <ButtonLink href="/register" variant="secondary">
             Tạo tài khoản
           </ButtonLink>

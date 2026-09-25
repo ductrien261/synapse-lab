@@ -56,8 +56,15 @@ export function ModelGallery({ limit = 6 }: { limit?: number }) {
 
 /** Lưới 4 ảnh mô hình thật (minh họa cho phần phương pháp). */
 export function ModelMosaic() {
-  const { models } = useAnatomyModels();
+  const { models, state } = useAnatomyModels();
   const items = models.filter((m) => m.is_published && m.thumbnail_url).slice(0, 4);
+  if (state !== 'loading' && items.length === 0) {
+    return (
+      <div className="flex aspect-square items-center justify-center rounded-2xl bg-[#0B1A44] text-center text-sm text-white/70">
+        Thư viện mô hình 3D đang được cập nhật
+      </div>
+    );
+  }
   return (
     <div className="grid grid-cols-2 gap-3">
       {(items.length ? items : Array.from({ length: 4 }, () => null)).map((m, i) =>
