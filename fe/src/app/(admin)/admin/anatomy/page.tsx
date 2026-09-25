@@ -7,6 +7,7 @@ import { AdminPageHeader } from '@/components/admin/AdminPageHeader';
 import { ModelsTable } from '@/components/admin/anatomy/ModelsTable';
 import { ImportPanel } from '@/components/admin/anatomy/ImportPanel';
 import { adminAnatomyApi, type AnatomyStats } from '@/lib/admin-anatomy';
+import { useLiveTick } from '@/lib/use-live-tick';
 
 type Tab = 'models' | 'import';
 
@@ -14,6 +15,10 @@ export default function AdminAnatomyPage() {
   const [tab, setTab] = useState<Tab>('models');
   const [reloadSignal, setReloadSignal] = useState(0);
   const [stats, setStats] = useState<AnatomyStats | null>(null);
+  // tự tải lại khi quay lại trang / mỗi 15 giây, và ngay sau mỗi thao tác trong bảng
+  const liveTick = useLiveTick();
+  const [changed, setChanged] = useState(0);
+  const tick = liveTick + changed;
 
   useEffect(() => {
     let cancelled = false;
@@ -26,9 +31,10 @@ export default function AdminAnatomyPage() {
     return () => {
       cancelled = true;
     };
-  }, [reloadSignal]);
+  }, [reloadSignal, tick]);
 
   const onImported = useCallback(() => setReloadSignal((n) => n + 1), []);
+  const onChanged = useCallback(() => setChanged((n) => n + 1), []);
 
   return (
     <>
@@ -51,7 +57,13 @@ export default function AdminAnatomyPage() {
       <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
         <MiniStat label="Tổng mô hình" value={stats?.models.total} />
         <MiniStat label="Đã xuất bản" value={stats?.models.published} tone="text-emerald-600" />
-        <MiniStat label="Đang nháp" value={stats?.models.draft} tone="text-stone-500" />
+        <MiniStat
+          label="Đang nháp"
+          value={stats?.models.draft}
+          tone="text-stone-500"
+          hint={stats && stats.models.publishable > 0 ? `${stats.models.publishable} mô hình sẵn sàng xuất bản` : undefined}
+          hintHref="/admin/anatomy/review"
+        />
         <MiniStat
           label="Cấu trúc đã duyệt"
           value={stats ? `${stats.structures.published}/${stats.structures.total}` : undefined}
@@ -68,7 +80,7 @@ export default function AdminAnatomyPage() {
         </TabButton>
       </div>
 
-      {tab === 'models' ? <ModelsTable reloadSignal={reloadSignal} /> : <ImportPanel onImported={onImported} />}
+      {tab === 'models' ? <ModelsTable reloadSignal={reloadSignal} liveTick={tick} onChanged={onChanged} /> : <ImportPanel onImported={onImported} />}
     </>
   );
 }
@@ -87,13 +99,30 @@ function TabButton({ active, onClick, children }: { active: boolean; onClick: ()
   );
 }
 
-function MiniStat({ label, value, tone = 'text-stone-900' }: { label: string; value?: number | string; tone?: string }) {
+function MiniStat({
+  label,
+  value,
+  tone = 'text-stone-900',
+  hint,
+  hintHref,
+}: {
+  label: string;
+  value?: number | string;
+  tone?: string;
+  hint?: string;
+  hintHref?: string;
+}) {
   return (
     <div className="bg-white rounded-2xl border border-stone-200/90 px-4 py-3">
       <div className={`text-2xl font-extrabold tabular-nums ${tone}`}>
         {value ?? <span className="inline-block w-8 h-6 rounded bg-stone-100 animate-pulse" />}
       </div>
       <div className="text-xs font-semibold text-stone-500 mt-0.5">{label}</div>
+      {hint && hintHref && (
+        <Link href={hintHref} className="block mt-1 text-[11px] font-bold text-emerald-700 hover:underline">
+          {hint} →
+        </Link>
+      )}
     </div>
   );
 }

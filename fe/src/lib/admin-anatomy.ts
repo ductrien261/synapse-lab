@@ -71,6 +71,9 @@ export type DraftFields = Pick<StructureDraft, 'name_vi' | 'definition' | 'funct
 export interface ReadyModel {
   uid: string;
   title: string;
+  /** số bộ phận đã duyệt / đã gắn cấu trúc */
+  approved?: number;
+  linked?: number;
 }
 
 export interface AdminAnnotation {
@@ -121,7 +124,7 @@ export interface ImportJob extends BackgroundJob {
 export const ANATOMY_JOB_KINDS = { scan_index: 'Quét danh mục', import: 'Nhập mô hình', ai_draft: 'AI viết nháp' };
 
 export interface AnatomyStats {
-  models: { total: number; published: number; draft: number; no_system: number };
+  models: { total: number; published: number; draft: number; no_system: number; publishable: number };
   structures: { total: number; published: number; with_content: number };
   drafts: { pending: number };
 }
@@ -196,7 +199,7 @@ export const adminAnatomyApi = {
     const params = new URLSearchParams();
     Object.entries(query).forEach(([k, v]) => v && params.set(k, v));
     const qs = params.toString();
-    return request<{ counts: Partial<Record<DraftStatus, number>>; results: StructureDraft[] }>(`${BASE}/drafts/${qs ? `?${qs}` : ''}`);
+    return request<{ counts: Partial<Record<DraftStatus, number>>; results: StructureDraft[]; publishable: ReadyModel[] }>(`${BASE}/drafts/${qs ? `?${qs}` : ''}`);
   },
 
   approveDraft: (id: number, fields: Partial<DraftFields> = {}) =>

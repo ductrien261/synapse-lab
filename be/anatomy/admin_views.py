@@ -277,6 +277,7 @@ class AnatomyStatsView(APIView):
             with_content=Count('id', filter=Q(definition__gt='') | Q(function__gt='')),
         )
         drafts = {'pending': StructureDraft.objects.filter(status=StructureDraft.Status.PENDING).count()}
+        models['publishable'] = len(publishable_models())
         return Response({'models': models, 'structures': structures, 'drafts': drafts, 'checked_at': timezone.now()})
 
 
@@ -299,15 +300,28 @@ def _drafts():
     return StructureDraft.objects.select_related('structure').prefetch_related('structure__annotations__model__system')
 
 
-def ready_models(structure_ids) -> list[dict]:
-    """Mô hình chưa xuất bản mà mọi bộ phận (đã gắn cấu trúc) đều đã duyệt -> gợi ý xuất bản."""
-    candidates = AnatomyModel.objects.filter(is_published=False, annotations__structure_id__in=structure_ids).distinct()
-    out = []
-    for m in candidates:
-        linked = m.annotations.filter(structure__isnull=False)
-        if linked.exists() and not linked.exclude(structure__status=ContentStatus.PUBLISHED).exists():
-            out.append({'uid': m.sketchfab_uid, 'title': m.title_vi or m.title})
-    return out
+def publishable_models() -> list[dict]:
+    """
+    Mô hình chưa xuất bản, đã có ít nhất 1 bộ phận được duyệt và không còn bản nháp nào chờ duyệt
+    -> gợi ý xuất bản. Bộ phận chưa có nội dung vẫn hiện tên, người học chỉ không thấy phần giải thích.
+    """
+    pending = StructureDraft.objects.filter(status=StructureDraft.Status.PENDING).values('structure_id')
+    qs = (
+        AnatomyModel.objects.filter(is_published=False)
+        .annotate(
+            approved=Count('annotations__structure', filter=Q(annotations__structure__status=ContentStatus.PUBLISHED), distinct=True),
+            linked=Count('annotations__structure', distinct=True),
+        )
+        .filter(approved__gt=0)
+        .exclude(annotations__structure_id__in=pending)
+        .order_by('title')
+    )
+    return [{'uid': m.sketchfab_uid, 'title': m.title_vi or m.title, 'approved': m.approved, 'linked': m.linked} for m in qs]
+
+
+def ready_models(structure_ids=None) -> list[dict]:
+    """Giữ tên cũ cho các response duyệt: trả về toàn bộ mô hình có thể xuất bản."""
+    return publishable_models()
 
 
 class DraftStructureView(APIView):
@@ -371,7 +385,11 @@ class DraftListView(APIView):
         if p.get('system'):
             qs = qs.filter(structure__annotations__model__system__slug=p['system'])
         counts = dict(StructureDraft.objects.values_list('status').annotate(n=Count('id')))
-        return Response({'counts': counts, 'results': StructureDraftSerializer(qs.distinct(), many=True).data})
+        return Response({
+            'counts': counts,
+            'results': StructureDraftSerializer(qs.distinct(), many=True).data,
+            'publishable': publishable_models(),
+        })
 
 
 class ApproveDraftView(APIView):
@@ -396,13 +414,15 @@ class ApproveDraftView(APIView):
 
 
 class BulkApproveDraftsView(APIView):
-    """POST /api/anatomy/admin/drafts/approve-bulk/  {ids: [...]}  -> duyệt nguyên bản nháp, không sửa"""
+    """POST /api/anatomy/admin/drafts/approve-bulk/  {ids: [...]} hoặc {all: true}  -> duyệt nguyên bản nháp, không sửa"""
 
     permission_classes = [IsAdminRole]
 
     def post(self, request):
-        ids = [int(i) for i in request.data.get('ids', []) if str(i).isdigit()]
-        drafts = _drafts().filter(pk__in=ids, status=StructureDraft.Status.PENDING)
+        drafts = _drafts().filter(status=StructureDraft.Status.PENDING)
+        if not request.data.get('all'):
+            ids = [int(i) for i in request.data.get('ids', []) if str(i).isdigit()]
+            drafts = drafts.filter(pk__in=ids)
         structure_ids = []
         for draft in drafts:
             structure_ids.append(apply_draft(draft, request.user).pk)

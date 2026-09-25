@@ -9,7 +9,16 @@ import { BatchSync } from './BatchSync';
 
 type StatusFilter = '' | 'draft' | 'published';
 
-export function ModelsTable({ reloadSignal }: { reloadSignal: number }) {
+export function ModelsTable({
+  reloadSignal,
+  liveTick = 0,
+  onChanged,
+}: {
+  reloadSignal: number;
+  /** đổi giá trị -> tải lại ngầm (không hiện khung chờ) */
+  liveTick?: number;
+  onChanged?: () => void;
+}) {
   const { systems } = useBodySystems();
   const systemBySlug = new Map(systems.map((s) => [s.slug, s]));
 
@@ -47,7 +56,7 @@ export function ModelsTable({ reloadSignal }: { reloadSignal: number }) {
     return () => {
       cancelled = true;
     };
-  }, [status, system, debounced, queryKey]);
+  }, [status, system, debounced, queryKey, liveTick]);
 
   const allChecked = rows.length > 0 && rows.every((r) => selected.has(r.sketchfab_uid));
   const toggleAll = () => setSelected(allChecked ? new Set() : new Set(rows.map((r) => r.sketchfab_uid)));
@@ -69,6 +78,7 @@ export function ModelsTable({ reloadSignal }: { reloadSignal: number }) {
       setSelected(new Set());
       setConfirmDelete(false);
       setRefresh((n) => n + 1);
+      onChanged?.();
     } catch (err) {
       setNotice(err instanceof Error ? err.message : 'Thao tác thất bại');
     } finally {
@@ -163,7 +173,10 @@ export function ModelsTable({ reloadSignal }: { reloadSignal: number }) {
       <BatchSync
         models={rows.filter((r) => r.annotation_count === 0)}
         needDrafts={rows.filter((r) => r.annotation_count > 0 && r.filled_count < r.annotation_count).length}
-        onDone={() => setRefresh((n) => n + 1)}
+        onDone={() => {
+          setRefresh((n) => n + 1);
+          onChanged?.();
+        }}
       />
 
       {/* Bảng */}

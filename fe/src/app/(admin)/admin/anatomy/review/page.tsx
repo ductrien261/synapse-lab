@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useEffectEvent, useState } from 'react';
 import {
   ArrowLeft,
+  CheckAll,
   CheckLg,
   ChevronLeft,
   ChevronRight,
@@ -52,6 +53,7 @@ function Review() {
       .then((res) => {
         if (cancelled) return;
         setQueue(res.results);
+        setReady(res.publishable ?? []);
         setIndex(0);
         setSelected(new Set());
         // danh sách mô hình để lọc (lấy từ lần tải không lọc mô hình)
@@ -69,8 +71,13 @@ function Review() {
     };
   }, [model, system]);
 
-  const addReady = (list: ReadyModel[]) =>
-    setReady((prev) => [...prev, ...list.filter((m) => !prev.some((p) => p.uid === m.uid))]);
+  // server trả về toàn bộ danh sách mô hình có thể xuất bản sau mỗi lần duyệt
+  const addReady = (list: ReadyModel[]) => {
+    setReady(list);
+    setHideReady(false);
+  };
+  const [hideReady, setHideReady] = useState(false);
+  const [confirmAll, setConfirmAll] = useState(false);
 
   const removeFromQueue = (ids: number[]) => {
     const next = (queue ?? []).filter((d) => !ids.includes(d.id));
@@ -158,6 +165,55 @@ function Review() {
     }
   };
 
+  // Duyệt tất cả bản nháp đang hiện (theo bộ lọc). Thẻ đã sửa tay được duyệt kèm nội dung đã sửa.
+  const approveAll = async () => {
+    if (!queue || queue.length === 0 || working) return;
+    if (!confirmAll) {
+      setConfirmAll(true);
+      return;
+    }
+    setConfirmAll(false);
+    setWorking(true);
+    setError('');
+    try {
+      const edited = queue.filter((d) => edits[d.id]);
+      const rest = queue.filter((d) => !edits[d.id]).map((d) => d.id);
+      let approved = 0;
+      let last: ReadyModel[] | null = null;
+      for (const d of edited) {
+        const res = await adminAnatomyApi.approveDraft(d.id, edits[d.id]);
+        approved += res.approved;
+        last = res.ready_models;
+      }
+      if (rest.length > 0) {
+        const res = await adminAnatomyApi.approveDrafts(rest);
+        approved += res.approved;
+        last = res.ready_models;
+      }
+      if (last) addReady(last);
+      setDone((n) => n + approved);
+      removeFromQueue(queue.map((d) => d.id));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Không duyệt được');
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  const publishAll = async () => {
+    if (ready.length === 0) return;
+    setWorking(true);
+    setError('');
+    try {
+      await adminAnatomyApi.bulk(ready.map((m) => m.uid), 'publish');
+      setReady([]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Không xuất bản được');
+    } finally {
+      setWorking(false);
+    }
+  };
+
   const publishModel = async (m: ReadyModel) => {
     try {
       await adminAnatomyApi.publish(m.uid, false);
@@ -201,7 +257,21 @@ function Review() {
             </option>
           ))}
         </select>
-        <div className="inline-flex p-1 rounded-xl bg-white border border-stone-200/90 text-sm font-bold ml-auto">
+        {queue && queue.length > 0 && (
+          <button
+            type="button"
+            disabled={working}
+            onClick={() => void approveAll()}
+            onBlur={() => setConfirmAll(false)}
+            className={`ml-auto inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold disabled:opacity-50 cursor-pointer transition-colors ${
+              confirmAll ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'border border-emerald-300 bg-white text-emerald-700 hover:bg-emerald-50'
+            }`}
+          >
+            <CheckAll className="w-4 h-4" />
+            {confirmAll ? `Bấm lần nữa để duyệt ${queue.length} bản nháp` : `Duyệt tất cả (${queue.length})`}
+          </button>
+        )}
+        <div className={`inline-flex p-1 rounded-xl bg-white border border-stone-200/90 text-sm font-bold ${queue && queue.length > 0 ? '' : 'ml-auto'}`}>
           <ModeButton active={mode === 'card'} onClick={() => setMode('card')}>
             <Square className="w-3.5 h-3.5" /> Từng thẻ
           </ModeButton>
@@ -226,21 +296,34 @@ function Review() {
         </div>
       )}
 
-      {/* Mô hình đã đủ nội dung */}
-      {ready.map((m) => (
-        <div key={m.uid} className="flex flex-wrap items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-          <Rocket className="w-4 h-4" />
-          <span className="flex-1">
-            Mô hình <b>{m.title}</b> đã duyệt đủ mọi bộ phận. Xuất bản cho học viên?
-          </span>
-          <button type="button" onClick={() => void publishModel(m)} className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold cursor-pointer">
-            Xuất bản
-          </button>
-          <button type="button" onClick={() => setReady((prev) => prev.filter((p) => p.uid !== m.uid))} className="text-emerald-700/70 hover:text-emerald-900 cursor-pointer" aria-label="Để sau">
-            <XLg className="w-3.5 h-3.5" />
-          </button>
+      {/* Mô hình sẵn sàng xuất bản */}
+      {ready.length > 0 && !hideReady && (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+          <div className="flex flex-wrap items-center gap-3">
+            <Rocket className="w-4 h-4" />
+            <span className="flex-1">
+              <b>{ready.length} mô hình</b> đã có nội dung được duyệt nhưng học viên chưa thấy. Xuất bản để hiện cho học viên?
+            </span>
+            <button type="button" disabled={working} onClick={() => void publishAll()} className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold disabled:opacity-50 cursor-pointer">
+              Xuất bản tất cả
+            </button>
+            <button type="button" onClick={() => setHideReady(true)} className="text-emerald-700/70 hover:text-emerald-900 cursor-pointer" aria-label="Để sau">
+              <XLg className="w-3.5 h-3.5" />
+            </button>
+          </div>
+          <ul className="mt-2 flex flex-wrap gap-2">
+            {ready.map((m) => (
+              <li key={m.uid} className="inline-flex items-center gap-2 rounded-lg bg-white/70 border border-emerald-200 pl-3 pr-1 py-1 text-xs">
+                <span className="font-semibold text-stone-800">{m.title}</span>
+                {m.linked ? <span className="text-emerald-700/80 tabular-nums">{m.approved}/{m.linked} bộ phận</span> : null}
+                <button type="button" disabled={working} onClick={() => void publishModel(m)} className="px-2 py-0.5 rounded-md font-bold text-emerald-700 hover:bg-emerald-100 disabled:opacity-50 cursor-pointer">
+                  Xuất bản
+                </button>
+              </li>
+            ))}
+          </ul>
         </div>
-      ))}
+      )}
 
       {error && <div className="rounded-xl bg-rose-50 text-rose-700 text-sm px-4 py-2.5">{error}</div>}
 
@@ -250,7 +333,7 @@ function Review() {
         <div className="bg-white rounded-2xl border border-stone-200/90 px-6 py-14 text-center">
           <LightningChargeFill className="w-8 h-8 mx-auto text-emerald-500" />
           <p className="mt-3 text-sm font-semibold text-stone-800">{done > 0 ? `Xong! Đã duyệt ${done} bản nháp.` : 'Không có bản nháp nào chờ duyệt.'}</p>
-          <p className="text-xs text-stone-500 mt-1">Vào trang soạn mô hình và bấm “AI viết nháp” để tạo thêm.</p>
+          <p className="text-xs text-stone-500 mt-1">Ở tab Mô hình, bấm “AI soạn nội dung” để tạo thêm.</p>
         </div>
       ) : mode === 'card' && current ? (
         <section className="bg-white rounded-3xl border border-stone-200/90 shadow-[0_2px_12px_rgba(0,0,0,0.04)] overflow-hidden">
