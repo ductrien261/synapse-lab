@@ -224,12 +224,6 @@ export function AskAiTab({
       <div className="flex-1 flex flex-col gap-4 px-4 pb-4">
         {empty && (
           <>
-            <div className="rounded-2xl bg-gradient-to-br from-[#0F2258] to-[#1E3F82] text-white p-4">
-              <p className="text-sm font-bold">Hỏi gì về {part ? `“${subject}”` : 'mô hình này'} cũng được</p>
-              <p className="text-xs text-white/75 mt-1.5 leading-relaxed">
-                Synapse chỉ trả lời dựa trên giáo trình trong kho, mỗi ý đều có số trích dẫn bấm được. Bộ phận được nhắc tới sẽ sáng lên trên mô hình 3D.
-              </p>
-            </div>
             <div>
               <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-stone-500 mb-2">
                 <Stars className="w-3.5 h-3.5 text-amber-500" /> Câu hỏi gợi ý
