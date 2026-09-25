@@ -24,6 +24,10 @@ services:
   be:
     build:
       context: ./be
+    # DNS công khai: tránh lỗi container không phân giải được tên máy chủ Neon (sau khi máy ngủ / đổi mạng)
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
     working_dir: /app
     ports:
       - "8000:8000"
@@ -54,6 +58,10 @@ services:
   ai:
     build:
       context: ./ai
+    # DNS công khai: tránh lỗi container không phân giải được tên máy chủ Neon (sau khi máy ngủ / đổi mạng)
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
     working_dir: /app
     ports:
       - "8100:8100"
