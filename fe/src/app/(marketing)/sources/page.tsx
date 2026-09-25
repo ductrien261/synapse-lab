@@ -5,7 +5,6 @@ import { FloatingIcons } from '@/components/marketing/FloatingIcons';
 import { CitationCard, ProfileCard } from '@/components/marketing/Illustrations';
 import { Reveal } from '@/components/marketing/motion';
 import { SourceMarquee } from '@/components/marketing/SourceMarquee';
-import { StepsScroll } from '@/components/marketing/StepsScroll';
 import { Badge, ButtonLink, CheckList, CtaBand, PageHero, Section, SectionHeading } from '@/components/marketing/ui';
 import { SOURCES } from '@/lib/marketing';
 
@@ -16,28 +15,6 @@ export const metadata: Metadata = {
   alternates: { canonical: '/sources' },
 };
 
-const WORKFLOW = [
-  {
-    eyebrow: 'Tuyển chọn',
-    title: 'Chỉ học liệu có giấy phép rõ ràng',
-    text: 'Mỗi tài liệu được lưu kèm tác giả, phiên bản và giấy phép. Học liệu không rõ nguồn gốc không được đưa vào kho tri thức.',
-  },
-  {
-    eyebrow: 'Soạn thảo',
-    title: 'Mỗi ý đều gắn trích dẫn',
-    text: 'Nội dung giải thích được soạn thảo từ các đoạn học liệu liên quan; mỗi ý gắn trích dẫn tới mục cụ thể để người học đối chiếu.',
-  },
-  {
-    eyebrow: 'Phê duyệt',
-    title: 'Chuyên môn duyệt trước khi xuất bản',
-    text: 'Người phụ trách chuyên môn rà soát, chỉnh sửa và phê duyệt. Nội dung chưa được duyệt không hiển thị cho người học.',
-  },
-  {
-    eyebrow: 'Cải tiến',
-    title: 'Cập nhật theo phản hồi',
-    text: 'Phản hồi của người học về câu trả lời và câu hỏi ôn tập được ghi nhận để rà soát và cải thiện nội dung theo thời gian.',
-  },
-];
 
 const PIPELINE = [
   { title: 'Hiểu ngữ cảnh', text: 'Câu hỏi được kết hợp với nội dung đang xem và hồ sơ học tập để xác định đúng trọng tâm.' },
@@ -91,14 +68,6 @@ export default function SourcesPage() {
             </Reveal>
           ))}
         </ul>
-      </Section>
-
-      {/* Quy trình nội dung */}
-      <Section tone="muted">
-        <div className="mb-12 md:mb-20">
-          <SectionHeading eyebrow="Quy trình nội dung" title="Từ học liệu gốc đến nội dung trên nền tảng" />
-        </div>
-        <StepsScroll steps={WORKFLOW} />
       </Section>
 
       {/* Công nghệ AI */}

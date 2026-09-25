@@ -1,15 +1,19 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { Box, CodeSlash } from 'react-bootstrap-icons';
 import { algoVizApi } from '@/lib/algo-api';
-import { useAnatomyModels, useBodySystems } from '@/lib/anatomy-catalog';
-import { SOURCES } from '@/lib/marketing';
+import { useAnatomyModels } from '@/lib/anatomy-catalog';
 import { CountUp, Reveal } from './motion';
 
-/** Số liệu thật lấy từ hệ thống (mô hình, hệ cơ quan, giải thuật, nguồn). */
+/** Làm tròn xuống hàng chục: 21 -> 20 (hiện "20+"); dưới 10 giữ nguyên. */
+function rounded(n: number): { value: number; suffix: string } {
+  return n >= 10 ? { value: Math.floor(n / 10) * 10, suffix: '+' } : { value: n, suffix: '' };
+}
+
+/** Số liệu thật lấy từ hệ thống, làm tròn để dễ đọc. */
 export function LiveStats() {
   const { models } = useAnatomyModels();
-  const { systems } = useBodySystems();
   const [algorithms, setAlgorithms] = useState(0);
 
   useEffect(() => {
@@ -26,22 +30,40 @@ export function LiveStats() {
   }, []);
 
   const stats = [
-    { value: models.filter((m) => m.is_published).length, label: 'Mô hình 3D đang mở' },
-    { value: systems.filter((s) => s.model_count > 0).length, label: 'Hệ cơ quan' },
-    { value: algorithms, label: 'Giải thuật có mô phỏng' },
-    { value: SOURCES.length, label: 'Nguồn học liệu mở' },
-  ].filter((s) => s.value > 0);
+    {
+      icon: Box,
+      count: models.filter((m) => m.is_published).length,
+      label: 'Mô hình giải phẫu 3D',
+      text: 'Có chú thích từng thành phần, mở xem ngay không cần đăng ký.',
+    },
+    {
+      icon: CodeSlash,
+      count: algorithms,
+      label: 'Giải thuật có mô phỏng',
+      text: 'Chạy từng bước, đồng bộ với mã nguồn và phần diễn giải.',
+    },
+  ].filter((s) => s.count > 0);
 
   return (
-    <ul className="grid gap-px overflow-hidden rounded-2xl border border-slate-200 bg-slate-200 sm:grid-cols-2 lg:grid-cols-4">
-      {stats.map((s, i) => (
-        <Reveal as="li" key={s.label} delay={i * 100} className="bg-white p-8">
-          <p className="text-5xl font-bold tracking-tight text-[#1E3F82] md:text-6xl">
-            <CountUp value={s.value} />
-          </p>
-          <p className="mt-3 text-[15px] text-slate-600">{s.label}</p>
-        </Reveal>
-      ))}
+    <ul className="grid gap-6 md:grid-cols-2">
+      {stats.map(({ icon: Icon, count, label, text }, i) => {
+        const r = rounded(count);
+        return (
+          <Reveal
+            as="li"
+            key={label}
+            delay={i * 120}
+            className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-8 md:p-10"
+          >
+            <Icon className="absolute -right-6 -top-6 h-40 w-40 text-[#1E3F82]/[0.05] transition-transform duration-700 group-hover:rotate-12" aria-hidden />
+            <p className="relative text-6xl font-bold tracking-tight text-[#1E3F82] md:text-7xl">
+              <CountUp value={r.value} suffix={r.suffix} />
+            </p>
+            <p className="relative mt-4 text-xl font-bold text-[#0F2258]">{label}</p>
+            <p className="relative mt-2 max-w-sm text-[15px] leading-relaxed text-slate-600">{text}</p>
+          </Reveal>
+        );
+      })}
     </ul>
   );
 }

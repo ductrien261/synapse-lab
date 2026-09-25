@@ -12,7 +12,7 @@ const beVietnamPro = Be_Vietnam_Pro({
 export const metadata: Metadata = {
   metadataBase: new URL(SITE.url),
   title: {
-    default: "Synapse Lab — Nền tảng học tập trực quan tích hợp AI",
+    default: "Synapse Lab",
     template: "%s | Synapse Lab",
   },
   description: SITE.description,

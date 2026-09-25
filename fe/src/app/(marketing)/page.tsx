@@ -17,7 +17,7 @@ import { ValueTabs } from '@/components/marketing/ValueTabs';
 import { CAPABILITIES, DOMAINS, FAQS, SITE, SOURCES } from '@/lib/marketing';
 
 export const metadata: Metadata = {
-  title: { absolute: 'Synapse Lab — Nền tảng học tập trực quan tích hợp AI' },
+  title: { absolute: 'Synapse Lab' },
   description: SITE.description,
   alternates: { canonical: '/' },
 };

@@ -5,8 +5,7 @@ import { LiveStats } from '@/components/marketing/LiveStats';
 import { ModelMosaic } from '@/components/marketing/ModelGallery';
 import { Reveal } from '@/components/marketing/motion';
 import { SortDemo } from '@/components/marketing/SortDemo';
-import { StepsScroll } from '@/components/marketing/StepsScroll';
-import { ButtonLink, CtaBand, PageHero, Section, SectionHeading } from '@/components/marketing/ui';
+import { ButtonLink, PageHero, Section, SectionHeading } from '@/components/marketing/ui';
 import { ValueTabs } from '@/components/marketing/ValueTabs';
 import { SITE, SOURCES } from '@/lib/marketing';
 
@@ -17,23 +16,6 @@ export const metadata: Metadata = {
   alternates: { canonical: '/about' },
 };
 
-const APPROACH = [
-  {
-    eyebrow: 'Lắng nghe',
-    title: 'Bắt đầu từ khó khăn thật của người học',
-    text: 'Mỗi tính năng xuất phát từ một trở ngại cụ thể: khó hình dung cấu trúc, thiếu người giải đáp, ôn tập không hiệu quả.',
-  },
-  {
-    eyebrow: 'Thiết kế',
-    title: 'Trực quan trước, chữ sau',
-    text: 'Chúng tôi ưu tiên thể hiện kiến thức bằng mô hình, chuyển động và tương tác, rồi mới bổ sung phần diễn giải.',
-  },
-  {
-    eyebrow: 'Kiểm chứng',
-    title: 'Không đánh đổi độ chính xác',
-    text: 'Nội dung được đối chiếu với học liệu gốc và phê duyệt chuyên môn trước khi đến với người học.',
-  },
-];
 
 export default function AboutPage() {
   return (
@@ -116,13 +98,6 @@ export default function AboutPage() {
         </div>
       </Section>
 
-      <Section tone="muted">
-        <div className="mb-12 md:mb-20">
-          <SectionHeading eyebrow="Cách chúng tôi làm việc" title="Nguyên tắc xây dựng sản phẩm" />
-        </div>
-        <StepsScroll steps={APPROACH} />
-      </Section>
-
       <Section id="contact" tone="white">
         <div className="grid items-center gap-10 md:grid-cols-2 lg:gap-20">
           <SectionHeading
@@ -158,7 +133,6 @@ export default function AboutPage() {
         </div>
       </Section>
 
-      <CtaBand />
     </>
   );
 }
