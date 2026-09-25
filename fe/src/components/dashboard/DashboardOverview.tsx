@@ -44,7 +44,7 @@ export function DashboardOverview() {
     );
   }
 
-  // Lần đầu đăng nhập: hỏi chuyên ngành trước (đổi lại trong trang Hồ sơ)
+  // Lần đầu đăng nhập: hỏi chuyên ngành trước (đổi lại trong trang Cài đặt)
   if (!user.track) {
     return <TrackPicker onConfirm={(track) => updateMe({ track })} />;
   }

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { BoxArrowRight, ChevronDown, PersonCircle, ShieldLock } from 'react-bootstrap-icons';
+import { BoxArrowRight, ChevronDown, GearFill, PersonCircle, ShieldLock } from 'react-bootstrap-icons';
 import { useUser } from '@/lib/user-context';
 import { TRACKS } from '@/lib/tracks';
 import { getInitials } from '@/lib/format';
@@ -77,8 +77,9 @@ export function UserMenu() {
             href="/profile"
             onClick={close}
             icon={<PersonCircle className="w-4 h-4" />}
-            label="Hồ sơ & cài đặt"
+            label="Hồ sơ"
           />
+          <MenuLink href="/settings" onClick={close} icon={<GearFill className="w-4 h-4" />} label="Cài đặt" />
           {user?.role === 'admin' && (
             <MenuLink
               href="/admin"

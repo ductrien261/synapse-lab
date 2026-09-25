@@ -13,7 +13,6 @@ import {
   Grid1x2Fill,
   HeartPulseFill,
   PeopleFill,
-  PersonLinesFill,
   ShieldLockFill,
 } from 'react-bootstrap-icons';
 import { useUser } from '@/lib/user-context';
@@ -68,9 +67,6 @@ export function AppSidebar({ collapsed, onToggle }: Props) {
           )}
           {showAnatomy && <AnatomyNav active={isActive('/anatomy')} collapsed={collapsed} />}
           <NavLink href="/spaces" label="Không gian" icon={PeopleFill} active={isActive('/spaces')} collapsed={collapsed} />
-          {!isAdmin && (
-            <NavLink href="/learning-profile" label="Hồ sơ học tập" icon={PersonLinesFill} active={isActive('/learning-profile')} collapsed={collapsed} />
-          )}
         </NavSection>
 
         {/* ---------- Gần đây ---------- */}

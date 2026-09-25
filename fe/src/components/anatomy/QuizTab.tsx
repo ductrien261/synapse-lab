@@ -171,7 +171,7 @@ export function QuizTab({
                 </li>
               ))}
             </ul>
-            <Link href="/learning-profile" className="inline-flex items-center gap-1.5 text-sm font-bold text-[#1E3F82] hover:underline">
+            <Link href="/profile" className="inline-flex items-center gap-1.5 text-sm font-bold text-[#1E3F82] hover:underline">
               <PersonLinesFill className="w-4 h-4" /> Xem hồ sơ học tập
             </Link>
           </>
