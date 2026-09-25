@@ -10,7 +10,7 @@ import threading
 import traceback
 from datetime import timedelta
 
-from django.db import close_old_connections
+from django.db import close_old_connections, transaction
 from django.db.models import F
 from django.utils import timezone
 
@@ -136,33 +136,52 @@ def _run_scan_library(job: ImportJob):
         pages.append(found)
         _bump(job, processed=1)
 
-    # Mô hình đã nhập trước đó (qua Collection/link) -> đánh dấu đã nhập theo mã mục
+    # Lưu hàng loạt (vài truy vấn thay vì ~1.500 truy vấn tới Neon)
+    _log(job, 'Đang lưu danh sách...')
     imported = {
-        str(m.source_meta.get('nid')): m
+        str(m.source_meta.get('nid')): m.pk
         for m in AnatomyModel.objects.filter(source_meta__source='anatomytool').only('id', 'source_meta')
         if m.source_meta.get('nid')
     }
+    systems = {s.slug: s for s in BodySystem.objects.all()}
+
+    def guess(title: str):
+        lowered = title.lower()
+        for slug, words in SYSTEM_HINTS:
+            if any(w in lowered for w in words):
+                return systems.get(slug)
+        return None
+
     now = timezone.now()
-    order = 0
-    created = 0
+    seen: dict[str, tuple[int, object]] = {}
     for found in pages:
         for it in found:
-            order += 1
-            obj, is_new = AnatomyToolItem.objects.get_or_create(
-                nid=it.nid, defaults={'title': it.title, 'suggested_system': suggest_system(it.title)}
-            )
-            created += int(is_new)
+            if it.nid not in seen:
+                seen[it.nid] = (len(seen) + 1, it)
+    existing = {i.nid: i for i in AnatomyToolItem.objects.filter(nid__in=list(seen))}
+    to_create, to_update = [], []
+    for nid, (order, it) in seen.items():
+        obj = existing.get(nid)
+        if obj is None:
+            obj = AnatomyToolItem(nid=nid, title=it.title, suggested_system=guess(it.title))
+            to_create.append(obj)
+        else:
             obj.title = it.title or obj.title
-            obj.thumbnail_url = it.thumbnail_url
-            obj.order = order
-            obj.last_seen_at = now
-            if it.nid in imported and obj.status != AnatomyToolItem.Status.IMPORTED:
-                obj.status = AnatomyToolItem.Status.IMPORTED
-                obj.model = imported[it.nid]
-            obj.save()
-    job.created_count = created
+            to_update.append(obj)
+        obj.thumbnail_url = it.thumbnail_url
+        obj.order = order
+        obj.last_seen_at = now
+        if nid in imported and obj.status != AnatomyToolItem.Status.IMPORTED:
+            obj.status = AnatomyToolItem.Status.IMPORTED
+            obj.model_id = imported[nid]
+    with transaction.atomic():
+        AnatomyToolItem.objects.bulk_create(to_create, batch_size=200)
+        AnatomyToolItem.objects.bulk_update(
+            to_update, ['title', 'thumbnail_url', 'order', 'last_seen_at', 'status', 'model'], batch_size=200
+        )
+    job.created_count = len(to_create)
     job.save(update_fields=['created_count'])
-    _log(job, f'Thư viện có {order} mục ({created} mục mới).', 'success')
+    _log(job, f'Thư viện có {len(seen)} mục ({len(to_create)} mục mới).', 'success')
 
 
 def _import_library_items(job: ImportJob, selections: list[dict]):
