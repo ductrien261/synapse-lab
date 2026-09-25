@@ -10,9 +10,41 @@ export type DocStatus = 'pending' | 'processing' | 'ready' | 'failed';
 
 export const SCOPE_LABEL: Record<DocScope, string> = {
   med: 'Y khoa',
-  cs: 'Khoa học máy tính',
+  cs: 'Công nghệ thông tin',
   general: 'Chung',
 };
+
+/** Tài liệu của ngành nào thì AI dùng cho phần đó (Giải phẫu 3D / Thuật toán); "Chung" dùng cho mọi phần. */
+export const SCOPE_HINT: Record<DocScope, string> = {
+  med: 'Dùng cho Giải phẫu 3D, gia sư & ôn tập Y khoa',
+  cs: 'Dùng cho Thuật toán, gia sư & ôn tập CNTT',
+  general: 'Dùng cho mọi phần',
+};
+
+export const SCOPES: DocScope[] = ['med', 'cs', 'general'];
+
+/** Sách OpenStax gợi ý (miễn phí, giấy phép mở) — bấm để quét mục lục nhanh. */
+export const SUGGESTED_BOOKS: { scope: DocScope; title: string; slug: string; note: string }[] = [
+  { scope: 'med', title: 'Anatomy and Physiology 2e', slug: 'anatomy-and-physiology-2e', note: 'Giải phẫu – sinh lý, khớp với mô hình 3D' },
+  { scope: 'med', title: 'Microbiology', slug: 'microbiology', note: 'Vi sinh' },
+  { scope: 'cs', title: 'Introduction to Computer Science', slug: 'introduction-computer-science', note: 'Chương 3: cấu trúc dữ liệu & thuật toán' },
+  { scope: 'cs', title: 'Introduction to Python Programming', slug: 'introduction-python-programming', note: 'Lập trình Python cơ bản' },
+  { scope: 'cs', title: 'Principles of Data Science', slug: 'principles-data-science', note: 'Khoa học dữ liệu' },
+];
+
+export function bookUrl(slug: string) {
+  return `https://openstax.org/details/books/${slug}`;
+}
+
+/** Đoán chuyên ngành từ tên sách (admin vẫn đổi được). */
+export function guessScope(slugOrTitle: string): DocScope {
+  const s = slugOrTitle.toLowerCase();
+  const known = SUGGESTED_BOOKS.find((b) => s.includes(b.slug));
+  if (known) return known.scope;
+  if (/(anatomy|physiology|biology|microbio|nursing|health|medic|chemistry|psycholog|pharma)/.test(s)) return 'med';
+  if (/(computer|python|program|data-science|data science|algorithm|software|comput)/.test(s)) return 'cs';
+  return 'general';
+}
 
 export interface KnowledgeDocument {
   id: string;

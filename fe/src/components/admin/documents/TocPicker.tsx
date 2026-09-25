@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { CheckCircleFill, ChevronDown, CloudDownload } from 'react-bootstrap-icons';
-import { SCOPE_LABEL, type DocScope, type TocChapter } from '@/lib/admin-knowledge';
+import { SCOPE_HINT, SCOPE_LABEL, SCOPES, type DocScope, type TocChapter } from '@/lib/admin-knowledge';
 
 const SECONDS_PER_PAGE = 5; // ≥3 giây giãn cách + tạo vector
 
@@ -136,18 +136,21 @@ export function TocPicker({
           )}
         </span>
         <div className="flex items-center gap-2">
-          <select
-            value={scope}
-            onChange={(e) => setScope(e.target.value as DocScope)}
-            className="px-3 py-2 rounded-lg border border-stone-200 bg-white text-sm"
-            aria-label="Chuyên ngành"
-          >
-            {(Object.keys(SCOPE_LABEL) as DocScope[]).map((s) => (
-              <option key={s} value={s}>
-                {SCOPE_LABEL[s]}
-              </option>
-            ))}
-          </select>
+          <label className="flex items-center gap-2 text-xs text-stone-500" title={SCOPE_HINT[scope]}>
+            Dùng cho
+            <select
+              value={scope}
+              onChange={(e) => setScope(e.target.value as DocScope)}
+              className="px-3 py-2 rounded-lg border border-stone-200 bg-white text-sm text-stone-800"
+              aria-label="Chuyên ngành"
+            >
+              {SCOPES.map((s) => (
+                <option key={s} value={s}>
+                  {SCOPE_LABEL[s]}
+                </option>
+              ))}
+            </select>
+          </label>
           <button
             type="button"
             disabled={busy || count === 0}

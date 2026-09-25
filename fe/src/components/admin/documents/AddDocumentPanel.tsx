@@ -2,7 +2,18 @@
 
 import { useEffect, useState } from 'react';
 import { BoxArrowUpRight, Book, FileEarmarkArrowUp, Search } from 'react-bootstrap-icons';
-import { adminKnowledgeApi, SCOPE_LABEL, type DocScope, type IngestJob, type OpenStaxBook } from '@/lib/admin-knowledge';
+import {
+  adminKnowledgeApi,
+  bookUrl,
+  guessScope,
+  SCOPE_HINT,
+  SCOPE_LABEL,
+  SCOPES,
+  SUGGESTED_BOOKS,
+  type DocScope,
+  type IngestJob,
+  type OpenStaxBook,
+} from '@/lib/admin-knowledge';
 import { TocPicker } from './TocPicker';
 
 type StartJob = (fn: () => Promise<IngestJob>) => Promise<boolean>;
@@ -10,6 +21,15 @@ type StartJob = (fn: () => Promise<IngestJob>) => Promise<boolean>;
 export function AddDocumentPanel({ busy, startJob, reloadSignal }: { busy: boolean; startJob: StartJob; reloadSignal: number }) {
   return (
     <div className="flex flex-col gap-5">
+      <div className="rounded-2xl bg-[#F4F7FC] border border-[#DDE6F5] px-4 py-3 text-sm text-stone-700">
+        Kho tài liệu <b>dùng chung</b> cho mọi phần của hệ thống. Mỗi tài liệu gắn một chuyên ngành:{' '}
+        {SCOPES.map((sc, i) => (
+          <span key={sc}>
+            <b>{SCOPE_LABEL[sc]}</b> <span className="text-stone-500">({SCOPE_HINT[sc].toLowerCase()})</span>
+            {i < SCOPES.length - 1 ? ' · ' : '.'}
+          </span>
+        ))}
+      </div>
       <OpenStaxCard busy={busy} startJob={startJob} reloadSignal={reloadSignal} />
       <PdfCard busy={busy} startJob={startJob} />
     </div>
@@ -45,11 +65,11 @@ function OpenStaxCard({ busy, startJob, reloadSignal }: { busy: boolean; startJo
     };
   }, [bookSlug, reloadSignal]);
 
-  const scan = async () => {
+  const scan = async (target = url) => {
     setError('');
     setScanning(true);
     try {
-      const res = await adminKnowledgeApi.scanOpenStax(url.trim());
+      const res = await adminKnowledgeApi.scanOpenStax(target.trim());
       setBook(res.book);
       setIngested(new Set(res.ingested));
     } catch (err) {
@@ -67,8 +87,30 @@ function OpenStaxCard({ busy, startJob, reloadSignal }: { busy: boolean; startJo
             <Book className="w-4 h-4 text-[#1E3F82]" /> Sách OpenStax
           </h2>
           <p className="text-xs text-stone-500 mt-0.5">
-            Dán link sách (hoặc link một trang bất kỳ trong sách) trên openstax.org → quét mục lục → chọn chương cần nạp.
+            Chọn sách gợi ý hoặc dán link sách bất kỳ trên openstax.org → quét mục lục → chọn chương cần nạp.
           </p>
+        </div>
+        <div className="flex flex-col gap-2">
+          {SCOPES.filter((sc) => SUGGESTED_BOOKS.some((b) => b.scope === sc)).map((sc) => (
+            <div key={sc} className="flex flex-wrap items-center gap-1.5">
+              <span className="w-40 shrink-0 text-[11px] font-bold uppercase tracking-wider text-stone-500">{SCOPE_LABEL[sc]}</span>
+              {SUGGESTED_BOOKS.filter((b) => b.scope === sc).map((b) => (
+                <button
+                  key={b.slug}
+                  type="button"
+                  disabled={scanning}
+                  title={b.note}
+                  onClick={() => {
+                    setUrl(bookUrl(b.slug));
+                    void scan(bookUrl(b.slug));
+                  }}
+                  className="px-2.5 py-1 rounded-lg border border-stone-200 bg-white text-xs font-semibold text-stone-700 hover:border-[#1E3F82]/40 hover:text-[#1E3F82] disabled:opacity-50 cursor-pointer"
+                >
+                  {b.title}
+                </button>
+              ))}
+            </div>
+          ))}
         </div>
         <form
           onSubmit={(e) => {
@@ -80,7 +122,7 @@ function OpenStaxCard({ busy, startJob, reloadSignal }: { busy: boolean; startJo
           <input
             value={url}
             onChange={(e) => setUrl(e.target.value)}
-            placeholder="https://openstax.org/books/anatomy-and-physiology-2e/pages/1-introduction"
+            placeholder="https://openstax.org/details/books/<tên-sách>  hoặc link một trang trong sách"
             className="flex-1 px-4 py-2.5 rounded-xl border border-stone-200 text-sm focus:outline-none focus:border-[#1E3F82] focus:ring-2 focus:ring-[#1E3F82]/10"
           />
           <button
@@ -119,6 +161,7 @@ function OpenStaxCard({ busy, startJob, reloadSignal }: { busy: boolean; startJo
             key={book.slug}
             toc={book.toc}
             ingested={ingested}
+            defaultScope={guessScope(`${book.slug} ${book.title}`)}
             busy={busy}
             onSubmit={(pages, scope) => startJob(() => adminKnowledgeApi.ingestOpenStax(book.slug, pages, scope))}
           />
@@ -135,7 +178,7 @@ function PdfCard({ busy, startJob }: { busy: boolean; startJob: StartJob }) {
   const [title, setTitle] = useState('');
   const [authors, setAuthors] = useState('');
   const [year, setYear] = useState('');
-  const [scope, setScope] = useState<DocScope>('med');
+  const [scope, setScope] = useState<DocScope | ''>('');
   const [inputKey, setInputKey] = useState(0);
 
   const pick = (f: File | null) => {
@@ -144,7 +187,7 @@ function PdfCard({ busy, startJob }: { busy: boolean; startJob: StartJob }) {
   };
 
   const submit = async () => {
-    if (!file) return;
+    if (!file || !scope) return;
     const ok = await startJob(() => adminKnowledgeApi.uploadPdf({ file, title, authors, year, scope }));
     if (ok) {
       setFile(null);
@@ -178,8 +221,9 @@ function PdfCard({ busy, startJob }: { busy: boolean; startJob: StartJob }) {
         <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Tên tài liệu" className={field} />
         <input value={authors} onChange={(e) => setAuthors(e.target.value)} placeholder="Tác giả (không bắt buộc)" className={field} />
         <input value={year} onChange={(e) => setYear(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="Năm" className={field} />
-        <select value={scope} onChange={(e) => setScope(e.target.value as DocScope)} className={field} aria-label="Chuyên ngành">
-          {(Object.keys(SCOPE_LABEL) as DocScope[]).map((s) => (
+        <select value={scope} onChange={(e) => setScope(e.target.value as DocScope | '')} className={field} aria-label="Chuyên ngành">
+          <option value="">— Chọn chuyên ngành —</option>
+          {SCOPES.map((s) => (
             <option key={s} value={s}>
               {SCOPE_LABEL[s]}
             </option>
@@ -189,7 +233,7 @@ function PdfCard({ busy, startJob }: { busy: boolean; startJob: StartJob }) {
       <div className="flex justify-end">
         <button
           type="button"
-          disabled={busy || !file}
+          disabled={busy || !file || !scope}
           onClick={() => void submit()}
           className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#1E3F82] hover:bg-[#163070] text-white text-sm font-bold disabled:opacity-50 cursor-pointer"
         >

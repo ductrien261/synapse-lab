@@ -94,7 +94,7 @@ export default function AdminDocumentsPage() {
     <>
       <AdminPageHeader
         title="Tài liệu"
-        description="Kho giáo trình làm căn cứ cho AI: nạp sách OpenStax theo chương hoặc file PDF, AI chỉ viết dựa trên các đoạn trong kho và luôn kèm trích dẫn."
+        description="Kho giáo trình dùng chung cho mọi phần (Giải phẫu, Thuật toán...): nạp sách OpenStax theo chương hoặc file PDF. AI chỉ trả lời, viết nháp, ra đề dựa trên các đoạn trong kho và luôn kèm trích dẫn."
       />
 
       {stats && !stats.embeddings_configured && (

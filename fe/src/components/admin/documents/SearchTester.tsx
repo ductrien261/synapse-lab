@@ -2,9 +2,14 @@
 
 import { useState } from 'react';
 import { BoxArrowUpRight, Search, Translate } from 'react-bootstrap-icons';
-import { adminKnowledgeApi, SCOPE_LABEL, type DocScope, type SearchResponse } from '@/lib/admin-knowledge';
+import { adminKnowledgeApi, SCOPE_LABEL, SCOPES, type DocScope, type SearchResponse } from '@/lib/admin-knowledge';
 
-const EXAMPLES = ['What is the left ventricle?', 'Van hai lá nằm ở đâu?', 'Where does the great cardiac vein drain?'];
+const EXAMPLES: Record<DocScope | '', string[]> = {
+  '': ['Van hai lá nằm ở đâu?', 'Thuật toán sắp xếp nhanh hoạt động thế nào?'],
+  med: ['Van hai lá nằm ở đâu?', 'What is the function of the left ventricle?'],
+  cs: ['Thuật toán sắp xếp nhanh hoạt động thế nào?', 'What is a binary search tree?'],
+  general: ['Tóm tắt khái niệm chính của chương 1'],
+};
 
 /** Ô thử tìm kiếm: xem kho trả về đoạn nào cho một câu hỏi (không gọi AI viết câu trả lời). */
 export function SearchTester() {
@@ -49,12 +54,12 @@ export function SearchTester() {
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Ví dụ: Tâm thất trái có chức năng gì?"
+            placeholder="Gõ câu hỏi bất kỳ, ví dụ: Van hai lá nằm ở đâu?"
             className="flex-1 px-4 py-2.5 rounded-xl border border-stone-200 text-sm focus:outline-none focus:border-[#1E3F82] focus:ring-2 focus:ring-[#1E3F82]/10"
           />
           <select value={scope} onChange={(e) => setScope(e.target.value as DocScope | '')} className="px-3 py-2 rounded-xl border border-stone-200 bg-white text-sm" aria-label="Chuyên ngành">
             <option value="">Mọi chuyên ngành</option>
-            {(Object.keys(SCOPE_LABEL) as DocScope[]).map((s) => (
+            {SCOPES.map((s) => (
               <option key={s} value={s}>
                 {SCOPE_LABEL[s]}
               </option>
@@ -70,7 +75,7 @@ export function SearchTester() {
           </button>
         </form>
         <div className="flex flex-wrap gap-2">
-          {EXAMPLES.map((ex) => (
+          {EXAMPLES[scope].map((ex) => (
             <button
               key={ex}
               type="button"

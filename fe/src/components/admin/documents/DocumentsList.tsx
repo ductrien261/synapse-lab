@@ -12,7 +12,9 @@ import {
 } from 'react-bootstrap-icons';
 import {
   adminKnowledgeApi,
+  SCOPE_HINT,
   SCOPE_LABEL,
+  SCOPES,
   type DocScope,
   type DocStatus,
   type IngestJob,
@@ -45,6 +47,7 @@ export function DocumentsList({
 }) {
   const [docs, setDocs] = useState<KnowledgeDocument[] | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [filter, setFilter] = useState<DocScope | ''>('');
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -89,9 +92,31 @@ export function DocumentsList({
     );
   }
 
+  const shown = filter ? docs.filter((d) => d.scope === filter) : docs;
+
   return (
-    <ul className="bg-white rounded-2xl border border-stone-200/90 overflow-hidden">
-      {docs.map((d) => {
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap gap-1.5">
+        {([''] as (DocScope | '')[]).concat(SCOPES).map((sc) => {
+          const count = sc ? docs.filter((d) => d.scope === sc).length : docs.length;
+          return (
+            <button
+              key={sc || 'all'}
+              type="button"
+              onClick={() => setFilter(sc)}
+              title={sc ? SCOPE_HINT[sc] : undefined}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold border cursor-pointer ${
+                filter === sc ? 'bg-[#1E3F82] border-[#1E3F82] text-white' : 'bg-white border-stone-200 text-stone-600 hover:text-stone-900'
+              }`}
+            >
+              {sc ? SCOPE_LABEL[sc] : 'Tất cả'} <span className="opacity-70">{count}</span>
+            </button>
+          );
+        })}
+      </div>
+      {shown.length === 0 && <p className="text-sm text-stone-500 px-1">Chưa có tài liệu cho chuyên ngành này.</p>}
+    <ul className="bg-white rounded-2xl border border-stone-200/90 overflow-hidden empty:hidden">
+      {shown.map((d) => {
         const isOpen = openId === d.id;
         const Icon = d.source_type === 'openstax' ? Book : FileEarmarkPdf;
         return (
@@ -134,6 +159,7 @@ export function DocumentsList({
         );
       })}
     </ul>
+    </div>
   );
 }
 
@@ -215,13 +241,13 @@ function DocumentDetail({
         )}
         {doc.original_filename && <span>File: {doc.original_filename}</span>}
         <label className="inline-flex items-center gap-1.5 ml-auto">
-          Chuyên ngành
+          Dùng cho
           <select
             value={doc.scope}
             onChange={(e) => void act(() => adminKnowledgeApi.updateDocument(doc.id, { scope: e.target.value as DocScope }))}
             className="px-2 py-1 rounded-lg border border-stone-200 bg-white text-xs"
           >
-            {(Object.keys(SCOPE_LABEL) as DocScope[]).map((s) => (
+            {SCOPES.map((s) => (
               <option key={s} value={s}>
                 {SCOPE_LABEL[s]}
               </option>
