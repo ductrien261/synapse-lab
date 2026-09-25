@@ -53,7 +53,7 @@ export function TokenQuotaCard({ compact = false }: { compact?: boolean }) {
           <h2 className="text-base font-bold text-stone-900 flex items-center gap-2">
             <Lightning className={`w-4 h-4 ${t.text}`} /> Token AI hôm nay
           </h2>
-          <p className="text-sm text-stone-500 mt-1">Mỗi lần hỏi AI, dịch hay ôn tập sẽ trừ token. Làm mới lúc 0h mỗi ngày.</p>
+          <p className="text-sm text-stone-500 mt-1">Làm mới lúc 0h mỗi ngày.</p>
         </div>
         <div className="text-right">
           <div className={`text-2xl font-extrabold tabular-nums ${t.text}`}>{formatTokens(quota.remaining)}</div>
