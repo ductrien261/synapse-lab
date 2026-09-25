@@ -88,7 +88,7 @@ export function ImportPanel({ onImported }: { onImported: () => void }) {
         <InfoCircle className="w-4 h-4 mt-0.5 shrink-0" />
         <span>
           AnatomyTOOL yêu cầu mỗi lần truy cập cách nhau <b>10 giây</b> (robots.txt), nên nhập 10 mô hình mất khoảng 2–3 phút.
-          Việc nhập chạy nền, bạn có thể rời trang và quay lại xem tiến độ. Mô hình mới luôn ở trạng thái <b>Nháp</b>.
+          Việc nhập chạy nền, bạn có thể rời trang và quay lại xem tiến độ. Mô hình mới luôn ở trạng thái <b>Nháp</b>. Nhập xong, sang tab <b>Mô hình</b> bấm <b>AI soạn nội dung</b>.
         </span>
       </div>
 
