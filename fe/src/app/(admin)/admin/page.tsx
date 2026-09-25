@@ -66,7 +66,7 @@ export default function AdminHomePage() {
     <>
       <AdminPageHeader
         title={`Xin chào, ${user ? getGreetingName(user.name, user.email) : ''}`}
-        description="Tổng quan hệ thống SYNAPSE LAB"
+        description="Tổng quan hệ thống Synapse Lab"
       />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

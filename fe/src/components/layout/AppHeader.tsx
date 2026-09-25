@@ -16,10 +16,10 @@ export function AppHeader({ homeHref = '/', badge }: Props) {
   return (
     <header className="h-16 bg-white border-b border-stone-200/80 px-5 md:px-8 flex items-center justify-between gap-4 sticky top-0 z-30 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
       <div className="flex items-center gap-3">
-        <Link href={homeHref} className="flex items-center" aria-label="SYNAPSE LAB - Trang chủ">
+        <Link href={homeHref} className="flex items-center" aria-label="Synapse Lab - Trang chủ">
           <Image
             src="/images/logo-horizontal.png"
-            alt="SYNAPSE LAB"
+            alt="Synapse Lab"
             width={170}
             height={42}
             className="h-9 w-auto object-contain"

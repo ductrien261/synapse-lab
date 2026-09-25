@@ -9,8 +9,8 @@ const beVietnamPro = Be_Vietnam_Pro({
 });
 
 export const metadata: Metadata = {
-  title: "SYNAPSE-LAB | Algorithm Visualizer & AI Platform",
-  description: "Interactive Algorithm Visualization and AI platform built with Next.js and Django",
+  title: "Synapse Lab",
+  description: "Nền tảng học tập cùng AI: giải phẫu 3D, trực quan hóa thuật toán, gia sư và ôn tập dựa trên giáo trình.",
 };
 
 export default function RootLayout({

@@ -37,7 +37,7 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="flex items-center justify-center mb-8">
-          <img src="/images/logo-vertical.png" alt="SYNAPSE LAB" className="h-24 w-auto object-contain" />
+          <img src="/images/logo-vertical.png" alt="Synapse Lab" className="h-24 w-auto object-contain" />
         </div>
 
         {/* Card */}
@@ -46,7 +46,7 @@ export default function LoginPage() {
             Đăng nhập
           </h1>
           <p className="text-xs text-stone-500 font-medium mb-6">
-            Chào mừng trở lại với SYNAPSE-LAB
+            Chào mừng trở lại với Synapse Lab
           </p>
 
           {error && (

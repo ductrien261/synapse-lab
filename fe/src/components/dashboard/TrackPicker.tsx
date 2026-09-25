@@ -81,7 +81,7 @@ export function TrackPicker({ onConfirm }: { onConfirm: (track: Track) => Promis
     <section className="max-w-3xl mx-auto w-full bg-white rounded-3xl border border-stone-200/90 p-6 md:p-8 shadow-[0_8px_32px_rgba(36,51,85,0.06)]">
       <h1 className="text-2xl font-extrabold text-stone-900">Bạn đang học chuyên ngành nào?</h1>
       <p className="text-sm text-stone-500 mt-1.5">
-        SYNAPSE LAB sẽ hiển thị nội dung phù hợp với chuyên ngành của bạn. Bạn có thể đổi lại trong trang hồ sơ.
+        Synapse Lab sẽ hiển thị nội dung phù hợp với chuyên ngành của bạn. Bạn có thể đổi lại trong trang Cài đặt.
       </p>
 
       <div className="mt-6">

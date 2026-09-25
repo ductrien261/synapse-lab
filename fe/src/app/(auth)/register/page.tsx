@@ -35,12 +35,12 @@ export default function RegisterPage() {
     <div className="min-h-screen bg-[#F4F6F9] flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="flex items-center justify-center mb-8">
-          <img src="/images/logo-vertical.png" alt="SYNAPSE LAB" className="h-20 w-auto object-contain" />
+          <img src="/images/logo-vertical.png" alt="Synapse Lab" className="h-20 w-auto object-contain" />
         </div>
 
         <div className="bg-white rounded-3xl border border-stone-200/90 shadow-[0_8px_32px_rgba(36,51,85,0.08)] p-8">
           <h1 className="text-xl font-extrabold text-stone-900 mb-1">Đăng ký</h1>
-          <p className="text-xs text-stone-500 font-medium mb-6">Tạo tài khoản SYNAPSE-LAB mới</p>
+          <p className="text-xs text-stone-500 font-medium mb-6">Tạo tài khoản Synapse Lab mới</p>
 
           {error && (
             <div className="mb-4 px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium">{error}</div>
