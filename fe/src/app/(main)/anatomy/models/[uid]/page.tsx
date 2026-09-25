@@ -134,7 +134,7 @@ function ModelViewer({ model }: { model: AnatomyModelDetail }) {
   };
 
   // Đang làm thử thách thì không lộ tên bộ phận ở tiêu đề
-  const headerTitle = quizActive ? 'Thử thách nhận diện' : current ? partName(current) : 'Chưa chọn bộ phận';
+  const headerTitle = quizActive ? 'Tìm bộ phận trên mô hình' : current ? partName(current) : 'Chưa chọn bộ phận';
 
   return (
     <div className="flex flex-col gap-5 pb-12">
@@ -247,6 +247,8 @@ function ModelViewer({ model }: { model: AnatomyModelDetail }) {
             {tab === 'notes' && <NotesTab modelUid={model.sketchfab_uid} part={current} parts={parts} onJump={select} />}
             {tab === 'quiz' && (
               <QuizTab
+                key={model.sketchfab_uid}
+                modelUid={model.sketchfab_uid}
                 parts={parts}
                 onSelect={select}
                 onPick={onPick}

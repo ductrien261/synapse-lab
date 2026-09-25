@@ -20,8 +20,8 @@ def normalize(question: str) -> str:
     return q.rstrip('?.! ')
 
 
-def cache_key(question: str, model_uid: str, part_index, track: str) -> str:
-    raw = '|'.join([normalize(question), model_uid or '', '' if part_index is None else str(part_index), track or ''])
+def cache_key(question: str, model_uid: str, part_index, track: str, variant: str = '') -> str:
+    raw = '|'.join([normalize(question), model_uid or '', '' if part_index is None else str(part_index), track or '', variant])
     return hashlib.sha256(raw.encode('utf-8')).hexdigest()
 
 
@@ -49,5 +49,13 @@ def history(conversation: Conversation, limit: int = 12) -> list[dict]:
     return [{'role': m.role, 'content': m.content} for m in reversed(rows)]
 
 
-def learner_context(user) -> dict:
-    return {'track': TRACK_LABEL.get(getattr(user, 'track', '') or '', '')}
+def learner_context(user, model: AnatomyModel | None = None) -> dict:
+    """Chuyên ngành + hồ sơ học tập (trình độ, cách giải thích, chỗ yếu, hiểu nhầm) để gia sư cá nhân hóa."""
+    from learner.services import learner_context as profile_context
+
+    return {'track': TRACK_LABEL.get(getattr(user, 'track', '') or '', ''), **profile_context(user, model)}
+
+
+def cacheable(learner: dict) -> bool:
+    """Chỉ dùng chung câu trả lời khi người học chưa có ghi nhận riêng (hiểu nhầm / chỗ yếu)."""
+    return not learner.get('notes') and not learner.get('weak') and not learner.get('goals')

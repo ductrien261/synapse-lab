@@ -1,12 +1,17 @@
 'use client';
 
 import { Fragment, type ReactNode } from 'react';
-import type { TutorCitation } from '@/lib/tutor';
 
 const CITE = /(\[\d{1,2}\])/g;
 
+/** Nguồn tối thiểu để hiển thị số trích dẫn (dùng chung cho gia sư và ôn tập). */
+export interface CiteLike {
+  n: number;
+  heading: string;
+}
+
 /** In đậm **...** và biến [n] thành nút trích dẫn. */
-function inline(text: string, citations: TutorCitation[], onCite: (c: TutorCitation) => void): ReactNode[] {
+function inline<C extends CiteLike>(text: string, citations: C[], onCite: (c: C) => void): ReactNode[] {
   return text.split(CITE).flatMap((piece, i) => {
     const m = piece.match(/^\[(\d{1,2})\]$/);
     if (m) {
@@ -37,7 +42,7 @@ function inline(text: string, citations: TutorCitation[], onCite: (c: TutorCitat
 }
 
 /** Hiển thị câu trả lời: đoạn văn, gạch đầu dòng, in đậm, số trích dẫn bấm được. */
-export function RichText({ text, citations, onCite }: { text: string; citations: TutorCitation[]; onCite: (c: TutorCitation) => void }) {
+export function RichText<C extends CiteLike>({ text, citations, onCite }: { text: string; citations: C[]; onCite: (c: C) => void }) {
   const blocks: ReactNode[] = [];
   let list: string[] = [];
   const flush = () => {

@@ -52,3 +52,19 @@ class QuickCheckIn(Caller):
     topic: str = ''
     answer: str = Field(default='', max_length=6000)
     sources: list[dict] = Field(default_factory=list, description='[{heading, excerpt}] theo đúng thứ tự [n]')
+
+
+class QuizGenerateIn(Caller):
+    kind: Literal['mcq', 'case', 'short']
+    difficulty: int = Field(default=1, ge=1, le=3)
+    structure: dict = Field(description='{name_en, name_vi, latin_name}')
+    sources: list[dict] = Field(default_factory=list, description='[{heading, excerpt}] theo thứ tự [n]')
+    misconceptions: list[str] = Field(default_factory=list)
+    avoid: list[str] = Field(default_factory=list)
+
+
+class QuizGradeIn(Caller):
+    question: str
+    rubric: list[str]
+    sources: list[dict] = Field(default_factory=list)
+    answer: str = Field(default='', max_length=3000)

@@ -22,7 +22,7 @@ from anatomy.models import AnatomyModel
 from users.permissions import is_admin
 
 from .models import AnswerCache, Conversation, TutorMessage
-from .services import cache_key, cached_answer, history, learner_context, model_parts
+from .services import cache_key, cacheable, cached_answer, history, learner_context, model_parts
 
 
 class AskThrottle(UserRateThrottle):
@@ -81,11 +81,13 @@ class AskView(APIView):
         part_index = v.get('part_index')
         part = next((p for p in parts if p['index'] == part_index), None)
         past = history(conversation)
-        learner = learner_context(user)
-        key = cache_key(v['question'], model.sketchfab_uid if model else '', part_index, learner['track'])
+        learner = learner_context(user, model)
+        key = cache_key(v['question'], model.sketchfab_uid if model else '', part_index, learner['track'],
+                        f"{learner.get('level', '')}|{learner.get('style', '')}")
+        use_cache = not past and cacheable(learner)
 
-        # 1) Câu hỏi đầu tiên đã có người hỏi -> trả lời ngay, 0 token
-        cached = cached_answer(key) if not past else None
+        # 1) Câu hỏi đầu tiên đã có người hỏi (và người học chưa có ghi nhận riêng) -> trả lời ngay, 0 token
+        cached = cached_answer(key) if use_cache else None
         if cached:
             TutorMessage.objects.create(conversation=conversation, role='user', content=v['question'], part_index=part_index)
             msg = TutorMessage.objects.create(
@@ -134,7 +136,7 @@ class AskView(APIView):
                             citations=body.get('citations', []), highlights=body.get('highlights', []),
                             suggestions=body.get('suggestions', []), ai_request=req,
                         )
-                        if not past and status_ == 'ok':
+                        if use_cache and status_ == 'ok':
                             AnswerCache.objects.update_or_create(key=key, defaults={
                                 'question': v['question'], 'answer': msg.content, 'citations': msg.citations,
                                 'highlights': msg.highlights, 'suggestions': msg.suggestions, 'status': status_,
@@ -220,6 +222,7 @@ class QuickCheckView(APIView):
                 qc['answered_at'] = timezone.now().isoformat()
                 m.quick_check = qc
                 m.save(update_fields=['quick_check'])
+                _update_mastery_from_quick_check(request.user, m, qc['correct'])
             return Response(message_data(m)['quick_check'])
 
         if m.quick_check:
@@ -248,3 +251,16 @@ class QuickCheckView(APIView):
         }
         m.save(update_fields=['quick_check'])
         return Response(message_data(m)['quick_check'])
+
+
+def _update_mastery_from_quick_check(user, message: TutorMessage, correct: bool):
+    """Kiểm tra nhanh về bộ phận đang chọn -> cập nhật hồ sơ học tập của bộ phận đó."""
+    from learner.services import record_result
+
+    question = message.conversation.messages.filter(role='user', created_at__lte=message.created_at).order_by('-created_at').first()
+    model = message.conversation.anatomy_model
+    if not question or question.part_index is None or model is None:
+        return
+    annotation = model.annotations.filter(index=question.part_index, structure__isnull=False).select_related('structure').first()
+    if annotation:
+        record_result(user, annotation.structure, 1.0 if correct else 0.0)

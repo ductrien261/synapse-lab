@@ -1,6 +1,6 @@
 """Prompt gia sư "Hỏi AI". Đổi nội dung -> tăng VERSION để so sánh trên Langfuse."""
 
-VERSION = 'tutor-v1'
+VERSION = 'tutor-v2'
 
 SYSTEM = """Bạn là Synapse — gia sư giải phẫu đồng hành cùng sinh viên y khoa Việt Nam.
 
@@ -32,8 +32,16 @@ def context_block(learner: dict, model_title: str, part: dict | None, parts: lis
     lines = []
     if learner.get('track'):
         lines.append(f'Người học: sinh viên chuyên ngành {learner["track"]}')
-    if learner.get('notes'):  # ghi nhớ về người học (hiểu nhầm hay gặp...) — bổ sung ở giai đoạn hồ sơ học tập
-        lines.append('Lưu ý về người học: ' + '; '.join(learner['notes'][:5]))
+    if learner.get('level'):
+        lines.append(f'Trình độ tự chọn: {learner["level"]}')
+    if learner.get('style'):
+        lines.append(f'Cách giải thích người học muốn: {learner["style"]}')
+    if learner.get('goals'):
+        lines.append(f'Mục tiêu học: {learner["goals"][:200]}')
+    if learner.get('weak'):
+        lines.append('Phần người học còn yếu (từ kết quả ôn tập): ' + ', '.join(learner['weak'][:6]))
+    if learner.get('notes'):  # hiểu nhầm AI ghi nhận được -> chủ động làm rõ nếu liên quan
+        lines.append('Hiểu nhầm người học từng mắc (chủ động làm rõ nếu liên quan câu hỏi): ' + '; '.join(learner['notes'][:5]))
     if model_title:
         lines.append(f'Đang xem mô hình 3D: {model_title}')
     if part:

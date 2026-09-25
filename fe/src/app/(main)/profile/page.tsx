@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useState, type FormEvent } from 'react';
 import { useUser, type CurrentUser, type ProfileUpdate } from '@/lib/user-context';
 import { getInitials } from '@/lib/format';
@@ -68,6 +69,20 @@ function ProfileForm({
 
       {/* Token AI */}
       <TokenQuotaCard />
+
+      {/* Hồ sơ học tập */}
+      {user.role !== 'admin' && (
+        <Link
+          href="/learning-profile"
+          className="group bg-white rounded-3xl border border-stone-200/90 p-6 flex items-center justify-between gap-4 hover:border-[#1E3F82]/40"
+        >
+          <div>
+            <h2 className="text-base font-bold text-stone-900">AI hiểu gì về bạn</h2>
+            <p className="text-sm text-stone-500 mt-1">Mức nắm vững, những chỗ hay nhầm và cách bạn muốn được giải thích — xem, sửa, xóa được.</p>
+          </div>
+          <span className="text-sm font-bold text-[#1E3F82] group-hover:underline shrink-0">Xem hồ sơ →</span>
+        </Link>
+      )}
 
       {/* Họ tên */}
       <section className="bg-white rounded-3xl border border-stone-200/90 p-6">

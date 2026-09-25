@@ -164,3 +164,39 @@ def test_tutor_endpoint_streams_sse(monkeypatch):
     body = res.text
     assert body.count('event: token') == 2 and 'event: done' in body and '"meta"' in body
     get_settings.cache_clear()
+
+
+# ---------------- ôn tập ----------------
+
+from app.graphs import quiz as quiz_graph  # noqa: E402
+from app.verify.quiz import validate_item  # noqa: E402
+
+SRC = [{'heading': 'Left Ventricle', 'excerpt': 'pumps blood into the aorta'}, {'heading': 'Mitral valve', 'excerpt': 'two cusps'}]
+MCQ_OK = {'question': 'Tâm thất trái bơm máu vào đâu?', 'options': ['Động mạch chủ', 'Thân động mạch phổi', 'Tâm nhĩ trái', 'Tĩnh mạch chủ'],
+          'correct_index': 0, 'distractor_notes': ['', 'nhầm với thất phải', 'nhầm chiều dòng máu', 'nhầm động mạch với tĩnh mạch'],
+          'explanation': 'Thất trái bơm máu vào động mạch chủ [1].'}
+
+
+def test_validate_item_rules():
+    assert validate_item('mcq', MCQ_OK, 2) == ''
+    assert validate_item('mcq', {**MCQ_OK, 'correct_index': 4}, 2)
+    assert validate_item('mcq', {**MCQ_OK, 'explanation': 'không nguồn'}, 2)
+    assert validate_item('short', {'question': 'Q', 'rubric': ['ý 1 [1]'], 'explanation': 'x [1]'}, 2)
+    assert validate_item('short', {'question': 'Q', 'rubric': ['ý 1 [1]', 'ý 2 [2]'], 'explanation': 'x [1]'}, 2) == ''
+
+
+def test_quiz_generate_retries_then_ok(monkeypatch):
+    import json as _json
+    replies = iter([_json.dumps({**MCQ_OK, 'options': ['a', 'a', 'b', 'c']}), _json.dumps(MCQ_OK)])
+    monkeypatch.setattr(quiz_graph, 'chat', lambda *a, **k: next(replies))
+    item = quiz_graph.generate(RunContext('quiz'), 'mcq', {'name_en': 'Left ventricle'}, SRC)
+    assert item['status'] == 'ok' and item['correct_index'] == 0
+    assert item['distractor_notes'][0] == '' and item['distractor_notes'][1] == 'nhầm với thất phải'
+
+
+def test_quiz_grade(monkeypatch):
+    monkeypatch.setattr(quiz_graph, 'chat', lambda *a, **k: '{"hits": [0], "feedback": "Đúng ý chính [1].", "misconception": "nhầm tâm nhĩ"}')
+    out = quiz_graph.grade(RunContext('grade'), 'Q', ['ý 1 [1]', 'ý 2 [2]'], SRC, 'Tâm thất trái bơm máu vào động mạch chủ')
+    assert out['score'] == 0.5 and out['misconception'] == 'nhầm tâm nhĩ'
+    monkeypatch.setattr(quiz_graph, 'chat', lambda *a, **k: pytest.fail('không cần AI'))
+    assert quiz_graph.grade(RunContext('grade'), 'Q', ['a [1]', 'b [1]'], SRC, '')['score'] == 0.0

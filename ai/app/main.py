@@ -16,10 +16,11 @@ from fastapi.responses import StreamingResponse
 from .config import get_settings
 from .graphs import draft as draft_graph
 from .graphs import quick_check as quick_check_graph
+from .graphs import quiz as quiz_graph
 from .graphs import tutor as tutor_graph
 from .llm.chat import LLMError, LLMNotConfigured
 from .llm.tracing import run_context, shutdown
-from .schemas import DraftStructureIn, QuickCheckIn, SearchIn, TranslateIn, TutorAskIn
+from .schemas import DraftStructureIn, QuickCheckIn, QuizGenerateIn, QuizGradeIn, SearchIn, TranslateIn, TutorAskIn
 from .tools.embeddings import EmbeddingError
 from .tools.retrieval import RetrievalError, search
 from .tools.translate import translate_text
@@ -125,6 +126,27 @@ def tutor_quick_check(body: QuickCheckIn):
             return {'status': 'failed', 'error': 'Câu trả lời không có nguồn giáo trình để ra câu hỏi.', 'meta': ctx.meta()}
         try:
             result = quick_check_graph.run(ctx, body.topic, body.answer, body.sources)
+        except LLMError as exc:
+            result = {'status': 'failed', 'error': str(exc)}
+        return {**result, 'meta': ctx.meta()}
+
+
+@app.post('/v1/quiz/generate', dependencies=[Depends(require_token)])
+def quiz_generate(body: QuizGenerateIn):
+    with run_context('quiz_generate', 'quiz', body.user_id, {'kind': body.kind, 'structure': body.structure.get('name_en', '')}) as ctx:
+        try:
+            result = quiz_graph.generate(ctx, body.kind, body.structure, body.sources, body.difficulty,
+                                         body.misconceptions, body.avoid)
+        except LLMError as exc:
+            result = {'status': 'failed', 'error': str(exc)}
+        return {**result, 'meta': ctx.meta()}
+
+
+@app.post('/v1/quiz/grade', dependencies=[Depends(require_token)])
+def quiz_grade(body: QuizGradeIn):
+    with run_context('quiz_grade', 'grade', body.user_id) as ctx:
+        try:
+            result = quiz_graph.grade(ctx, body.question, body.rubric, body.sources, body.answer)
         except LLMError as exc:
             result = {'status': 'failed', 'error': str(exc)}
         return {**result, 'meta': ctx.meta()}
