@@ -6,7 +6,6 @@ import {
   adminKnowledgeApi,
   bookUrl,
   guessScope,
-  SCOPE_HINT,
   SCOPE_LABEL,
   SCOPES,
   SUGGESTED_BOOKS,
@@ -21,15 +20,6 @@ type StartJob = (fn: () => Promise<IngestJob>) => Promise<boolean>;
 export function AddDocumentPanel({ busy, startJob, reloadSignal }: { busy: boolean; startJob: StartJob; reloadSignal: number }) {
   return (
     <div className="flex flex-col gap-5">
-      <div className="rounded-2xl bg-[#F4F7FC] border border-[#DDE6F5] px-4 py-3 text-sm text-stone-700">
-        Kho tài liệu <b>dùng chung</b> cho mọi phần của hệ thống. Mỗi tài liệu gắn một chuyên ngành:{' '}
-        {SCOPES.map((sc, i) => (
-          <span key={sc}>
-            <b>{SCOPE_LABEL[sc]}</b> <span className="text-stone-500">({SCOPE_HINT[sc].toLowerCase()})</span>
-            {i < SCOPES.length - 1 ? ' · ' : '.'}
-          </span>
-        ))}
-      </div>
       <OpenStaxCard busy={busy} startJob={startJob} reloadSignal={reloadSignal} />
       <PdfCard busy={busy} startJob={startJob} />
     </div>
