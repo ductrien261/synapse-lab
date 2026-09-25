@@ -12,7 +12,7 @@ from users.permissions import IsAdminRole
 
 from ai_gateway.services import ai_health
 
-from .models import AnatomyModel, AnatomyToolCollection, BodySystem, ImportJob, Structure, StructureDraft
+from .models import AnatomyModel, AnatomyToolCollection, AnatomyToolItem, BodySystem, ImportJob, Structure, StructureDraft
 from .serializers import (
     AdminModelDetailSerializer,
     AdminModelListSerializer,
@@ -21,6 +21,7 @@ from .serializers import (
     ImportJobSerializer,
     StructureDraftSerializer,
 )
+from .services.anatomytool import node_url
 from .services.annotations import sync_annotations
 from .services.drafting import apply_draft, draft_structure
 from .services.jobs import has_active_job, start_job
@@ -198,10 +199,50 @@ class ScanCollectionsView(APIView):
         return Response(ImportJobSerializer(job).data, status=status.HTTP_202_ACCEPTED)
 
 
+class LibraryListView(APIView):
+    """GET /api/anatomy/admin/anatomytool/library/  -> toàn bộ mục thư viện 3D đã quét"""
+
+    permission_classes = [IsAdminRole]
+
+    def get(self, request):
+        items = AnatomyToolItem.objects.select_related('suggested_system', 'model')
+        last = items.order_by('-last_seen_at').values_list('last_seen_at', flat=True).first()
+        return Response({
+            'last_scanned_at': last,
+            'results': [
+                {
+                    'nid': i.nid,
+                    'title': i.title,
+                    'thumbnail_url': i.thumbnail_url,
+                    'suggested_system': i.suggested_system.slug if i.suggested_system else None,
+                    'status': i.status,
+                    'note': i.note,
+                    'is_3d': i.is_3d,
+                    'model_uid': i.model.sketchfab_uid if i.model else None,
+                    'url': node_url(i.nid),
+                }
+                for i in items
+            ],
+        })
+
+
+class ScanLibraryView(APIView):
+    """POST /api/anatomy/admin/anatomytool/library/scan/  -> quét thư viện 3D (/interactive)"""
+
+    permission_classes = [IsAdminRole]
+
+    def post(self, request):
+        active = has_active_job()
+        if active:
+            return _busy_response(active)
+        job = start_job(ImportJob.Kind.SCAN_LIBRARY, {}, request.user)
+        return Response(ImportJobSerializer(job).data, status=status.HTTP_202_ACCEPTED)
+
+
 class StartImportView(APIView):
     """
     POST /api/anatomy/admin/anatomytool/import/
-    {collections: [{id, system}], links: ["https://..."], links_system: "cardiovascular"}
+    {collections: [{id, system}], items: [{nid, system}], links: ["https://..."], links_system: "cardiovascular"}
     """
 
     permission_classes = [IsAdminRole]
@@ -210,8 +251,13 @@ class StartImportView(APIView):
         id = serializers.IntegerField()
         system = serializers.CharField(required=False, allow_blank=True, allow_null=True)
 
+    class Item(serializers.Serializer):
+        nid = serializers.CharField(max_length=20)
+        system = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+
     class Body(serializers.Serializer):
         collections = serializers.ListField(required=False, default=list, max_length=200)
+        items = serializers.ListField(required=False, default=list, max_length=600)
         links = serializers.ListField(child=serializers.CharField(max_length=500), required=False, default=list, max_length=200)
         links_system = serializers.CharField(required=False, allow_blank=True, allow_null=True)
 
@@ -220,13 +266,16 @@ class StartImportView(APIView):
         body.is_valid(raise_exception=True)
         sels = self.Selection(data=body.validated_data['collections'], many=True)
         sels.is_valid(raise_exception=True)
-        if not sels.validated_data and not body.validated_data['links']:
-            return Response({'detail': 'Chọn ít nhất một Collection hoặc dán ít nhất một link.'}, status=400)
+        items = self.Item(data=body.validated_data['items'], many=True)
+        items.is_valid(raise_exception=True)
+        if not sels.validated_data and not items.validated_data and not body.validated_data['links']:
+            return Response({'detail': 'Chọn ít nhất một mô hình, một Collection hoặc dán ít nhất một link.'}, status=400)
         active = has_active_job()
         if active:
             return _busy_response(active)
         params = {
             'collections': sels.validated_data,
+            'items': items.validated_data,
             'links': body.validated_data['links'],
             'links_system': body.validated_data.get('links_system') or '',
         }

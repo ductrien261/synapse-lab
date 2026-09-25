@@ -21,6 +21,8 @@ from .sketchfab import parse_uid
 
 BASE_URL = 'https://anatomytool.org'
 COLLECTIONS_URL = f'{BASE_URL}/collections'
+LIBRARY_URL = f'{BASE_URL}/interactive'  # thư viện "3D models, games"
+MAX_LIBRARY_PAGES = 40
 CRAWL_DELAY = 10  # giây, theo robots.txt
 USER_AGENT = 'SYNAPSE-LAB/1.0 (educational project, VKU; respects robots.txt crawl-delay)'
 
@@ -232,3 +234,48 @@ def parse_item_page(html: str, url: str) -> ItemPage:
         institution=institution,
         license_text=license_text[:500],
     )
+
+
+# ------------------------------------------------------------
+# Thư viện "3D models, games" (/interactive?page=N), 50 mục mỗi trang
+# ------------------------------------------------------------
+
+NID_RE = re.compile(r'clickDataItem\((\d+)\)')
+BG_RE = re.compile(r'url\(([^)]+)\)')
+PAGE_RE = re.compile(r'[?&]page=(\d+)')
+
+
+@dataclass
+class LibraryItem:
+    nid: str
+    title: str
+    thumbnail_url: str = ''
+
+
+def library_url(page: int) -> str:
+    return LIBRARY_URL if page == 0 else f'{LIBRARY_URL}?page={page}'
+
+
+def node_url(nid: str) -> str:
+    return f'{BASE_URL}/node/{nid}'
+
+
+def parse_library_page(html: str) -> tuple[list[LibraryItem], int]:
+    """Trả về (các mục trên trang, số trang cuối theo thanh phân trang; 0 nếu chỉ có 1 trang)."""
+    soup = BeautifulSoup(html, 'html.parser')
+    items: dict[str, LibraryItem] = {}
+    for a in soup.select('a.itemWrapper'):
+        m = NID_RE.search(a.get('ng-click', ''))
+        if not m:
+            continue
+        title = (a.get('title') or '').strip() or _text(a.select_one('.title'))
+        bg = BG_RE.search(a.get('style', ''))
+        thumb = bg.group(1).strip('\'" ') if bg else ''
+        items.setdefault(m.group(1), LibraryItem(nid=m.group(1), title=title[:400], thumbnail_url=thumb[:500]))
+    last = 0
+    for a in soup.find_all('a', href=True):
+        if a['href'].split('?')[0].rstrip('/').endswith('/interactive'):
+            pm = PAGE_RE.search(a['href'])
+            if pm:
+                last = max(last, int(pm.group(1)))
+    return list(items.values()), min(last, MAX_LIBRARY_PAGES)

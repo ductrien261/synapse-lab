@@ -25,6 +25,8 @@ admin_urls = [
     path('admin/drafts/<int:pk>/discard/', a.DiscardDraftView.as_view()),
     path('admin/anatomytool/collections/', a.CollectionListView.as_view()),
     path('admin/anatomytool/scan/', a.ScanCollectionsView.as_view()),
+    path('admin/anatomytool/library/', a.LibraryListView.as_view()),
+    path('admin/anatomytool/library/scan/', a.ScanLibraryView.as_view()),
     path('admin/anatomytool/import/', a.StartImportView.as_view()),
     path('admin/jobs/latest/', a.JobView.as_view()),
     path('admin/jobs/<uuid:pk>/', a.JobView.as_view()),

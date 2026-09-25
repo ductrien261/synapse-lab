@@ -218,11 +218,44 @@ class AnatomyToolCollection(models.Model):
         return self.title
 
 
+class AnatomyToolItem(models.Model):
+    """Một mục trong thư viện "3D models, games" (anatomytool.org/interactive)."""
+
+    class Status(models.TextChoices):
+        NEW = 'new', 'Chưa nhập'
+        IMPORTED = 'imported', 'Đã nhập'
+        NO_MODEL = 'no_model', 'Không có mô hình Sketchfab'
+        FAILED = 'failed', 'Lỗi'
+
+    nid = models.CharField('Mã mục AnatomyTOOL', max_length=20, unique=True)
+    title = models.CharField(max_length=400)
+    thumbnail_url = models.URLField(max_length=500, blank=True)
+    suggested_system = models.ForeignKey(BodySystem, null=True, blank=True, on_delete=models.SET_NULL, related_name='+')
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.NEW, db_index=True)
+    model = models.ForeignKey('AnatomyModel', null=True, blank=True, on_delete=models.SET_NULL, related_name='+')
+    note = models.CharField(max_length=300, blank=True)
+    order = models.PositiveIntegerField(default=0)  # thứ tự trên trang thư viện (mới nhất trước)
+    last_seen_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['order']
+        verbose_name = 'Mục thư viện AnatomyTOOL'
+        verbose_name_plural = 'Mục thư viện AnatomyTOOL'
+
+    def __str__(self):
+        return self.title
+
+    @property
+    def is_3d(self) -> bool:
+        return '3d' in self.title.lower()
+
+
 class ImportJob(models.Model):
     """Một lượt quét/nhập chạy nền; trang admin hỏi định kỳ để hiện tiến độ."""
 
     class Kind(models.TextChoices):
         SCAN_INDEX = 'scan_index', 'Quét danh mục'
+        SCAN_LIBRARY = 'scan_library', 'Quét thư viện 3D'
         IMPORT = 'import', 'Nhập mô hình'
         AI_DRAFT = 'ai_draft', 'AI viết nháp'
 

@@ -12,6 +12,7 @@ import {
 } from '@/lib/admin-anatomy';
 import { useBodySystems } from '@/lib/anatomy-catalog';
 import { JobProgress } from '@/components/admin/JobProgress';
+import { LibraryPanel } from './LibraryPanel';
 
 export function ImportPanel({ onImported }: { onImported: () => void }) {
   const { systems } = useBodySystems();
@@ -95,12 +96,14 @@ export function ImportPanel({ onImported }: { onImported: () => void }) {
       <JobProgress job={job} onChange={handleJobChange} api={ANATOMY_JOB_API} kindLabels={ANATOMY_JOB_KINDS} />
       {error && <div className="rounded-xl bg-rose-50 text-rose-700 text-sm px-4 py-2.5">{error}</div>}
 
+      <LibraryPanel active={active} reloadKey={reloadKey} systems={systems} run={run} />
+
       {/* Collection */}
       <section className="bg-white rounded-2xl border border-stone-200/90 overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-stone-100">
           <div>
             <h2 className="text-base font-bold text-stone-900">Collection trên AnatomyTOOL</h2>
-            <p className="text-xs text-stone-500 mt-0.5">Tick các Collection cần lấy, chọn hệ cơ quan cho từng cái rồi bấm Nhập.</p>
+            <p className="text-xs text-stone-500 mt-0.5">Vài bộ sưu tập do giảng viên tuyển chọn, phần lớn là video và hình vẽ. Mô hình 3D nên lấy ở Thư viện 3D phía trên.</p>
           </div>
           <button
             type="button"

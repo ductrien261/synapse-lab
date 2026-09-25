@@ -14,13 +14,16 @@ from django.db import close_old_connections
 from django.db.models import F
 from django.utils import timezone
 
-from ..models import AnatomyModel, AnatomyToolCollection, BodySystem, ImportJob, Structure, StructureDraft
+from ..models import AnatomyModel, AnatomyToolCollection, AnatomyToolItem, BodySystem, ImportJob, Structure, StructureDraft
 from .anatomytool import (
     COLLECTIONS_URL,
     AnatomyToolError,
     CollectionItem,
     fetch,
+    library_url,
+    node_url,
     parse_collection_page,
+    parse_library_page,
     parse_collections_index,
     parse_item_page,
 )
@@ -112,10 +115,105 @@ def _run_scan_index(job: ImportJob):
     _log(job, f'Tìm thấy {len(links)} Collection.', 'success')
 
 
+def _run_scan_library(job: ImportJob):
+    """Đọc toàn bộ thư viện /interactive (≈10 trang, mỗi trang cách nhau 10 giây)."""
+    _log(job, 'Đang đọc thư viện 3D (trang 1)...')
+    items, last = parse_library_page(fetch(library_url(0)))
+    job.total = last + 1
+    job.save(update_fields=['total'])
+    pages = [items]
+    _bump(job, processed=1)
+    for page in range(1, last + 1):
+        if _cancelled(job):
+            break
+        _log(job, f'Đang đọc trang {page + 1}/{last + 1}...')
+        try:
+            found, _ = parse_library_page(fetch(library_url(page)))
+        except AnatomyToolError as exc:
+            _bump(job, processed=1, failed_count=1)
+            _log(job, str(exc), 'error')
+            continue
+        pages.append(found)
+        _bump(job, processed=1)
+
+    # Mô hình đã nhập trước đó (qua Collection/link) -> đánh dấu đã nhập theo mã mục
+    imported = {
+        str(m.source_meta.get('nid')): m
+        for m in AnatomyModel.objects.filter(source_meta__source='anatomytool').only('id', 'source_meta')
+        if m.source_meta.get('nid')
+    }
+    now = timezone.now()
+    order = 0
+    created = 0
+    for found in pages:
+        for it in found:
+            order += 1
+            obj, is_new = AnatomyToolItem.objects.get_or_create(
+                nid=it.nid, defaults={'title': it.title, 'suggested_system': suggest_system(it.title)}
+            )
+            created += int(is_new)
+            obj.title = it.title or obj.title
+            obj.thumbnail_url = it.thumbnail_url
+            obj.order = order
+            obj.last_seen_at = now
+            if it.nid in imported and obj.status != AnatomyToolItem.Status.IMPORTED:
+                obj.status = AnatomyToolItem.Status.IMPORTED
+                obj.model = imported[it.nid]
+            obj.save()
+    job.created_count = created
+    job.save(update_fields=['created_count'])
+    _log(job, f'Thư viện có {order} mục ({created} mục mới).', 'success')
+
+
+def _import_library_items(job: ImportJob, selections: list[dict]):
+    """selections: [{nid, system}] — system rỗng = dùng hệ tự đoán theo tên."""
+    job.total += len(selections)
+    job.save(update_fields=['total'])
+    systems = {s.slug: s for s in BodySystem.objects.all()}
+    for sel in selections:
+        if _cancelled(job):
+            return
+        item = AnatomyToolItem.objects.filter(nid=str(sel.get('nid'))).select_related('suggested_system').first()
+        if item is None:
+            _bump(job, processed=1, skipped_count=1)
+            continue
+        system = systems.get(sel.get('system') or '') or item.suggested_system
+        url = node_url(item.nid)
+        try:
+            page = parse_item_page(fetch(url), url)
+            if not page.sketchfab_uid:
+                item.status, item.note = AnatomyToolItem.Status.NO_MODEL, 'Trang không có mô hình Sketchfab'
+                _bump(job, processed=1, skipped_count=1)
+                _log(job, f'Bỏ qua (không có mô hình Sketchfab): {item.title}')
+                continue
+            existing = AnatomyModel.objects.filter(sketchfab_uid=page.sketchfab_uid).first()
+            if existing:
+                item.status, item.model, item.note = AnatomyToolItem.Status.IMPORTED, existing, ''
+                _bump(job, processed=1, skipped_count=1)
+                _log(job, f'Bỏ qua (đã có): {item.title}')
+                continue
+            model, _ = import_model(page.sketchfab_uid, system=system, source_url=url, publish=False, user=job.created_by)
+            model.source_meta = page.as_meta()
+            model.save(update_fields=['source_meta'])
+            item.status, item.model, item.note = AnatomyToolItem.Status.IMPORTED, model, ''
+            _bump(job, processed=1, created_count=1)
+            _log(job, f'Đã nhập (nháp): {item.title}', 'success')
+        except (AnatomyToolError, SketchfabError) as exc:
+            item.status, item.note = AnatomyToolItem.Status.FAILED, str(exc)[:300]
+            _bump(job, processed=1, failed_count=1)
+            _log(job, f'{item.title}: {exc}', 'error')
+        finally:
+            item.save(update_fields=['status', 'model', 'note'])
+
+
 def _run_import(job: ImportJob):
     params = job.params or {}
     selections = params.get('collections', [])  # [{id, system}]
     links = [l for l in params.get('links', []) if l.strip()]
+
+    # 0) Mục đã tick trong thư viện 3D
+    if params.get('items'):
+        _import_library_items(job, params['items'])
 
     # 1) Link dán trực tiếp
     if links:
@@ -272,6 +370,7 @@ def _run_ai_draft(job: ImportJob):
 
 RUNNERS = {
     ImportJob.Kind.SCAN_INDEX: _run_scan_index,
+    ImportJob.Kind.SCAN_LIBRARY: _run_scan_library,
     ImportJob.Kind.IMPORT: _run_import,
     ImportJob.Kind.AI_DRAFT: _run_ai_draft,
 }

@@ -118,10 +118,28 @@ export interface AnatomyToolCollection {
 }
 
 export interface ImportJob extends BackgroundJob {
-  kind: 'scan_index' | 'import' | 'ai_draft';
+  kind: 'scan_index' | 'scan_library' | 'import' | 'ai_draft';
 }
 
-export const ANATOMY_JOB_KINDS = { scan_index: 'Quét danh mục', import: 'Nhập mô hình', ai_draft: 'AI viết nháp' };
+export const ANATOMY_JOB_KINDS = {
+  scan_index: 'Quét danh mục',
+  scan_library: 'Quét thư viện 3D',
+  import: 'Nhập mô hình',
+  ai_draft: 'AI viết nháp',
+};
+
+/** Một mục trong thư viện "3D models, games" của AnatomyTOOL */
+export interface LibraryItem {
+  nid: string;
+  title: string;
+  thumbnail_url: string;
+  suggested_system: string | null;
+  status: 'new' | 'imported' | 'no_model' | 'failed';
+  note: string;
+  is_3d: boolean;
+  model_uid: string | null;
+  url: string;
+}
 
 export interface AnatomyStats {
   models: { total: number; published: number; draft: number; no_system: number; publishable: number };
@@ -176,7 +194,16 @@ export const adminAnatomyApi = {
 
   scan: () => request<ImportJob>(`${BASE}/anatomytool/scan/`, { method: 'POST', body: '{}' }),
 
-  startImport: (data: { collections: { id: number; system: string | null }[]; links: string[]; links_system?: string | null }) =>
+  library: () => request<{ last_scanned_at: string | null; results: LibraryItem[] }>(`${BASE}/anatomytool/library/`),
+
+  scanLibrary: () => request<ImportJob>(`${BASE}/anatomytool/library/scan/`, { method: 'POST', body: '{}' }),
+
+  startImport: (data: {
+    collections?: { id: number; system: string | null }[];
+    items?: { nid: string; system: string | null }[];
+    links?: string[];
+    links_system?: string | null;
+  }) =>
     request<ImportJob>(`${BASE}/anatomytool/import/`, { method: 'POST', body: JSON.stringify(data) }),
 
   latestJob: () =>
