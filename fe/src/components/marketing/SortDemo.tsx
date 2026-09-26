@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { track } from '@/lib/analytics';
 import { ArrowCounterclockwise, PauseFill, PlayFill, Shuffle, SkipBackwardFill, SkipForwardFill } from 'react-bootstrap-icons';
 
 // Mô phỏng sắp xếp chạy thật trên trình duyệt: mỗi bước là một khung hình kèm dòng mã và diễn giải.
@@ -169,7 +170,13 @@ export function SortDemo({ compact = false }: { compact?: boolean }) {
         </ControlButton>
         <button
           type="button"
-          onClick={() => (index >= last ? restart() : setPlaying((p) => !p))}
+          onClick={() => {
+            if (index >= last) restart();
+            else {
+              if (!playing) track('sort_demo_played', { algo });
+              setPlaying((p) => !p);
+            }
+          }}
           className="inline-flex h-11 items-center gap-2 rounded-lg bg-[#1E3F82] px-5 text-sm font-semibold text-white hover:bg-[#163070]"
         >
           {playing ? <PauseFill className="h-4 w-4" /> : <PlayFill className="h-4 w-4" />}

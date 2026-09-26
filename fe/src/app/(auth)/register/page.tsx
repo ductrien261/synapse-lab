@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { track } from '@/lib/analytics';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { nextPath } from '@/lib/auth-redirect';
@@ -24,6 +25,7 @@ export default function RegisterPage() {
     try {
       const data = await authApi.register(form);
       setTokens(data.access, data.refresh);
+      track('signup_completed');
       router.push(nextPath());
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Đã có lỗi xảy ra');
@@ -67,6 +69,11 @@ export default function RegisterPage() {
               className="w-full py-3 rounded-xl bg-[#1E3F82] text-white font-bold text-sm hover:bg-[#163070] transition-colors shadow-md shadow-[#1E3F82]/20 disabled:opacity-60 disabled:cursor-not-allowed mt-2 cursor-pointer">
               {loading ? 'Đang tạo tài khoản...' : 'Tạo tài khoản'}
             </button>
+            <p className="text-center text-[11px] leading-relaxed text-stone-500">
+              Bằng việc tạo tài khoản, bạn đồng ý với{' '}
+              <Link href="/terms" className="font-semibold text-[#1E3F82] hover:underline">Điều khoản sử dụng</Link> và{' '}
+              <Link href="/privacy" className="font-semibold text-[#1E3F82] hover:underline">Chính sách quyền riêng tư</Link>.
+            </p>
           </form>
 
           <p className="text-center text-xs text-stone-500 font-medium mt-6">

@@ -106,7 +106,7 @@ export default function AdminDocumentsPage() {
         </div>
       )}
 
-      <div className="grid gap-3 grid-cols-3">
+      <div className="grid gap-3 grid-cols-1 sm:grid-cols-3">
         <MiniStat label="Tài liệu" value={stats?.documents.total} />
         <MiniStat label="Bài / mục đã nạp" value={stats?.sections} tone="text-[#1E3F82]" />
         <MiniStat label="Đoạn có thể tra cứu" value={stats?.chunks} tone="text-emerald-600" />

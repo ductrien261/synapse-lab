@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { track } from '@/lib/analytics';
 import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft } from 'react-bootstrap-icons';
 import { algoVizApi, type AlgoDetail } from '@/lib/algo-api';
@@ -24,6 +25,7 @@ export default function AlgorithmViewerPage() {
       .then((data) => {
         setDetail(data.algorithm);
         // Ghi lại để hiện ở mục "Tiếp tục học" trên dashboard
+        track('algorithm_opened', { category, algo });
         addRecent({
           track: 'cs',
           href: `/algorithms/${category}/${algo}`,

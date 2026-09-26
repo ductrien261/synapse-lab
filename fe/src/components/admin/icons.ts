@@ -1,6 +1,7 @@
 export {
   Activity as ActivityIcon,
   BoxFill,
+  ChatSquareHeartFill,
   ChevronDoubleLeft,
   ChevronDoubleRight,
   EyeFill,

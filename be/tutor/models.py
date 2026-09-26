@@ -47,6 +47,7 @@ class TutorMessage(models.Model):
 
     feedback = models.SmallIntegerField(null=True, blank=True)  # 1 = hữu ích, -1 = chưa tốt
     feedback_note = models.CharField(max_length=500, blank=True)
+    feedback_reviewed = models.BooleanField(default=False)  # admin đã xem phản hồi này
     # "Kiểm tra nhanh": {question, options, correct_index, explanation, answered_index?, correct?}
     quick_check = models.JSONField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)

@@ -262,7 +262,7 @@ export default function HomePage() {
 
       {/* Kêu gọi hành động */}
       <Section tone="muted">
-        <div className="grid items-center gap-8 md:grid-cols-[1fr_max-content] md:gap-20">
+        <div className="grid items-center gap-8 lg:grid-cols-[1fr_max-content] lg:gap-20">
           <div>
             <h2 className="text-3xl font-bold tracking-[-0.03em] text-[#0F2258] md:text-5xl">Sẵn sàng học theo cách trực quan hơn?</h2>
             <p className="mt-5 max-w-2xl text-base leading-relaxed text-slate-600 md:text-lg">

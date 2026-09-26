@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { ArrowUpRight, Badge3dFill, PlayFill } from 'react-bootstrap-icons';
+import { track } from '@/lib/analytics';
 import { modelHref, modelTitle, useAnatomyModels, useBodySystems, type AnatomyModelSummary } from '@/lib/anatomy-catalog';
 
 /** Chọn mô hình tiêu biểu: ưu tiên hệ tuần hoàn, nhiều chú thích nhất. */
@@ -34,7 +35,10 @@ export function HeroDemo() {
         ) : featured ? (
           <button
             type="button"
-            onClick={() => setLive(true)}
+            onClick={() => {
+              setLive(true);
+              track('hero_model_interacted');
+            }}
             className="group absolute inset-0 h-full w-full cursor-pointer"
             aria-label={`Tương tác với mô hình ${modelTitle(featured)}`}
           >

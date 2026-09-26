@@ -36,9 +36,12 @@ interface SubItem {
 interface Props {
   collapsed: boolean;
   onToggle: () => void;
+  /** Hiển thị trong ngăn kéo trên điện thoại (không dính, không thu gọn) */
+  mobile?: boolean;
 }
 
-export function AppSidebar({ collapsed, onToggle }: Props) {
+export function AppSidebar({ collapsed: collapsedProp, onToggle, mobile = false }: Props) {
+  const collapsed = mobile ? false : collapsedProp;
   const pathname = usePathname();
   const { user, guest } = useUser();
   const track = user?.track ?? null;
@@ -54,8 +57,8 @@ export function AppSidebar({ collapsed, onToggle }: Props) {
 
   return (
     <aside
-      className={`sticky top-16 h-[calc(100vh-64px)] shrink-0 bg-white border-r border-stone-200/80 flex flex-col transition-[width] duration-300 ${
-        collapsed ? 'w-[76px]' : 'w-64'
+      className={`${mobile ? 'h-full w-full' : 'sticky top-16 h-[calc(100vh-64px)]'} shrink-0 bg-white border-r border-stone-200/80 flex flex-col transition-[width] duration-300 ${
+        mobile ? '' : collapsed ? 'w-[76px]' : 'w-64'
       }`}
     >
       <div className="flex-1 overflow-y-auto overflow-x-hidden p-3 pt-4 flex flex-col gap-5">

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { track } from '@/lib/analytics';
 import {
   BoxArrowUpRight,
   ChatLeftText,
@@ -90,6 +91,7 @@ export function AskAiTab({
     const partIndex = part?.index ?? null;
     let failed = '';
     try {
+      track('ai_question_asked', { model: modelUid });
       await tutorApi.ask(
         { question: q, model_uid: modelUid, part_index: partIndex, conversation_id: conversationId },
         {

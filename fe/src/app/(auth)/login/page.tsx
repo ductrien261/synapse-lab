@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { track } from '@/lib/analytics';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { nextPath } from '@/lib/auth-redirect';
@@ -25,6 +26,7 @@ export default function LoginPage() {
     try {
       const data = await authApi.login(email, password);
       setTokens(data.access, data.refresh);
+      track('login_completed');
       router.push(nextPath());
     } catch (err: unknown) {
       setError(err instanceof ApiError && err.status === 401 ? 'Email hoặc mật khẩu không đúng' : err instanceof Error ? err.message : 'Đã có lỗi xảy ra');

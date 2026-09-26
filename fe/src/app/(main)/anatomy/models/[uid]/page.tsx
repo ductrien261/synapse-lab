@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { track } from '@/lib/analytics';
 import { useParams } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState, type ComponentType } from 'react';
 import {
@@ -41,6 +42,7 @@ export default function AnatomyModelPage() {
       .then((data) => {
         if (cancelled) return;
         setModel(data);
+        track('model_opened', { uid: data.sketchfab_uid });
         addRecent({
           track: 'med',
           href: `/anatomy/models/${uid}`,
