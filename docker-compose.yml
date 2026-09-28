@@ -5,6 +5,7 @@ services:
     build:
       context: ./fe
     working_dir: /app
+    command: npm run dev:docker
     ports:
       - "3100:3100"
     volumes:
@@ -13,7 +14,9 @@ services:
     tmpfs:
       - /app/.next
     environment:
-      WATCHPACK_POLLING: "true"
+      # Docker Desktop on Windows does not always forward bind-mount file events.
+      # Webpack + polling keeps Fast Refresh reliable without restarting containers.
+      WATCHPACK_POLLING: "1000"
       NEXT_TELEMETRY_DISABLED: "1"
       NEXT_PUBLIC_BACKEND_API_URL: http://localhost:8000/api
       NEXT_PUBLIC_ALGO_API_URL: http://localhost:8080/api
