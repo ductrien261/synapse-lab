@@ -18,4 +18,5 @@ dependencies = [
     "requests>=2.31",
     "beautifulsoup4>=4.12",
     "pymupdf>=1.24",
+    "pillow>=10.4",
 ]

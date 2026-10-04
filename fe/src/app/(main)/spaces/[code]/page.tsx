@@ -1,4 +1,4 @@
-import { LiveSpaceStudio } from '@/components/spaces/LiveSpaceStudio';
+import { LessonPlanningStudio } from '@/components/spaces/LessonPlanningStudio';
 
 interface Props {
   params: Promise<{ code: string }>;
@@ -8,5 +8,5 @@ interface Props {
 export default async function SpaceRoomPage({ params, searchParams }: Props) {
   const { code } = await params;
   const { name } = await searchParams;
-  return <LiveSpaceStudio roomCode={code} roomName={name} />;
+  return <LessonPlanningStudio roomCode={code} roomName={name} />;
 }

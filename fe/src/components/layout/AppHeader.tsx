@@ -19,7 +19,7 @@ export function AppHeader({ homeHref = '/dashboard', badge }: Props) {
   const { guest } = useUser();
   const pathname = usePathname();
   return (
-    <header className="h-16 bg-white border-b border-stone-200/80 px-5 md:px-8 flex items-center justify-between gap-4 sticky top-0 z-30 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
+    <header className="h-16 bg-white border-b border-stone-200/80 px-3 sm:px-5 md:px-8 flex items-center justify-between gap-2 sm:gap-4 sticky top-0 z-30 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
       <div className="flex items-center gap-3">
         <Link href={guest ? '/' : homeHref} className="flex items-center" aria-label="Synapse Lab - Trang chủ">
           <Image
@@ -27,7 +27,7 @@ export function AppHeader({ homeHref = '/dashboard', badge }: Props) {
             alt="Synapse Lab"
             width={170}
             height={42}
-            className="h-9 w-auto object-contain"
+            className="h-7 w-auto object-contain sm:h-9"
             priority
           />
         </Link>

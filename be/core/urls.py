@@ -43,6 +43,7 @@ urlpatterns = [
     path('api/ai/', include('ai_gateway.urls')),
     path('api/tutor/', include('tutor.urls')),
     path('api/learner/', include('learner.urls')),
+    path('api/classrooms/', include('classroom.urls')),
 
     # Health Check Endpoint
     path('api/health/', health_check, name='health-check'),

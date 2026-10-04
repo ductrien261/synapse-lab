@@ -14,6 +14,15 @@ COPY pyproject.toml uv.lock ./
 RUN --mount=type=cache,id=synapse-backend-uv,target=/root/.cache/uv \
     uv sync
 
+# LibreOffice provides a deterministic server-side PowerPoint renderer.
+# Common Microsoft-compatible fonts reduce layout differences in uploaded decks.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        libreoffice-impress \
+        fonts-dejavu-core \
+        fonts-liberation \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY . .
 
 EXPOSE 8000

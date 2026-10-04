@@ -54,7 +54,7 @@ export function AppSidebar({ collapsed, onToggle }: Props) {
 
   return (
     <aside
-      className={`sticky top-16 h-[calc(100vh-64px)] shrink-0 bg-white border-r border-stone-200/80 flex flex-col transition-[width] duration-300 ${
+      className={`sticky top-16 hidden h-[calc(100vh-64px)] shrink-0 flex-col border-r border-stone-200/80 bg-white transition-[width] duration-300 md:flex ${
         collapsed ? 'w-[76px]' : 'w-64'
       }`}
     >

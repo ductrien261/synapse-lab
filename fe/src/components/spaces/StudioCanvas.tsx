@@ -20,9 +20,9 @@ export function StudioCanvas({ activeTool, activeStep }: { activeTool: string; a
   const [playing, setPlaying] = useState(true);
   const [tool, setTool] = useState('cursor');
   return (
-    <main className="flex min-h-[620px] min-w-0 flex-col bg-[#F8F8F1] xl:min-h-0">
+    <main className="flex min-h-[420px] min-w-0 flex-col bg-[#F8F8F1] sm:min-h-[520px] xl:min-h-0">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-stone-200 bg-white px-4 py-2.5">
-        <div className="flex items-center gap-2 text-xs"><span className="rounded-lg bg-[#E8F0FB] px-2 py-1 font-extrabold text-[#1E3F82]">Trạng thái hiện tại</span><span className="font-bold text-stone-700">Bước {activeStep + 2}/8 — Duyệt các đỉnh trong hàng đợi</span></div>
+        <div className="flex min-w-0 items-center gap-2 text-xs"><span className="shrink-0 rounded-lg bg-[#E8F0FB] px-2 py-1 font-extrabold text-[#1E3F82]">Trạng thái</span><span className="truncate font-bold text-stone-700">Bước {activeStep + 2}/8 — Duyệt các đỉnh trong hàng đợi</span></div>
         <div className="flex items-center gap-2"><span className="rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-bold text-amber-700">Queue: B · C · D</span><span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-700">{activeTool}</span></div>
       </div>
 
@@ -34,7 +34,7 @@ export function StudioCanvas({ activeTool, activeStep }: { activeTool: string; a
         {nodes.map((node) => (
           <div key={node.label} className="absolute -translate-x-1/2 -translate-y-1/2" style={{ left: `${node.x}%`, top: `${node.y}%` }}>
             {node.state === 'active' && <span className="absolute -inset-3 animate-pulse rounded-full border border-amber-400/70" />}
-            <span className={`relative flex h-11 w-11 items-center justify-center rounded-full border-2 text-sm font-extrabold shadow-sm ${node.state === 'visited' ? 'border-[#1E3F82] bg-[#31599E] text-white' : node.state === 'queue' ? 'border-[#31599E] bg-[#AFC7EE] text-[#0F2258]' : node.state === 'active' ? 'border-amber-400 bg-amber-100 text-amber-800' : node.state === 'target' ? 'border-dashed border-stone-400 bg-white/50 text-stone-400' : 'border-stone-300 bg-white text-stone-600'}`}>{node.label}</span>
+            <span className={`relative flex h-9 w-9 items-center justify-center rounded-full border-2 text-xs font-extrabold shadow-sm sm:h-11 sm:w-11 sm:text-sm ${node.state === 'visited' ? 'border-[#1E3F82] bg-[#31599E] text-white' : node.state === 'queue' ? 'border-[#31599E] bg-[#AFC7EE] text-[#0F2258]' : node.state === 'active' ? 'border-amber-400 bg-amber-100 text-amber-800' : node.state === 'target' ? 'border-dashed border-stone-400 bg-white/50 text-stone-400' : 'border-stone-300 bg-white text-stone-600'}`}>{node.label}</span>
             {node.state === 'active' && <span className="absolute left-1/2 top-full mt-1 -translate-x-1/2 whitespace-nowrap rounded bg-[#1E3F82] px-1.5 py-0.5 text-[8px] font-bold text-white">Đang xét</span>}
           </div>
         ))}

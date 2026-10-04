@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import {
   ArrowRight,
   BoxArrowInRight,
@@ -15,7 +15,8 @@ import {
   ThreeDots,
 } from 'react-bootstrap-icons';
 import { CreateSpaceDialog } from './CreateSpaceDialog';
-import { RECENT_SPACES, SPACE_TEMPLATES, type SpacePurpose, type SpaceSummary } from './space-data';
+import { classroomApi, type ClassroomDto } from './classroom-api';
+import { SPACE_TEMPLATES, type SpacePurpose } from './space-data';
 
 export function SpacesHub() {
   const router = useRouter();
@@ -23,36 +24,78 @@ export function SpacesHub() {
   const [purpose, setPurpose] = useState<SpacePurpose>('group');
   const [joinCode, setJoinCode] = useState('');
   const [joinError, setJoinError] = useState('');
+  const [spaces, setSpaces] = useState<ClassroomDto[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [bbbStatus, setBbbStatus] = useState<{ mode: 'mock' | 'live'; reachable: boolean } | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    const loadSpaces = (initial = false) => {
+      classroomApi.list()
+        .then((result) => {
+          if (active) setSpaces(result);
+        })
+        .catch((reason: unknown) => {
+          if (active && initial) setError(reason instanceof Error ? reason.message : 'Không thể tải danh sách không gian.');
+        })
+        .finally(() => {
+          if (active && initial) setLoading(false);
+        });
+    };
+    loadSpaces(true);
+    classroomApi.bbbStatus().then((result) => {
+      if (active) setBbbStatus(result);
+    }).catch(() => undefined);
+    const timer = window.setInterval(() => loadSpaces(), 8000);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, []);
 
   const openCreate = (selectedPurpose: SpacePurpose = 'group') => {
     setPurpose(selectedPurpose);
     setDialogOpen(true);
   };
 
-  const joinSpace = (event: FormEvent) => {
+  const joinSpace = async (event: FormEvent) => {
     event.preventDefault();
     const code = joinCode.trim().replace(/\s/g, '').toUpperCase();
     if (code.length < 4) {
       setJoinError('Nhập mã phòng gồm ít nhất 4 ký tự.');
       return;
     }
-    router.push(`/spaces/${encodeURIComponent(code)}`);
+    try {
+      const classroom = await classroomApi.joinClassroom(code);
+      router.push(`/spaces/${encodeURIComponent(classroom.code)}`);
+    } catch (reason) {
+      setJoinError(reason instanceof Error ? reason.message : 'Không thể tham gia không gian.');
+    }
   };
 
-  const createSpace = (name: string) => {
-    setDialogOpen(false);
-    router.push(`/spaces/NEWSPACE?name=${encodeURIComponent(name)}`);
+  const createSpace = async (name: string, selectedPurpose: SpacePurpose) => {
+    try {
+      const classroom = await classroomApi.create({ name, purpose: selectedPurpose });
+      setDialogOpen(false);
+      router.push(`/spaces/${encodeURIComponent(classroom.code)}`);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Không thể tạo không gian.');
+    }
   };
 
   return (
     <div className="flex flex-col gap-7 pb-12">
-      <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#0F2258] via-[#163070] to-[#254B96] p-6 text-white shadow-sm md:p-8">
+      <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#0F2258] via-[#163070] to-[#254B96] p-4 text-white shadow-sm sm:p-6 md:rounded-3xl md:p-8">
         <div className="pointer-events-none absolute -right-20 -top-28 h-96 w-96 rounded-full bg-[#5B8FD8]/25 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-32 left-1/3 h-72 w-72 rounded-full bg-cyan-300/10 blur-3xl" />
         <div className="relative z-10 grid items-end gap-7 lg:grid-cols-[1.25fr_0.75fr]">
           <div>
-            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-[#E8F0FB]">
-              <LightningChargeFill className="h-3 w-3 text-amber-300" /> Học · Chia sẻ · Thực hành cùng nhau
+            <div className="mb-4 flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-[#E8F0FB]">
+                <LightningChargeFill className="h-3 w-3 text-amber-300" /> Học · Chia sẻ · Thực hành cùng nhau
+              </span>
+              {bbbStatus && <span className={`rounded-full border px-3 py-1 text-[10px] font-extrabold uppercase tracking-wider ${bbbStatus.mode === 'mock' ? 'border-amber-200/30 bg-amber-300/15 text-amber-100' : bbbStatus.reachable ? 'border-emerald-200/30 bg-emerald-300/15 text-emerald-100' : 'border-rose-200/30 bg-rose-300/15 text-rose-100'}`}>{bbbStatus.mode === 'mock' ? 'BBB mô phỏng' : bbbStatus.reachable ? 'BBB sẵn sàng' : 'BBB mất kết nối'}</span>}
             </div>
             <h1 className="max-w-2xl text-3xl font-extrabold leading-tight tracking-tight md:text-[36px]">Một không gian cho mọi cách bạn muốn học và làm việc</h1>
             <p className="mt-3 max-w-xl text-sm leading-relaxed text-white/75">Tạo phòng để tự ôn bài, học nhóm, tập thuyết trình hoặc tổ chức một buổi hướng dẫn tương tác.</p>
@@ -109,9 +152,16 @@ export function SpacesHub() {
           </div>
           <button type="button" className="text-xs font-bold text-[#1E3F82] hover:underline">Xem tất cả</button>
         </div>
-        <div className="grid gap-4 lg:grid-cols-3">
-          {RECENT_SPACES.map((space) => <SpaceCard key={space.code} space={space} />)}
-        </div>
+        {error && <p className="mb-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-semibold text-rose-700">{error}</p>}
+        {loading ? (
+          <p className="rounded-2xl border border-stone-200 bg-white p-6 text-sm text-stone-500">Đang tải không gian...</p>
+        ) : spaces.length ? (
+          <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
+            {spaces.map((space) => <SpaceCard key={space.id} space={space} />)}
+          </div>
+        ) : (
+          <p className="rounded-2xl border border-dashed border-stone-300 bg-white p-8 text-center text-sm text-stone-500">Bạn chưa có không gian nào. Hãy tạo phòng đầu tiên hoặc tham gia bằng mã.</p>
+        )}
       </section>
 
       {dialogOpen && <CreateSpaceDialog open initialPurpose={purpose} onClose={() => setDialogOpen(false)} onCreate={createSpace} />}
@@ -119,7 +169,7 @@ export function SpacesHub() {
   );
 }
 
-function SpaceCard({ space }: { space: SpaceSummary }) {
+function SpaceCard({ space }: { space: ClassroomDto }) {
   const template = SPACE_TEMPLATES.find((item) => item.id === space.purpose) ?? SPACE_TEMPLATES[0];
   const Icon = template.icon;
   return (
@@ -130,24 +180,27 @@ function SpaceCard({ space }: { space: SpaceSummary }) {
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <h3 className="truncate text-sm font-extrabold text-stone-900">{space.name}</h3>
-              {space.live && <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wider text-rose-600"><span className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-rose-500" />Live</span>}
+              {space.active_session && <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wider text-rose-600"><span className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-rose-500" />Live</span>}
             </div>
-            <p className="mt-0.5 text-[11px] font-medium text-stone-400">{space.purposeLabel} · {space.code}</p>
+            <p className="mt-0.5 text-[11px] font-medium text-stone-400">{template.title} · {space.code}</p>
           </div>
         </div>
         <button type="button" aria-label={`Tùy chọn cho ${space.name}`} className="flex h-8 w-8 items-center justify-center rounded-lg text-stone-400 hover:bg-stone-100 hover:text-stone-700"><ThreeDots className="h-4 w-4" /></button>
       </div>
       <div className="px-4 pb-4">
-        <div className="h-1.5 overflow-hidden rounded-full bg-stone-100"><div className="h-full rounded-full bg-gradient-to-r from-[#5B8FD8] to-[#1E3F82]" style={{ width: `${space.progress ?? 0}%` }} /></div>
         <div className="mt-3 flex items-center gap-4 text-[11px] text-stone-500">
-          <span className="flex items-center gap-1.5"><PeopleFill className="h-3 w-3" /> {space.participants}</span>
-          <span className="flex items-center gap-1.5"><FileEarmarkText className="h-3 w-3" /> {space.materials} tài liệu</span>
-          <span className="ml-auto flex items-center gap-1.5"><ClockHistory className="h-3 w-3" /> {space.updatedAt}</span>
+          <span className="flex items-center gap-1.5"><PeopleFill className="h-3 w-3" /> {space.member_count} thành viên</span>
+          <span className="flex items-center gap-1.5"><FileEarmarkText className="h-3 w-3" /> {space.is_owner ? 'Chủ phòng' : 'Thành viên'}</span>
+          <span className="ml-auto flex items-center gap-1.5"><ClockHistory className="h-3 w-3" /> {formatUpdatedAt(space.updated_at)}</span>
         </div>
       </div>
       <Link href={`/spaces/${space.code}`} className="flex items-center justify-between border-t border-stone-100 px-4 py-3 text-xs font-bold text-[#1E3F82] transition-colors group-hover:bg-[#F8FAFF]">
-        {space.live ? 'Vào phòng đang diễn ra' : 'Mở không gian'} <ArrowRight className="h-3.5 w-3.5" />
+        {space.active_session ? 'Vào phòng đang diễn ra' : 'Mở không gian'} <ArrowRight className="h-3.5 w-3.5" />
       </Link>
     </article>
   );
+}
+
+function formatUpdatedAt(value: string) {
+  return new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit' }).format(new Date(value));
 }
