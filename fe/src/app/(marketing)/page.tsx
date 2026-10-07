@@ -64,32 +64,32 @@ export default function HomePage() {
       />
 
       {/* Hero */}
-      <section className="relative overflow-hidden bg-white py-16 md:py-24 lg:py-28">
+      <section className="relative overflow-hidden bg-white pb-14 pt-10 md:py-20 lg:py-28">
         <FloatingIcons />
         <Container className="relative">
-          <div className="grid items-center gap-12 md:grid-cols-2 md:gap-16">
+          <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-16">
             <div>
-              <p className="mb-4 text-sm font-semibold tracking-wide text-[#1E3F82]">{SITE.tagline}</p>
-              <h1 className="text-4xl font-bold leading-[1.08] tracking-[-0.035em] text-[#0F2258] md:text-6xl">
+              <p className="mb-4 text-[13px] font-semibold tracking-wide text-[#1E3F82] md:text-sm">{SITE.tagline}</p>
+              <h1 className="text-[32px] font-bold leading-[1.12] tracking-[-0.03em] text-[#0F2258] sm:text-5xl md:max-w-2xl lg:text-6xl lg:leading-[1.08]">
                 Hiểu sâu hơn qua trực quan hóa và tương tác
               </h1>
-              <p className="mt-6 max-w-xl text-base leading-relaxed text-slate-600 md:text-lg">
+              <p className="mt-5 max-w-xl text-[15px] leading-relaxed text-slate-600 md:mt-6 md:text-lg">
                 Synapse Lab chuyển kiến thức phức tạp thành mô hình 3D, mô phỏng từng bước và những câu trả lời có dẫn nguồn — để người học
                 quan sát, thao tác và tự kiểm chứng.
               </p>
-              <div className="mt-8 flex flex-wrap gap-4">
-                <ButtonLink href="#try">
+              <div className="mt-7 grid gap-3 sm:flex sm:flex-wrap sm:gap-4 md:mt-8">
+                <ButtonLink href="#try" className="w-full sm:w-auto">
                   Trải nghiệm ngay <ArrowRight className="h-4 w-4" />
                 </ButtonLink>
-                <ButtonLink href="/register" variant="secondary">
+                <ButtonLink href="/register" variant="secondary" className="w-full sm:w-auto">
                   Tạo tài khoản miễn phí
                 </ButtonLink>
               </div>
-              <p className="mt-5 flex items-center gap-2 text-sm text-slate-500">
+              <p className="mt-5 flex items-center justify-center gap-2 text-sm text-slate-500 sm:justify-start">
                 <CheckCircleFill className="h-4 w-4 text-emerald-600" /> Không cần đăng ký để bắt đầu khám phá
               </p>
             </div>
-            <Reveal delay={150}>
+            <Reveal delay={150} className="mx-auto w-full max-w-xl lg:max-w-none">
               <HeroDemo />
             </Reveal>
           </div>
@@ -262,7 +262,7 @@ export default function HomePage() {
 
       {/* Kêu gọi hành động */}
       <Section tone="muted">
-        <div className="grid items-center gap-8 md:grid-cols-[1fr_max-content] md:gap-20">
+        <div className="grid items-center gap-8 lg:grid-cols-[1fr_max-content] lg:gap-20">
           <div>
             <h2 className="text-3xl font-bold tracking-[-0.03em] text-[#0F2258] md:text-5xl">Sẵn sàng học theo cách trực quan hơn?</h2>
             <p className="mt-5 max-w-2xl text-base leading-relaxed text-slate-600 md:text-lg">

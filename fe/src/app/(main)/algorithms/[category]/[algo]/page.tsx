@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { track } from '@/lib/analytics';
 import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft } from 'react-bootstrap-icons';
 import { algoVizApi } from '@/lib/algo-api';
@@ -41,6 +42,7 @@ function AlgorithmViewer({ category, algo }: { category: string; algo: string })
         setError('');
         setContent(content);
         setContentError(content && !content.simulation?.config && !source ? 'Không tải được mô phỏng từ kho packages.' : '');
+        track('algorithm_opened', { category, algo });
         addRecent({ track: 'cs', href: `/algorithms/${category}/${algo}`,
           title: detail.algorithmName, subtitle: detail.categoryName, group: category });
       }).catch(() => { if (!cancelled) setError('Không tìm thấy thuật toán này.'); })

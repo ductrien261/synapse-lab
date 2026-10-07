@@ -6,6 +6,7 @@ import type { ComponentType, ReactNode } from 'react';
 import {
   ActivityIcon,
   BoxFill,
+  ChatSquareHeartFill,
   ChevronDoubleLeft,
   ChevronDoubleRight,
   EyeFill,
@@ -49,6 +50,7 @@ const GROUPS: { title: string; items: Item[] }[] = [
   {
     title: 'Hệ thống',
     items: [
+      { href: '/admin/quality', label: 'Góp ý & chất lượng', icon: ChatSquareHeartFill },
       { href: '/admin/ai', label: 'AI & Chi phí', icon: Robot },
       { href: '/admin/system', label: 'Tình trạng hệ thống', icon: ActivityIcon },
     ],
@@ -58,16 +60,19 @@ const GROUPS: { title: string; items: Item[] }[] = [
 interface Props {
   collapsed: boolean;
   onToggle: () => void;
+  /** Hiển thị trong ngăn kéo trên điện thoại (không dính, không thu gọn) */
+  mobile?: boolean;
 }
 
-export function AdminSidebar({ collapsed, onToggle }: Props) {
+export function AdminSidebar({ collapsed: collapsedProp, onToggle, mobile = false }: Props) {
+  const collapsed = mobile ? false : collapsedProp;
   const pathname = usePathname();
   const isActive = (href: string) => (href === '/admin' ? pathname === '/admin' : pathname.startsWith(href));
 
   return (
     <aside
-      className={`sticky top-16 h-[calc(100vh-64px)] shrink-0 bg-gradient-to-b from-[#0F2258] to-[#152E6B] text-white flex flex-col transition-[width] duration-300 ${
-        collapsed ? 'w-[76px]' : 'w-64'
+      className={`${mobile ? 'h-full w-full' : 'sticky top-16 h-[calc(100vh-64px)]'} shrink-0 bg-gradient-to-b from-[#0F2258] to-[#152E6B] text-white flex flex-col transition-[width] duration-300 ${
+        mobile ? '' : collapsed ? 'w-[76px]' : 'w-64'
       }`}
     >
       <div className="flex-1 overflow-y-auto overflow-x-hidden p-3 pt-5 flex flex-col gap-5">

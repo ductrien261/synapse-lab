@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { track } from '@/lib/analytics';
 import { useEffect, useEffectEvent, useState } from 'react';
 import {
   ArrowRight,
@@ -96,6 +97,7 @@ export function QuizTab({
     setDone([]);
     setPhase('loading');
     try {
+      track('review_started', { model: modelUid });
       const s = await learnerApi.startReview(modelUid);
       setSession(s);
       await loadItem(s);

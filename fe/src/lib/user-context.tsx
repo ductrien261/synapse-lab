@@ -17,6 +17,7 @@ import {
 import { useRouter } from 'next/navigation';
 import { ApiError, authApi, clearTokens, getAccessToken, type CurrentUser } from './api';
 import { resetLearning } from './recent';
+import { identifyUser, resetAnalytics } from './analytics';
 
 export type { CurrentUser } from './api';
 export type ProfileUpdate = Partial<Pick<CurrentUser, 'name' | 'track'>>;
@@ -44,6 +45,7 @@ export function UserProvider({ children, allowGuest = false }: { children: React
   const logout = useCallback(() => {
     clearTokens();
     resetLearning();
+    resetAnalytics();
     setUser(null);
     router.replace('/login');
   }, [router]);
@@ -66,6 +68,7 @@ export function UserProvider({ children, allowGuest = false }: { children: React
       .me()
       .then((me) => {
         setUser(me);
+        identifyUser(me.id, { role: me.role, track: me.track ?? '' });
         setError(null);
       })
       .catch((err: unknown) => {

@@ -5,6 +5,9 @@ services:
     build:
       context: ./fe
     working_dir: /app
+    # Chạy webpack (không dùng Turbopack) để theo dõi thay đổi bằng polling:
+    # thư mục mount từ Windows không phát sự kiện đổi file vào container.
+    command: npx next dev --webpack -p 3100 -H 0.0.0.0
     ports:
       - "3100:3100"
     volumes:
@@ -17,6 +20,9 @@ services:
       NEXT_TELEMETRY_DISABLED: "1"
       NEXT_PUBLIC_BACKEND_API_URL: http://localhost:8000/api
       NEXT_PUBLIC_ALGO_API_URL: http://localhost:8080/api
+      NEXT_PUBLIC_POSTHOG_KEY: ${NEXT_PUBLIC_POSTHOG_KEY:-}
+      NEXT_PUBLIC_POSTHOG_HOST: ${NEXT_PUBLIC_POSTHOG_HOST:-https://us.i.posthog.com}
+      NEXT_PUBLIC_CONTACT_EMAIL: ${NEXT_PUBLIC_CONTACT_EMAIL:-}
     depends_on:
       - be
       - algo-server

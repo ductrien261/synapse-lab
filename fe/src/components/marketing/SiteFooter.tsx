@@ -57,7 +57,15 @@ export function SiteFooter() {
           </div>
         </div>
         <div className="mt-14 flex flex-col gap-3 border-t border-white/10 pt-8 text-sm text-white/55 md:flex-row md:items-center md:justify-between">
-          <p>© {new Date().getFullYear()} Synapse Lab. Bảo lưu mọi quyền.</p>
+          <p className="flex flex-wrap items-center gap-x-5 gap-y-2">
+            <span>© {new Date().getFullYear()} Synapse Lab. Bảo lưu mọi quyền.</span>
+            <Link href="/terms" className="hover:text-white">
+              Điều khoản sử dụng
+            </Link>
+            <Link href="/privacy" className="hover:text-white">
+              Chính sách quyền riêng tư
+            </Link>
+          </p>
           <p>Học liệu: OpenStax (CC BY 4.0) · Mô hình 3D: AnatomyTOOL, Sketchfab — ghi công trên từng mô hình.</p>
         </div>
       </div>

@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     'ai_gateway',    # cổng gọi service AI: hạn mức, nhật ký, chi phí
     'tutor',         # gia sư Hỏi AI
     'learner',       # hồ sơ học tập + ôn tập thích ứng
+    'feedback',      # góp ý người dùng + trang chất lượng AI
 ]
 
 MIDDLEWARE = [

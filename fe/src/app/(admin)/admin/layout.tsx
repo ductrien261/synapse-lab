@@ -1,10 +1,11 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { useCallback, useState, type ReactNode } from 'react';
 import { UserProvider } from '@/lib/user-context';
 import { useStorageValue, writeStorage } from '@/lib/storage';
 import { RequireAdmin, RequireAuth } from '@/components/auth/RequireAuth';
 import { AppHeader } from '@/components/layout/AppHeader';
+import { MobileDrawer } from '@/components/layout/MobileDrawer';
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
 
 const SIDEBAR_KEY = 'synapse_admin_sidebar_collapsed';
@@ -12,15 +13,22 @@ const SIDEBAR_KEY = 'synapse_admin_sidebar_collapsed';
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const collapsed = useStorageValue(SIDEBAR_KEY) === '1';
   const toggleSidebar = () => writeStorage(SIDEBAR_KEY, collapsed ? '0' : '1');
+  const [menuOpen, setMenuOpen] = useState(false);
+  const closeMenu = useCallback(() => setMenuOpen(false), []);
 
   return (
     <UserProvider>
       <RequireAuth>
         <div className="min-h-screen bg-[#F5F7FB] flex flex-col antialiased">
-          <AppHeader homeHref="/admin" badge="Quản trị" />
+          <AppHeader homeHref="/admin" badge="Quản trị" onMenu={() => setMenuOpen(true)} />
           <div className="flex flex-1 w-full">
-            <AdminSidebar collapsed={collapsed} onToggle={toggleSidebar} />
-            <main className="flex-1 min-w-0 p-6 md:p-8">
+            <div className="hidden md:flex">
+              <AdminSidebar collapsed={collapsed} onToggle={toggleSidebar} />
+            </div>
+            <MobileDrawer open={menuOpen} onClose={closeMenu}>
+              <AdminSidebar collapsed={false} onToggle={closeMenu} mobile />
+            </MobileDrawer>
+            <main className="flex-1 min-w-0 px-4 py-5 sm:p-6 md:p-8">
               <div className="max-w-7xl mx-auto w-full flex flex-col gap-6 pb-12">
                 <RequireAdmin>{children}</RequireAdmin>
               </div>
