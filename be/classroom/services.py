@@ -30,10 +30,10 @@ class BigBlueButtonService:
         self._request('getMeetings', {})
         return True
 
-    def create_meeting(self, *, meeting_id, name, record=False):
+    def create_meeting(self, *, meeting_id, name, record=False, presentations=None):
         if not self.enabled:
             return
-        self._request('create', {
+        params = {
             'meetingID': meeting_id,
             'name': name,
             'record': str(record).lower(),
@@ -47,9 +47,18 @@ class BigBlueButtonService:
             'lockSettingsDisablePublicChat': 'false',
             'lockSettingsDisablePrivateChat': 'false',
             'multiUserWhiteboardEnabled': 'true',
-        })
+        }
+        body = self._presentation_body(presentations or [])
+        self._request('create', params, body=body) if body else self._request('create', params)
 
-    def join_url(self, *, meeting_id, full_name, user_id, moderator=False, logout_url=''):
+    def insert_documents(self, *, meeting_id, presentations):
+        if not self.enabled:
+            return
+        body = self._presentation_body(presentations)
+        if body:
+            self._request('insertDocument', {'meetingID': meeting_id}, body=body)
+
+    def join_url(self, *, meeting_id, full_name, user_id, moderator=False, logout_url='', user_data=None):
         if not self.enabled:
             return None
         params = {
@@ -61,6 +70,9 @@ class BigBlueButtonService:
         }
         if logout_url:
             params['logoutURL'] = logout_url
+        for key, value in (user_data or {}).items():
+            if value:
+                params[f'userdata-{key}'] = value
         return self._signed_url('join', params)
 
     def end_meeting(self, *, meeting_id):
@@ -92,13 +104,21 @@ class BigBlueButtonService:
             raise BigBlueButtonError('Thuật toán checksum BigBlueButton không hợp lệ.') from exc
         return f'{self.base_url}/{call_name}?{query}&checksum={checksum}'
 
-    def _request(self, call_name, params):
+    def _request(self, call_name, params, *, body=None):
         try:
-            response = requests.get(
-                self._signed_url(call_name, params),
-                timeout=(settings.BBB_CONNECT_TIMEOUT, settings.BBB_TIMEOUT),
-                verify=settings.BBB_SSL_VERIFY,
-            )
+            request_kwargs = {
+                'timeout': (settings.BBB_CONNECT_TIMEOUT, settings.BBB_TIMEOUT),
+                'verify': settings.BBB_SSL_VERIFY,
+            }
+            if body:
+                response = requests.post(
+                    self._signed_url(call_name, params),
+                    data=body,
+                    headers={'Content-Type': 'application/xml'},
+                    **request_kwargs,
+                )
+            else:
+                response = requests.get(self._signed_url(call_name, params), **request_kwargs)
             response.raise_for_status()
             root = ElementTree.fromstring(response.content)
         except (requests.RequestException, ElementTree.ParseError, ValueError) as exc:
@@ -108,3 +128,20 @@ class BigBlueButtonService:
             message = root.findtext('message') or 'BigBlueButton từ chối yêu cầu.'
             raise BigBlueButtonError(message)
         return root
+
+    @staticmethod
+    def _presentation_body(presentations):
+        if not presentations:
+            return None
+        modules = ElementTree.Element('modules')
+        module = ElementTree.SubElement(modules, 'module', {'name': 'presentation'})
+        for index, presentation in enumerate(presentations):
+            attributes = {
+                'url': str(presentation['url']),
+                'filename': str(presentation['filename']),
+                'downloadable': str(bool(presentation.get('downloadable', False))).lower(),
+                'removable': str(bool(presentation.get('removable', False))).lower(),
+                'current': str(bool(presentation.get('current', index == 0))).lower(),
+            }
+            ElementTree.SubElement(module, 'document', attributes)
+        return ElementTree.tostring(modules, encoding='utf-8', xml_declaration=True)

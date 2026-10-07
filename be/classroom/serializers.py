@@ -1,10 +1,41 @@
 from drf_spectacular.utils import extend_schema_field
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.files.storage import default_storage
 from rest_framework import serializers
 
 from anatomy.models import AnatomyModel
 
 from .models import Classroom, LessonPlan, LessonQuiz, LessonResource, LessonSection, LiveSession
+
+
+class LessonResourceReferenceField(serializers.PrimaryKeyRelatedField):
+    """Accept the resource UUID and gracefully migrate old title-based drafts."""
+
+    default_error_messages = {
+        **serializers.PrimaryKeyRelatedField.default_error_messages,
+        'ambiguous_title': 'Có nhiều tài liệu cùng tên; hãy chọn lại tài liệu kích hoạt.',
+    }
+
+    def to_internal_value(self, data):
+        if isinstance(data, LessonResource):
+            return data
+        try:
+            return super().to_internal_value(data)
+        except (DjangoValidationError, serializers.ValidationError) as uuid_error:
+            if not isinstance(data, str):
+                raise uuid_error
+            queryset = self.get_queryset()
+            root_instance = getattr(self.root, 'instance', None)
+            if isinstance(root_instance, LessonResource):
+                queryset = queryset.filter(
+                    section__plan__classroom_id=root_instance.section.plan.classroom_id,
+                )
+            matches = queryset.filter(title=data)[:2]
+            if len(matches) == 1:
+                return matches[0]
+            if len(matches) > 1:
+                self.fail('ambiguous_title')
+            raise uuid_error
 
 
 class LiveSessionSerializer(serializers.ModelSerializer):
@@ -79,11 +110,18 @@ class StartSessionSerializer(serializers.Serializer):
 
 
 class LessonQuizSerializer(serializers.ModelSerializer):
+    trigger_resource = LessonResourceReferenceField(
+        queryset=LessonResource.objects.all(),
+        required=False,
+        allow_null=True,
+    )
+
     class Meta:
         model = LessonQuiz
         fields = [
             'question', 'options', 'correct_option', 'duration_seconds', 'trigger_mode',
-            'trigger_minute', 'delay_seconds', 'success_threshold',
+            'trigger_minute', 'delay_seconds', 'trigger_resource', 'trigger_slide_number',
+            'success_threshold',
         ]
 
     def validate(self, attrs):
@@ -93,6 +131,22 @@ class LessonQuizSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({'options': 'Quiz cần ít nhất hai đáp án.'})
         if correct_option >= len(options):
             raise serializers.ValidationError({'correct_option': 'Đáp án đúng không nằm trong danh sách lựa chọn.'})
+        trigger_resource = attrs.get('trigger_resource', getattr(self.instance, 'trigger_resource', None))
+        trigger_slide_number = attrs.get(
+            'trigger_slide_number', getattr(self.instance, 'trigger_slide_number', 1),
+        )
+        if trigger_resource and trigger_resource.kind not in {
+            LessonResource.Kind.SLIDE,
+            LessonResource.Kind.PDF,
+        }:
+            raise serializers.ValidationError({'trigger_resource': 'Quiz chỉ có thể gắn với slide hoặc PDF.'})
+        if trigger_resource and trigger_slide_number > max(trigger_resource.preview_page_count, 1):
+            raise serializers.ValidationError({'trigger_slide_number': 'Số slide vượt quá số trang của tài liệu.'})
+        if self.instance and trigger_resource:
+            quiz_classroom_id = self.instance.resource.section.plan.classroom_id
+            trigger_classroom_id = trigger_resource.section.plan.classroom_id
+            if quiz_classroom_id != trigger_classroom_id:
+                raise serializers.ValidationError({'trigger_resource': 'Tài liệu kích hoạt phải thuộc cùng lớp học.'})
         return attrs
 
 

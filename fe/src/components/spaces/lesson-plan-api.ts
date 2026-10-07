@@ -8,9 +8,11 @@ export interface LessonQuizDto {
   options: string[];
   correct_option: number;
   duration_seconds: number;
-  trigger_mode: 'manual' | 'after_resource' | 'at_minute';
+  trigger_mode: 'manual' | 'after_resource' | 'at_minute' | 'at_slide';
   trigger_minute: number;
   delay_seconds: number;
+  trigger_resource: string | null;
+  trigger_slide_number: number;
   success_threshold: number;
 }
 

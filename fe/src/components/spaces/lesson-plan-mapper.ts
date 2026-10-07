@@ -63,6 +63,8 @@ export function mapLessonPlan(dto: LessonPlanDto): LessonPlanDraft {
           triggerMode: quizResource.quiz.trigger_mode === 'after_resource' ? 'after_activity' : quizResource.quiz.trigger_mode,
           triggerMinute: quizResource.quiz.trigger_minute,
           delaySeconds: quizResource.quiz.delay_seconds,
+          triggerResourceId: quizResource.quiz.trigger_resource || undefined,
+          triggerSlideNumber: quizResource.quiz.trigger_slide_number,
         } : createDefaultQuiz(false),
         transitionCondition: 'Giáo viên xác nhận chuyển bước.',
         feedbackMode: quizResource ? 'quiz' : 'understanding',

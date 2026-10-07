@@ -7,6 +7,8 @@ from .models import (
     LessonQuiz,
     LessonResource,
     LessonSection,
+    LiveQuizResponse,
+    LiveQuizRun,
     LiveSession,
     SessionAttendance,
 )
@@ -62,5 +64,20 @@ class LessonResourceAdmin(admin.ModelAdmin):
 
 @admin.register(LessonQuiz)
 class LessonQuizAdmin(admin.ModelAdmin):
-    list_display = ('resource', 'trigger_mode', 'duration_seconds', 'success_threshold')
+    list_display = (
+        'resource', 'trigger_mode', 'trigger_resource', 'trigger_slide_number',
+        'duration_seconds', 'success_threshold',
+    )
     list_filter = ('trigger_mode',)
+
+
+@admin.register(LiveQuizRun)
+class LiveQuizRunAdmin(admin.ModelAdmin):
+    list_display = ('quiz', 'session', 'status', 'opened_at', 'closes_at', 'started_by')
+    list_filter = ('status',)
+
+
+@admin.register(LiveQuizResponse)
+class LiveQuizResponseAdmin(admin.ModelAdmin):
+    list_display = ('run', 'user', 'selected_option', 'is_correct', 'submitted_at')
+    list_filter = ('is_correct',)

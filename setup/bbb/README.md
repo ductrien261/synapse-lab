@@ -127,6 +127,22 @@ trình duyệt, UDP `16384-32768` và TURN trước khi sửa frontend.
 4. Django tạo URL `join` đã ký. Chủ phòng nhận vai trò `moderator`, thành viên nhận `viewer`.
 5. Khi `BBB_ENABLED=false`, cùng luồng API chạy ở chế độ mock và giữ người dùng trong giao diện Synapse Lab.
 
+### Quy tắc đồng bộ tài liệu
+
+- Slide/PowerPoint đã render và PDF gốc đều được pre-upload để giáo viên thấy đủ
+  trong danh sách presentation của BBB.
+- BBB luôn tách PDF thành từng slide trong presentation viewer. Vì vậy Synapse cài
+  thêm plugin `GenericLinkShare`: PDF đầu tiên được truyền qua join metadata và tự
+  mở bằng reader HTML theo từng trang ảnh. Vị trí cuộn của giáo viên được phát qua
+  data channel để học viên tự cuộn theo.
+- Giáo viên dùng **Mở PDF dạng cuộn** trong menu hành động để mở PDF cho cả lớp,
+  và **Trở lại slide BBB** để đóng reader. Khi giáo viên chọn một presentation
+  khác trong BBB, reader cũng tự đóng đồng bộ trên mọi máy.
+- Với PowerPoint, giáo viên điều khiển trang trong presentation viewer; học viên
+  theo cùng trang nên không có nút tự chuyển slide riêng.
+- Mô hình 3D, quiz và các hoạt động tương tác dùng lớp tích hợp riêng, không đi qua
+  presentation viewer.
+
 `SYNAPSE_LAB_URL` là địa chỉ frontend mà BBB chuyển người dùng về sau khi rời phòng. Ở máy local có thể giữ `http://localhost:3100`; khi triển khai phải đổi thành domain HTTPS thật của ứng dụng.
 
 Tham khảo tài liệu chính thức:

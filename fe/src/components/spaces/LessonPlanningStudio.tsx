@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { BoxArrowLeft, Broadcast, Check2, Clipboard, PeopleFill, PersonPlusFill, PersonVideo3 } from 'react-bootstrap-icons';
 import { classroomApi, type ClassroomDto } from './classroom-api';
 import { AnatomyModelPicker } from './AnatomyModelPicker';
@@ -25,6 +25,7 @@ export function LessonPlanningStudio({ roomCode: rawRoomCode }: { roomCode: stri
   const [planDto, setPlanDto] = useState<LessonPlanDto | null>(null);
   const [planLoading, setPlanLoading] = useState(true);
   const [modelPickerStepId, setModelPickerStepId] = useState<string | null>(null);
+  const quizSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const classroomIsOwner = classroom?.is_owner;
   const classroomTitle = classroom?.name;
   const plan = planDto ? mapLessonPlan(planDto) : null;
@@ -44,6 +45,10 @@ export function LessonPlanningStudio({ roomCode: rawRoomCode }: { roomCode: stri
     const timer = window.setInterval(() => { void load(); }, 5000);
     return () => { mounted = false; window.clearInterval(timer); };
   }, [roomCode]);
+
+  useEffect(() => () => {
+    if (quizSaveTimerRef.current) window.clearTimeout(quizSaveTimerRef.current);
+  }, []);
 
   useEffect(() => {
     if (classroomIsOwner === undefined || !classroomTitle) return;
@@ -166,22 +171,32 @@ export function LessonPlanningStudio({ roomCode: rawRoomCode }: { roomCode: stri
     if (!selectedResource || selectedResource.kind !== 'quiz' || !selectedStep) return;
     if (!selectedStep.quiz.resourceId) return;
     const currentQuiz = selectedStep.quiz;
+    const requestedTriggerResource = patch.triggerResourceId ?? currentQuiz.triggerResourceId;
+    const triggerMaterial = selectedStep.materials.find((material) => (
+      material.id === requestedTriggerResource || material.name === requestedTriggerResource
+    ));
     const quiz = {
       question: patch.question ?? currentQuiz.question,
       options: patch.options ?? currentQuiz.options,
       correct_option: patch.correctOption ?? currentQuiz.correctOption,
       duration_seconds: patch.durationSeconds ?? currentQuiz.durationSeconds,
-      trigger_mode: (patch.triggerMode ?? currentQuiz.triggerMode) === 'after_activity' ? 'after_resource' as const : (patch.triggerMode ?? currentQuiz.triggerMode) as 'manual' | 'at_minute',
+      trigger_mode: (patch.triggerMode ?? currentQuiz.triggerMode) === 'after_activity' ? 'after_resource' as const : (patch.triggerMode ?? currentQuiz.triggerMode) as 'manual' | 'at_minute' | 'at_slide',
       trigger_minute: patch.triggerMinute ?? currentQuiz.triggerMinute,
       delay_seconds: patch.delaySeconds ?? currentQuiz.delaySeconds,
+      trigger_resource: triggerMaterial?.id ?? null,
+      trigger_slide_number: patch.triggerSlideNumber ?? currentQuiz.triggerSlideNumber,
       success_threshold: selectedStep.successThreshold,
     };
     const resourcePatch = { title: patch.title ?? currentQuiz.title, quiz };
     setPlanDto((current) => current ? replaceResource(current, selectedStep.quiz.resourceId!, resourcePatch) : current);
-    void lessonPlanApi.updateResource(roomCode, selectedStep.quiz.resourceId, resourcePatch).catch((reason: unknown) => {
-      setMessage(reason instanceof Error ? reason.message : 'Không thể lưu quiz.');
-      void reloadPlan();
-    });
+    if (quizSaveTimerRef.current) window.clearTimeout(quizSaveTimerRef.current);
+    const resourceId = selectedStep.quiz.resourceId;
+    quizSaveTimerRef.current = window.setTimeout(() => {
+      void lessonPlanApi.updateResource(roomCode, resourceId, resourcePatch).catch((reason: unknown) => {
+        setMessage(reason instanceof Error ? reason.message : 'Không thể lưu quiz.');
+        void reloadPlan();
+      });
+    }, 450);
   };
 
   const addActivity = async () => {

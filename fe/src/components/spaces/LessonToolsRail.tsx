@@ -66,7 +66,7 @@ export function LessonToolsRail({ resource, step, onUpdateMaterial, onUpdateQuiz
 function PanelContent({ panel, resource, step, onUpdateMaterial, onUpdateQuiz }: { panel: InspectorPanel; resource: StudioResource; step?: LessonStep; onUpdateMaterial: (patch: Partial<LessonMaterial>) => void; onUpdateQuiz: (patch: Partial<LessonQuiz>) => void }) {
   if (panel === 'notes') return <NotesPanel />;
   if (panel === 'discussion') return <DiscussionPanel />;
-  if (resource.kind === 'quiz') return panel === 'schedule' ? <QuizSchedulePanel quiz={resource.quiz} onChange={onUpdateQuiz} /> : <QuizContentPanel quiz={resource.quiz} step={step} onChange={onUpdateQuiz} />;
+  if (resource.kind === 'quiz') return panel === 'schedule' ? <QuizSchedulePanel quiz={resource.quiz} step={step} onChange={onUpdateQuiz} /> : <QuizContentPanel quiz={resource.quiz} step={step} onChange={onUpdateQuiz} />;
   const material = resource.material;
   if (panel === 'objectives') return <ObjectivesPanel material={material} step={step} onChange={onUpdateMaterial} />;
   if (panel === 'display') return <DisplayPanel material={material} onChange={onUpdateMaterial} />;
@@ -101,11 +101,54 @@ function TagsPanel({ material, step, onChange }: { material: LessonMaterial; ste
 }
 
 function QuizContentPanel({ quiz, step, onChange }: { quiz: LessonQuiz; step?: LessonStep; onChange: (patch: Partial<LessonQuiz>) => void }) {
-  return <div className="space-y-4"><Field label="Tiêu đề"><input value={quiz.title} onChange={(event) => onChange({ title: event.target.value })} className={inputClass} /></Field><Field label="Câu hỏi"><textarea rows={5} value={quiz.question} onChange={(event) => onChange({ question: event.target.value })} className={`${inputClass} resize-y`} /></Field><p className="rounded-xl bg-[#F4F7FC] p-3 text-[9px] font-semibold leading-5 text-stone-500">Thuộc hoạt động: <strong className="text-[#31599E]">{step?.title}</strong></p></div>;
+  const updateOption = (index: number, value: string) => {
+    const options = [...quiz.options];
+    options[index] = value;
+    onChange({ options });
+  };
+  const addOption = () => {
+    if (quiz.options.length >= 6) return;
+    onChange({ options: [...quiz.options, `Đáp án ${String.fromCharCode(65 + quiz.options.length)}`] });
+  };
+  const removeOption = (index: number) => {
+    if (quiz.options.length <= 2) return;
+    const options = quiz.options.filter((_, optionIndex) => optionIndex !== index);
+    const correctOption = quiz.correctOption === index
+      ? 0
+      : quiz.correctOption > index ? quiz.correctOption - 1 : quiz.correctOption;
+    onChange({ options, correctOption });
+  };
+
+  return <div className="space-y-4">
+    <Field label="Tiêu đề"><input value={quiz.title} onChange={(event) => onChange({ title: event.target.value })} className={inputClass} placeholder="Tên quiz hiển thị trong lớp học" /></Field>
+    <Field label="Câu hỏi"><textarea rows={4} value={quiz.question} onChange={(event) => onChange({ question: event.target.value })} className={`${inputClass} resize-y text-xs font-semibold leading-5`} placeholder="Nhập câu hỏi dành cho học viên..." /></Field>
+    <div>
+      <div className="mb-2 flex items-center justify-between gap-3"><span className="text-[8px] font-extrabold uppercase tracking-wider text-stone-400">Các phương án</span><span className="text-[8px] font-semibold text-emerald-600">Chọn đáp án đúng</span></div>
+      <div className="space-y-2">
+        {quiz.options.map((option, index) => {
+          const correct = quiz.correctOption === index;
+          return <div key={index} className={`group flex items-center gap-2 rounded-xl border p-2 transition ${correct ? 'border-emerald-300 bg-emerald-50/80 ring-1 ring-emerald-100' : 'border-stone-200 bg-white'}`}>
+            <label className="flex cursor-pointer items-center gap-2">
+              <input type="radio" name="quiz-correct-option" checked={correct} onChange={() => onChange({ correctOption: index })} className="h-4 w-4 accent-emerald-600" />
+              <span className={`flex h-7 w-7 items-center justify-center rounded-lg text-[10px] font-black ${correct ? 'bg-emerald-600 text-white' : 'bg-stone-100 text-stone-500'}`}>{String.fromCharCode(65 + index)}</span>
+            </label>
+            <input value={option} onChange={(event) => updateOption(index, event.target.value)} className="min-w-0 flex-1 bg-transparent px-1 py-1 text-[11px] font-semibold text-stone-700 outline-none" placeholder={`Nội dung đáp án ${String.fromCharCode(65 + index)}`} />
+            <button type="button" onClick={() => removeOption(index)} disabled={quiz.options.length <= 2} aria-label={`Xóa đáp án ${String.fromCharCode(65 + index)}`} className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-stone-300 transition hover:bg-rose-50 hover:text-rose-500 disabled:cursor-not-allowed disabled:opacity-30"><X /></button>
+          </div>;
+        })}
+      </div>
+      <button type="button" onClick={addOption} disabled={quiz.options.length >= 6} className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-blue-200 bg-white py-2.5 text-[9px] font-bold text-[#397BF6] transition hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-40"><PlusLg />Thêm phương án</button>
+      <p className="mt-2 text-[8px] leading-4 text-stone-400">Tối thiểu 2 và tối đa 6 phương án. Dấu chọn màu xanh là đáp án đúng.</p>
+    </div>
+    <p className="rounded-xl bg-[#F4F7FC] p-3 text-[9px] font-semibold leading-5 text-stone-500">Thuộc hoạt động: <strong className="text-[#31599E]">{step?.title}</strong></p>
+  </div>;
 }
 
-function QuizSchedulePanel({ quiz, onChange }: { quiz: LessonQuiz; onChange: (patch: Partial<LessonQuiz>) => void }) {
-  return <div className="space-y-4"><Field label="Chế độ"><select value={quiz.triggerMode} onChange={(event) => onChange({ triggerMode: event.target.value as LessonQuiz['triggerMode'] })} className={inputClass}>{Object.entries(quizTriggerLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field>{quiz.triggerMode === 'at_minute' && <Field label="Xuất hiện ở phút"><input type="number" min={0} value={quiz.triggerMinute} onChange={(event) => onChange({ triggerMinute: Number(event.target.value) })} className={inputClass} /></Field>}{quiz.triggerMode === 'after_activity' && <Field label="Độ trễ sau nội dung (giây)"><input type="number" min={0} value={quiz.delaySeconds} onChange={(event) => onChange({ delaySeconds: Number(event.target.value) })} className={inputClass} /></Field>}<Field label="Thời gian trả lời (giây)"><input type="number" min={10} value={quiz.durationSeconds} onChange={(event) => onChange({ durationSeconds: Number(event.target.value) })} className={inputClass} /></Field></div>;
+function QuizSchedulePanel({ quiz, step, onChange }: { quiz: LessonQuiz; step?: LessonStep; onChange: (patch: Partial<LessonQuiz>) => void }) {
+  const slideMaterials = step?.materials.filter((item) => item.kind === 'slide' || item.kind === 'pdf') || [];
+  const selectedMaterial = slideMaterials.find((item) => item.id === quiz.triggerResourceId);
+  const maxSlide = Math.max(1, selectedMaterial?.previewPageCount || 1);
+  return <div className="space-y-4"><Field label="Chế độ"><select value={quiz.triggerMode} onChange={(event) => { const triggerMode = event.target.value as LessonQuiz['triggerMode']; onChange(triggerMode === 'at_slide' ? { triggerMode, triggerResourceId: quiz.triggerResourceId || slideMaterials[0]?.id, triggerSlideNumber: 1 } : { triggerMode }); }} className={inputClass}>{Object.entries(quizTriggerLabels).map(([value, label]) => <option key={value} value={value} disabled={value === 'at_slide' && slideMaterials.length === 0}>{label}</option>)}</select></Field>{quiz.triggerMode === 'at_minute' && <Field label="Xuất hiện ở phút"><input type="number" min={0} value={quiz.triggerMinute} onChange={(event) => onChange({ triggerMinute: Number(event.target.value) })} className={inputClass} /></Field>}{quiz.triggerMode === 'after_activity' && <Field label="Độ trễ sau nội dung (giây)"><input type="number" min={0} value={quiz.delaySeconds} onChange={(event) => onChange({ delaySeconds: Number(event.target.value) })} className={inputClass} /></Field>}{quiz.triggerMode === 'at_slide' && <div className="space-y-3 rounded-xl border border-blue-100 bg-blue-50/60 p-3"><Field label="Tài liệu trình chiếu"><select value={quiz.triggerResourceId || ''} onChange={(event) => onChange({ triggerResourceId: event.target.value || undefined, triggerSlideNumber: 1 })} className={inputClass}><option value="">Chọn slide hoặc PDF</option>{slideMaterials.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></Field><Field label="Số slide"><input type="number" min={1} max={maxSlide} value={quiz.triggerSlideNumber} onChange={(event) => onChange({ triggerSlideNumber: Math.min(maxSlide, Math.max(1, Number(event.target.value) || 1)) })} className={inputClass} /></Field>{selectedMaterial && <p className="text-[9px] leading-4 text-blue-700">Quiz sẽ tự mở khi giáo viên tới slide {quiz.triggerSlideNumber} của {selectedMaterial.name}.</p>}{slideMaterials.length === 0 && <p className="text-[9px] leading-4 text-amber-700">Hãy thêm một file PowerPoint hoặc PDF vào hoạt động trước.</p>}</div>}<Field label="Thời gian trả lời (giây)"><input type="number" min={10} value={quiz.durationSeconds} onChange={(event) => onChange({ durationSeconds: Number(event.target.value) })} className={inputClass} /></Field></div>;
 }
 
 function NotesPanel() { return <div><p className="mb-3 text-[10px] leading-5 text-stone-500">Ghi chú riêng dành cho giáo viên khi chuẩn bị và giảng dạy.</p><textarea rows={12} className={`${inputClass} resize-y`} placeholder="Ghi lại lưu ý khi giảng dạy tài liệu này..." /></div>; }

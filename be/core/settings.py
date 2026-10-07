@@ -165,6 +165,9 @@ BBB_CHECKSUM_ALGORITHM = env('BBB_CHECKSUM_ALGORITHM', default='sha256')
 BBB_SSL_VERIFY = env.bool('BBB_SSL_VERIFY', default=True)
 BBB_CONNECT_TIMEOUT = env.int('BBB_CONNECT_TIMEOUT', default=5)
 BBB_TIMEOUT = env.int('BBB_TIMEOUT', default=15)
+BBB_ASSET_BASE_URL = env('BBB_ASSET_BASE_URL', default='http://host.docker.internal:8000').rstrip('/')
+BBB_RESOURCE_URL_TTL = env.int('BBB_RESOURCE_URL_TTL', default=3600)
+BBB_QUIZ_TOKEN_TTL = env.int('BBB_QUIZ_TOKEN_TTL', default=43200)
 SYNAPSE_LAB_URL = env('SYNAPSE_LAB_URL', default='http://localhost:3100').rstrip('/')
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'

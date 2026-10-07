@@ -215,6 +215,7 @@ class LessonQuiz(models.Model):
         MANUAL = 'manual', 'Giáo viên phát thủ công'
         AFTER_RESOURCE = 'after_resource', 'Sau tài liệu'
         AT_MINUTE = 'at_minute', 'Tại mốc thời gian'
+        AT_SLIDE = 'at_slide', 'Khi tới slide'
 
     resource = models.OneToOneField(LessonResource, on_delete=models.CASCADE, related_name='quiz')
     question = models.TextField()
@@ -224,6 +225,14 @@ class LessonQuiz(models.Model):
     trigger_mode = models.CharField(max_length=20, choices=TriggerMode.choices, default=TriggerMode.MANUAL)
     trigger_minute = models.PositiveSmallIntegerField(default=0)
     delay_seconds = models.PositiveSmallIntegerField(default=0)
+    trigger_resource = models.ForeignKey(
+        LessonResource,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='triggered_quizzes',
+    )
+    trigger_slide_number = models.PositiveSmallIntegerField(default=1)
     success_threshold = models.PositiveSmallIntegerField(default=70)
 
     class Meta:
@@ -232,3 +241,51 @@ class LessonQuiz(models.Model):
 
     def __str__(self):
         return self.resource.title
+
+
+class LiveQuizRun(models.Model):
+    class Status(models.TextChoices):
+        OPEN = 'open', 'Đang nhận câu trả lời'
+        CLOSED = 'closed', 'Đã đóng'
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    session = models.ForeignKey(LiveSession, on_delete=models.CASCADE, related_name='quiz_runs')
+    quiz = models.ForeignKey(LessonQuiz, on_delete=models.CASCADE, related_name='live_runs')
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.OPEN)
+    opened_at = models.DateTimeField(auto_now_add=True)
+    closes_at = models.DateTimeField()
+    closed_at = models.DateTimeField(null=True, blank=True)
+    started_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='started_quiz_runs',
+    )
+
+    class Meta:
+        ordering = ['-opened_at']
+        constraints = [
+            models.UniqueConstraint(fields=['session', 'quiz'], name='uniq_quiz_run_per_session'),
+        ]
+        verbose_name = 'Lượt chạy quiz'
+        verbose_name_plural = 'Lượt chạy quiz'
+
+    def __str__(self):
+        return f'{self.session}: {self.quiz.resource.title}'
+
+
+class LiveQuizResponse(models.Model):
+    run = models.ForeignKey(LiveQuizRun, on_delete=models.CASCADE, related_name='responses')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='quiz_responses')
+    selected_option = models.PositiveSmallIntegerField()
+    is_correct = models.BooleanField(default=False)
+    submitted_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['submitted_at']
+        constraints = [
+            models.UniqueConstraint(fields=['run', 'user'], name='uniq_quiz_response_per_user'),
+        ]
+        verbose_name = 'Câu trả lời quiz'
+        verbose_name_plural = 'Câu trả lời quiz'

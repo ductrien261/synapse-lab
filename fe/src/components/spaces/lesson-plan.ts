@@ -3,7 +3,7 @@ export type LessonActivityType = 'opening' | 'concept' | 'simulation' | 'quiz' |
 export type FeedbackMode = 'understanding' | 'quiz' | 'discussion' | 'none';
 
 export type MaterialKind = 'slide' | 'pdf' | 'doc' | 'model_3d' | 'video' | 'link';
-export type QuizTriggerMode = 'manual' | 'after_activity' | 'at_minute';
+export type QuizTriggerMode = 'manual' | 'after_activity' | 'at_minute' | 'at_slide';
 
 export interface LessonMaterial {
   id: string;
@@ -46,6 +46,8 @@ export interface LessonQuiz {
   triggerMode: QuizTriggerMode;
   triggerMinute: number;
   delaySeconds: number;
+  triggerResourceId?: string;
+  triggerSlideNumber: number;
 }
 
 export interface LessonStep {
@@ -92,6 +94,7 @@ export const quizTriggerLabels: Record<QuizTriggerMode, string> = {
   manual: 'Giáo viên phát thủ công',
   after_activity: 'Tự bật sau nội dung',
   at_minute: 'Tự bật tại mốc thời gian',
+  at_slide: 'Tự bật khi tới slide',
 };
 
 export function createDefaultQuiz(enabled = false): LessonQuiz {
@@ -105,6 +108,8 @@ export function createDefaultQuiz(enabled = false): LessonQuiz {
     triggerMode: enabled ? 'after_activity' : 'manual',
     triggerMinute: 15,
     delaySeconds: 5,
+    triggerResourceId: undefined,
+    triggerSlideNumber: 1,
   };
 }
 
