@@ -1,3 +1,7 @@
+# Tài liệu cũ — không dùng cho Synapse Lab
+
+Hướng dẫn này thuộc dự án Laravel cũ. Với Synapse Lab trên Windows, xem [bbb/README.md](bbb/README.md).
+
 # Setup BBB bằng Docker để dùng với web local
 
 Web Laravel và server BigBlueButton là hai phần riêng. Ngân chạy `vku_dt` trên Mac, còn BBB phải có môi trường chạy phù hợp rồi điền địa chỉ API vào `.env` của web.

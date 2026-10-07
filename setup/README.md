@@ -1,4 +1,8 @@
-# Hướng dẫn setup BigBlueButton và Zoom cho Ngân
+# Tài liệu setup
+
+> **Lưu ý:** phần tài liệu Laravel/`vku_dt` bên dưới là tài liệu cũ và không áp dụng cho Synapse Lab. Với module lớp học Django + Next.js hiện tại, dùng [bbb/README.md](bbb/README.md). Không chép các file PHP trong `setup/config` vào dự án.
+
+# Hướng dẫn setup BigBlueButton và Zoom cho Ngân (tài liệu cũ)
 
 Bộ này dùng để cấu hình tích hợp trên dự án `vku_dt` đã cài và chạy được. Các key, secret, token và ID tài khoản trong file mẫu đều để trống. Laravel không tự đọc thư mục `setup`; cấu hình thực tế vẫn nằm trong `.env` và `config/` ở gốc dự án.
 
