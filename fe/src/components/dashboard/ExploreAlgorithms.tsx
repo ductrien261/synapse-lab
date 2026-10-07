@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { ArrowRight, BoxFill } from 'react-bootstrap-icons';
 import { useAlgoCatalog } from '@/lib/algo-catalog';
-import { categoryLabelVi } from '@/lib/algo-categories';
 
 export function ExploreAlgorithms() {
   const { categories, state } = useAlgoCatalog();
@@ -30,7 +29,7 @@ export function ExploreAlgorithms() {
 
       {state === 'error' && (
         <p className="text-sm text-stone-500 py-6 text-center">
-          Không kết nối được máy chủ thuật toán (algo-server). Kiểm tra container đang chạy chưa.
+          Không tải được danh mục thuật toán. Vui lòng thử lại sau.
         </p>
       )}
 
@@ -45,7 +44,7 @@ export function ExploreAlgorithms() {
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <div className="text-sm font-bold text-stone-900 group-hover:text-[#1E3F82]">
-                    {categoryLabelVi(cat.key, cat.name)}
+                    {cat.name}
                   </div>
                   <div className="text-xs text-stone-400">{cat.name}</div>
                 </div>

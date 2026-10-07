@@ -15,12 +15,15 @@ from fastapi.responses import StreamingResponse
 
 from .config import get_settings
 from .graphs import draft as draft_graph
+from .graphs import algorithm_draft
+from .graphs import algorithm_tutor
+from .graphs import anatomy_actions
 from .graphs import quick_check as quick_check_graph
 from .graphs import quiz as quiz_graph
 from .graphs import tutor as tutor_graph
 from .llm.chat import LLMError, LLMNotConfigured
 from .llm.tracing import run_context, shutdown
-from .schemas import DraftStructureIn, QuickCheckIn, QuizGenerateIn, QuizGradeIn, SearchIn, TranslateIn, TutorAskIn
+from .schemas import AlgorithmTutorIn, AnatomyActionIn, DraftAlgorithmIn, DraftStructureIn, QuickCheckIn, QuizGenerateIn, QuizGradeIn, SearchIn, TranslateIn, TutorAskIn
 from .tools.embeddings import EmbeddingError
 from .tools.retrieval import RetrievalError, search
 from .tools.translate import translate_text
@@ -92,6 +95,19 @@ def draft_structure(body: DraftStructureIn):
         return {**result, 'meta': ctx.meta()}
 
 
+@app.post('/v1/draft/algorithm', dependencies=[Depends(require_token)])
+def draft_algorithm(body: DraftAlgorithmIn):
+    with run_context('draft_algorithm', 'algorithm_draft', body.user_id, {'algorithm': body.name}) as ctx:
+        try:
+            result = algorithm_draft.run(
+                ctx, body.name, body.category, body.document_ids,
+                [item.model_dump() for item in body.explicit_sources],
+            )
+        except (EmbeddingError, RetrievalError, LLMError) as exc:
+            result = {'status': 'failed', 'fields': {}, 'citations': [], 'warnings': [], 'error': str(exc)}
+        return {**result, 'meta': ctx.meta()}
+
+
 def _sse(event: str, data: dict) -> str:
     return f'event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n'
 
@@ -128,6 +144,35 @@ def tutor_quick_check(body: QuickCheckIn):
             result = quick_check_graph.run(ctx, body.topic, body.answer, body.sources)
         except LLMError as exc:
             result = {'status': 'failed', 'error': str(exc)}
+        return {**result, 'meta': ctx.meta()}
+
+
+@app.post('/v1/tutor/action', dependencies=[Depends(require_token)])
+def tutor_action(body: AnatomyActionIn):
+    with run_context('tutor_action', 'tutor', body.user_id, {'action': body.action, 'model': body.model_title}) as ctx:
+        try:
+            result = anatomy_actions.run(ctx, body.action, body.model_title,
+                                         body.part.model_dump() if body.part else None,
+                                         body.topic, body.style, body.question_count, body.quiz_style,
+                                         body.card_count, body.focus_note)
+        except (LLMError, EmbeddingError, RetrievalError) as exc:
+            raise _fail(exc, ctx) from exc
+        return {**result, 'meta': ctx.meta()}
+
+
+@app.post('/v1/algorithm-tutor/generate', dependencies=[Depends(require_token)])
+def algorithm_tutor_generate(body: AlgorithmTutorIn):
+    with run_context('algorithm_tutor', 'algorithm_tutor', body.user_id, {'action': body.action}) as ctx:
+        try:
+            result = algorithm_tutor.run(
+                ctx, body.action, body.lesson, body.question, body.frame,
+                body.quiz_options.model_dump() if body.quiz_options else None,
+                body.code_selection.model_dump() if body.code_selection else None,
+                body.scenario_options.model_dump() if body.scenario_options else None,
+                body.flashcard_options.model_dump() if body.flashcard_options else None,
+            )
+        except LLMError as exc:
+            raise _fail(exc, ctx) from exc
         return {**result, 'meta': ctx.meta()}
 
 

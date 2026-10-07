@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useEffectEvent, useRef, useState } from 'react';
 import { CheckCircleFill, Lightning, XCircleFill } from 'react-bootstrap-icons';
 import { refreshAiQuota } from '@/lib/ai';
 import { tutorApi, type QuickCheck, type TutorCitation } from '@/lib/tutor';
@@ -12,12 +12,15 @@ export function QuickCheckCard({
   initial,
   citations,
   onCite,
+  autoStart = false,
 }: {
   messageId: number;
   initial: QuickCheck | null;
   citations: TutorCitation[];
   onCite: (c: TutorCitation) => void;
+  autoStart?: boolean;
 }) {
+  const autoStarted = useRef(false);
   const [qc, setQc] = useState<QuickCheck | null>(initial);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -34,6 +37,13 @@ export function QuickCheckCard({
       setLoading(false);
     }
   };
+
+  const loadAutomatically = useEffectEvent(() => { void load(); });
+  useEffect(() => {
+    if (!autoStart || initial || autoStarted.current) return;
+    autoStarted.current = true;
+    loadAutomatically();
+  }, [autoStart, initial]);
 
   const answer = async (choice: number) => {
     try {

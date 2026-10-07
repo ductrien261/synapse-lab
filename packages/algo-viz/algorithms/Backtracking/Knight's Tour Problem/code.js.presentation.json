@@ -1,0 +1,141 @@
+{
+  "sourceFile": "Code.cpp",
+  "tracerHash": "2f3ec5e25f5aad5c31d4625c0afdae010b7a44887291049760c2a2aa0a1154c5",
+  "sourceHash": "94feb495be7b2be76cede16fca26fa995c8eb6c36bd58065b7c6b79c8751edae",
+  "lineMap": {
+    "38": 29,
+    "52": 13,
+    "54": 14,
+    "68": 17,
+    "84": 19,
+    "103": 30,
+    "105": 30,
+    "107": 30,
+    "121": 32
+  },
+  "reference": "https://github.com/wisn/knights-tour/blob/master/algorithms/backtracking.cpp",
+  "narration": [
+    {
+      "line": 29,
+      "pattern": ".*",
+      "goal": "Đầu tiên, ta có `Board` là bàn cờ `{{n}} × {{n}}`. Tất cả các ô đều có giá trị `-1`, nghĩa là **chưa được đi qua**.",
+      "reason": "Tiếp theo, `Knight Position` đang là `[-1, -1]`: chưa có tọa độ để hiển thị. Khi chạy, khung này sẽ hiển thị **tọa độ đang xét**; một tọa độ được thử chưa chắc đã là nước đi hợp lệ.",
+      "calculation": "Ta sẽ **đặt quân Mã tại ô (0, 0)**, ghi `0` vào ô xuất phát, rồi lần lượt kiểm tra tám vị trí quân Mã có thể đi tới.",
+      "conclusion": "Mỗi khi chọn được một ô hợp lệ, ta ghi **số thứ tự lượt thăm** vào `Board`. Ô đã đi qua sẽ không được chọn lại trong cùng hành trình.",
+      "next": "Nếu còn đi tiếp được → **tiếp tục từ ô vừa chọn**.\nNếu nhánh đó không hoàn thành được hành trình → **bỏ lựa chọn vừa thử, quay lại ô trước và thử hướng khác**. Đây chính là **quay lui (Backtracking)**.",
+      "pause": false,
+      "text": "Ta tạo `Board` kích thước `{{n}} × {{n}}`, gán mọi ô bằng `-1` để đánh dấu **chưa đi qua**. `Knight Position` hiện là `[-1, -1]`, chưa có tọa độ để hiển thị."
+    },
+    {
+      "line": 30,
+      "pattern": ".*",
+      "goal": "Lúc này, ta cần bắt đầu hành trình ở ô (0, 0).",
+      "reason": "Ô xuất phát cũng được tính là một ô đã đi qua.",
+      "calculation": "Cụ thể, board[0][0] = 0; sau đó gọi knightTour(0, 0, 1). Tham số cuối là số ô đã thăm, không phải tọa độ.",
+      "conclusion": "Đã đi qua 1 ô. Các ô còn lại vẫn mang giá trị -1.",
+      "next": "Tiếp theo, từ (0, 0), lần lượt thử tám cách di chuyển hình chữ L của quân mã.",
+      "pause": false,
+      "text": "Ta cập nhật cột hiển thị: `Knight Position[1] = 0`. Cặp tọa độ lúc này là `(0, 0)`.",
+      "tracerLine": 107
+    },
+    {
+      "line": 30,
+      "pattern": ".*",
+      "goal": "Lúc này, ta cần bắt đầu hành trình ở ô (0, 0).",
+      "reason": "Ô xuất phát cũng được tính là một ô đã đi qua.",
+      "calculation": "Cụ thể, board[0][0] = 0; sau đó gọi knightTour(0, 0, 1). Tham số cuối là số ô đã thăm, không phải tọa độ.",
+      "conclusion": "Đã đi qua 1 ô. Các ô còn lại vẫn mang giá trị -1.",
+      "next": "Tiếp theo, từ (0, 0), lần lượt thử tám cách di chuyển hình chữ L của quân mã.",
+      "pause": false,
+      "text": "Ta cập nhật hàng hiển thị: `Knight Position[0] = 0`.",
+      "tracerLine": 105
+    },
+    {
+      "line": 30,
+      "pattern": ".*",
+      "goal": "Lúc này, ta cần bắt đầu hành trình ở ô (0, 0).",
+      "reason": "Ô xuất phát cũng được tính là một ô đã đi qua.",
+      "calculation": "Cụ thể, board[0][0] = 0; sau đó gọi knightTour(0, 0, 1). Tham số cuối là số ô đã thăm, không phải tọa độ.",
+      "conclusion": "Đã đi qua 1 ô. Các ô còn lại vẫn mang giá trị -1.",
+      "next": "Tiếp theo, từ (0, 0), lần lượt thử tám cách di chuyển hình chữ L của quân mã.",
+      "pause": false,
+      "text": "Ta đặt quân Mã tại ô `(0, 0)` và ghi `board[0][0] = 0`: đây là **ô đầu tiên đã đi qua**."
+    },
+    {
+      "line": 13,
+      "pattern": ".*",
+      "goal": "Lúc này, ta cần tìm hàng của ô muốn thử từ ô hiện tại ({{row}}, {{col}}).",
+      "reason": "Quân mã đi theo hình chữ L: một tọa độ đổi 2, tọa độ còn lại đổi 1. Mảng dr và dc lưu tám cặp độ lệch.",
+      "calculation": "Cụ thể, nextRow = row + dr[i] = {{row}} + ({{dr}}) = {{nextRow}}.",
+      "conclusion": "Hàng muốn thử là {{nextRow}}. Chưa chọn ô này và chưa thay đổi đường đi.",
+      "next": "Tiếp theo, tính cột tương ứng bằng col + dc[i].",
+      "pause": false,
+      "text": "Từ ô `({{row}}, {{col}})`, ta tính hàng muốn thử: `nextRow = {{row}} + ({{dr}}) = {{nextRow}}`. **Chưa chọn ô mới**; lúc này chỉ đang tính tọa độ."
+    },
+    {
+      "line": 14,
+      "pattern": ".*",
+      "goal": "Lúc này, ta cần hoàn thành tọa độ ô muốn thử.",
+      "reason": "Phải có cả hàng và cột mới xác định được một ô. Tọa độ bắt đầu từ 0.",
+      "calculation": "Cụ thể, nextCol = col + dc[i] = {{col}} + ({{dc}}) = {{nextCol}}. Ô muốn thử là ({{nextRow}}, {{nextCol}}).",
+      "conclusion": "Đây mới là ứng viên. Hàng và cột phải nằm từ 0 đến {{n}} - 1, rồi mới đọc board[nextRow][nextCol] để kiểm tra giá trị -1.",
+      "next": "Tiếp theo, nếu ngoài bàn cờ hoặc đã thăm thì bỏ qua, thử độ lệch kế tiếp. Nếu hợp lệ thì đánh dấu ô và tìm tiếp từ đó.",
+      "pause": false,
+      "text": "Ta tính cột muốn thử: `nextCol = {{col}} + ({{dc}}) = {{nextCol}}`. Ô `({{nextRow}}, {{nextCol}})` chỉ được chọn nếu **nằm trong bàn cờ và chưa đi qua**."
+    },
+    {
+      "line": 17,
+      "pattern": "^Move to (\\d+),(\\d+)$",
+      "goal": "Lúc này, ta cần đưa ô ($1, $2) vào đường đi đang xây dựng.",
+      "reason": "Ô này nằm trong bàn cờ và có giá trị -1 nên chưa đi qua. Đánh dấu ngay để lời gọi sau không chọn lại nó.",
+      "calculation": "Cụ thể, board[{{nextRow}}][{{nextCol}}] = visitedCount = {{visited}}. Số trên ô biểu thị thứ tự thăm, bắt đầu từ 0.",
+      "conclusion": "Đã chọn ô ($1, $2). Đường đi hiện tại được mở rộng thêm một ô.",
+      "next": "Tiếp theo, gọi knightTour({{nextRow}}, {{nextCol}}, {{visited}} + 1). Nếu đủ {{n}} × {{n}} ô thì thành công; nếu chưa đủ thì thử tám nước đi từ ô mới.",
+      "pause": false,
+      "text": "Ô `($1, $2)` hợp lệ, nên ta ghi `{{visited}}` vào ô để **đánh dấu đã đi qua**. Sau đó tìm nước đi tiếp từ ô này."
+    },
+    {
+      "line": 19,
+      "pattern": "^No place to move from (\\d+),(\\d+): Backtrack$",
+      "goal": "Lúc này, ta cần đổi lựa chọn sau khi nhánh đi qua ô ($1, $2) không có lời giải.",
+      "reason": "Lời gọi đệ quy từ ô này đã thử hết các khả năng mà không đi qua đủ mọi ô. Đây là thất bại của nhánh này, chưa phải của toàn bộ bài toán.",
+      "calculation": "Cụ thể, board[{{nextRow}}][{{nextCol}}] = -1. Xóa số thứ tự trên ô để một nhánh khác có thể dùng lại.",
+      "conclusion": "Nhánh này đã được trả về trạng thái trước khi chọn ô ($1, $2). Các ô thuộc phần đường đi trước đó vẫn được giữ.",
+      "next": "Tiếp theo, trở về ô ({{row}}, {{col}}), tăng i để thử nước đi tiếp theo. Nếu cả tám nước đều thất bại, trả false và quay lui thêm một mức.",
+      "pause": true,
+      "text": "Nhánh đi qua ô `($1, $2)` đã thử hết nhưng không hoàn thành hành trình, nên ta **xóa ô về -1 và quay lui**. Trở về `({{row}}, {{col}})` để thử hướng khác."
+    },
+    {
+      "line": 32,
+      "pattern": "^Solution does not exist$",
+      "goal": "Lúc này, ta cần kết luận cho đầu vào đang mô phỏng.",
+      "reason": "Lời gọi đầu tiên đã trả false: mọi nhánh từ ô xuất phát đều được thử và không có nhánh nào thăm đủ mọi ô.",
+      "calculation": "Cụ thể, knightTour(0, 0, 1) = false ⇒ in “Solution does not exist”.",
+      "conclusion": "Bàn cờ {{n}} × {{n}} với điểm xuất phát (0, 0) không có hành trình theo yêu cầu. Kết luận này chỉ nói về đầu vào hiện tại.",
+      "next": "Tiếp theo, mô phỏng kết thúc. Có thể chạy lại để theo dõi các lần chọn ô và quay lui.",
+      "pause": true,
+      "text": "Đã thử hết các nhánh từ `(0, 0)` nhưng **không có hành trình đi qua đủ mọi ô** trên bàn cờ `{{n}} × {{n}}`."
+    },
+    {
+      "line": 32,
+      "pattern": "^Solution found$",
+      "goal": "Lúc này, ta cần ghi nhận một hành trình hoàn chỉnh.",
+      "reason": "visitedCount đạt số ô của bàn cờ nên hàm trả true; kết quả true được truyền ngược về lời gọi đầu tiên.",
+      "calculation": "Cụ thể, visitedCount = {{n}} × {{n}} ⇒ return true.",
+      "conclusion": "Đã đi qua mỗi ô đúng một lần. Bài này không yêu cầu nước cuối quay về ô đầu.",
+      "next": "Tiếp theo, đọc số trên từng ô để xem thứ tự đi. Mô phỏng kết thúc.",
+      "pause": true,
+      "text": "Đã tìm được hành trình **đi qua mỗi ô đúng một lần**. Các số trên bàn cờ cho biết thứ tự đi."
+    }
+  ],
+  "capture": {
+    "row": "x",
+    "col": "y",
+    "visited": "moveNum",
+    "nextRow": "nextX",
+    "nextCol": "nextY",
+    "dr": "X[i]",
+    "dc": "Y[i]",
+    "n": "N"
+  }
+}

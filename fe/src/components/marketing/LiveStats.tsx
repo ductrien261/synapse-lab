@@ -1,10 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { Box, CodeSlash } from 'react-bootstrap-icons';
-import { algoVizApi } from '@/lib/algo-api';
-import { useAnatomyModels } from '@/lib/anatomy-catalog';
 import { CountUp, Reveal } from './motion';
+import { useAlgorithmCount } from './stats/useAlgorithmCount';
+import { usePublishedAnatomyCount } from './stats/usePublishedAnatomyCount';
 
 /** Làm tròn xuống hàng chục: 21 -> 20 (hiện "20+"); dưới 10 giữ nguyên. */
 function rounded(n: number): { value: number; suffix: string } {
@@ -13,26 +12,13 @@ function rounded(n: number): { value: number; suffix: string } {
 
 /** Số liệu thật lấy từ hệ thống, làm tròn để dễ đọc. */
 export function LiveStats() {
-  const { models } = useAnatomyModels();
-  const [algorithms, setAlgorithms] = useState(0);
-
-  useEffect(() => {
-    let cancelled = false;
-    algoVizApi
-      .getCategories()
-      .then((d) => {
-        if (!cancelled) setAlgorithms((d.categories ?? []).reduce((n, c) => n + (c.algorithms?.length ?? 0), 0));
-      })
-      .catch(() => undefined);
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const anatomyModels = usePublishedAnatomyCount();
+  const algorithms = useAlgorithmCount();
 
   const stats = [
     {
       icon: Box,
-      count: models.filter((m) => m.is_published).length,
+      count: anatomyModels,
       label: 'Mô hình giải phẫu 3D',
       text: 'Có chú thích từng thành phần, mở xem ngay không cần đăng ký.',
     },

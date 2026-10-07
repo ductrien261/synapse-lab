@@ -1,11 +1,101 @@
 """Kiểm thử phần xử lý không cần mạng/DB: đọc mục lục, tách mục, chia đoạn. (Tìm kiếm: xem ai/tests)"""
 
 import json
+from tempfile import TemporaryDirectory
+from unittest.mock import Mock, patch
 
-from django.test import SimpleTestCase
+from django.core.files.base import ContentFile
+from django.test import SimpleTestCase, TestCase, override_settings
+from rest_framework.test import APIClient
 
-from .services import openstax
+from users.models import User
+
+from .models import Document
+
+from .services import curated, openstax
 from .services.chunking import Section, chunk_sections, contextual_text
+from .services.pdf import clean_pdf_text, parse_pdf
+
+
+class DocumentUploadPathTests(SimpleTestCase):
+    def test_cs_uploads_are_separate_and_medical_keys_stay_unchanged(self):
+        from .models import Document, document_upload_path
+        for scope in Document.Scope.values:
+            document = Document(scope=scope)
+            prefix = 'documents/cs' if scope == Document.Scope.CS else 'documents'
+            self.assertEqual(document_upload_path(document, 'Textbook.PDF'),
+                             f'{prefix}/{document.id}.pdf')
+        existing = Document(scope=Document.Scope.CS, file='documents/legacy.pdf')
+        existing.scope = Document.Scope.MED
+        self.assertEqual(existing.file.name, 'documents/legacy.pdf')
+
+    def test_unknown_scope_cannot_escape_documents_directory(self):
+        from .models import Document, document_upload_path
+        document = Document(scope='../outside')
+        self.assertEqual(document_upload_path(document, 'textbook.pdf'),
+                         f'documents/{document.id}.pdf')
+
+
+class CuratedSourceTests(SimpleTestCase):
+    def test_catalog_keeps_exact_license_and_official_source(self):
+        self.assertEqual(curated.SOURCES['erickson-backtracking'].license_name, 'CC BY 4.0')
+        morin = curated.SOURCES['morin-open-data-structures']
+        self.assertEqual(morin.license_name, 'CC BY 2.5 CA')
+        self.assertEqual(morin.license_url, 'https://creativecommons.org/licenses/by/2.5/ca/')
+        self.assertTrue(all(source.url.startswith('https://') for source in curated.SOURCES.values()))
+
+    @patch('knowledge.services.curated.requests.get')
+    def test_download_rejects_non_pdf(self, get):
+        response = Mock()
+        response.headers = {}
+        response.iter_content.return_value = [b'<html>not a PDF</html>']
+        get.return_value.__enter__.return_value = response
+        with self.assertRaises(curated.SourceDownloadError):
+            curated.download_pdf(curated.SOURCES['erickson-backtracking'])
+
+
+class PdfTextTests(SimpleTestCase):
+    def test_normalizes_ligatures_and_removes_database_invalid_characters(self):
+        self.assertEqual(clean_pdf_text('of\ufb01ce\x00\uffff'), 'office')
+
+    def test_curated_pdf_citations_follow_actual_page_boundaries(self):
+        import pymupdf
+
+        pdf = pymupdf.open()
+        for number in (1, 2):
+            page = pdf.new_page()
+            page.insert_text((72, 72), f'Page {number} explains a distinct algorithm state and its transition in enough detail to cite.')
+        sections, pages = parse_pdf(pdf.tobytes(), 'Test', split_pages=True)
+        self.assertEqual(pages, 2)
+        self.assertEqual([section.page for section in sections], [1, 2])
+
+
+class PdfPreviewTests(TestCase):
+    def test_only_admin_can_stream_stored_pdf(self):
+        with TemporaryDirectory() as directory, override_settings(
+            MEDIA_ROOT=directory,
+            STORAGES={'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'}},
+        ):
+            document = Document.objects.create(title='Algorithms', scope=Document.Scope.CS,
+                                               source_type=Document.SourceType.PDF)
+            document.file.save('algorithms.pdf', ContentFile(b'%PDF-1.4\npreview\n'))
+            url = f'/api/knowledge/admin/documents/{document.pk}/preview/'
+            client = APIClient()
+            self.assertEqual(client.get(url).status_code, 401)
+            learner = User.objects.create_user(email='preview-learner@example.test', password='test-password')
+            client.force_authenticate(learner)
+            self.assertEqual(client.get(url).status_code, 403)
+            admin = User.objects.create_user(email='preview-admin@example.test', password='test-password', role='admin')
+            client.force_authenticate(admin)
+            response = client.get(url)
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response['Content-Type'], 'application/pdf')
+            self.assertIn('inline', response['Content-Disposition'])
+            self.assertEqual(b''.join(response.streaming_content), b'%PDF-1.4\npreview\n')
+
+            document.source_type = Document.SourceType.OPENSTAX
+            document.save(update_fields=['source_type'])
+            self.assertEqual(client.get(url).status_code, 404)
 
 TREE = {
     'id': 'book', 'slug': 'demo-book', 'title': 'Demo Book',

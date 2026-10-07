@@ -3,37 +3,49 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft } from 'react-bootstrap-icons';
-import { algoVizApi, type AlgoDetail } from '@/lib/algo-api';
+import { algoVizApi } from '@/lib/algo-api';
+import { algorithmApi, toAlgorithmViewDetail, type AlgorithmContentDto, type AlgorithmViewDetail } from '@/lib/algorithm-api';
 import { addRecent } from '@/lib/recent';
 import { AlgorithmSimulationView } from '@/components/simulation/AlgorithmSimulationView';
 
 export default function AlgorithmViewerPage() {
   const params = useParams<{ category: string; algo: string }>();
-  const router = useRouter();
   const category = decodeURIComponent(params.category ?? '');
   const algo = decodeURIComponent(params.algo ?? '');
+  return <AlgorithmViewer key={`${category}/${algo}`} category={category} algo={algo} />;
+}
 
-  const [detail, setDetail] = useState<AlgoDetail | null>(null);
+function AlgorithmViewer({ category, algo }: { category: string; algo: string }) {
+  const router = useRouter();
+
+  const [detail, setDetail] = useState<AlgorithmViewDetail | null>(null);
+  const [content, setContent] = useState<AlgorithmContentDto | null>(null);
+  const [contentError, setContentError] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
     if (!category || !algo) return;
-    algoVizApi
-      .getAlgorithm(category, algo)
-      .then((data) => {
-        setDetail(data.algorithm);
-        // Ghi lại để hiện ở mục "Tiếp tục học" trên dashboard
-        addRecent({
-          track: 'cs',
-          href: `/algorithms/${category}/${algo}`,
-          title: data.algorithm.algorithmName,
-          subtitle: data.algorithm.categoryName,
-          group: category,
-        });
-      })
-      .catch(() => setError('Không tìm thấy thuật toán này'))
-      .finally(() => setLoading(false));
+    let cancelled = false;
+    algorithmApi.get(category, algo)
+      .then(async (lesson) => {
+        if (cancelled) return;
+        const content = lesson.content?.status === 'published' ? lesson.content : null;
+        let source: Awaited<ReturnType<typeof algoVizApi.getAlgorithm>> | null = null;
+        if (!content?.simulation?.config) {
+          source = await algoVizApi.getAlgorithm(category, algo).catch(() => null);
+        }
+        if (cancelled) return;
+        const detail = toAlgorithmViewDetail(lesson.algorithm, source?.algorithm ?? {});
+        setDetail(detail);
+        setError('');
+        setContent(content);
+        setContentError(content && !content.simulation?.config && !source ? 'Không tải được mô phỏng từ kho packages.' : '');
+        addRecent({ track: 'cs', href: `/algorithms/${category}/${algo}`,
+          title: detail.algorithmName, subtitle: detail.categoryName, group: category });
+      }).catch(() => { if (!cancelled) setError('Không tìm thấy thuật toán này.'); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, [category, algo]);
 
   if (loading) {
@@ -62,5 +74,5 @@ export default function AlgorithmViewerPage() {
     );
   }
 
-  return <AlgorithmSimulationView algorithmDetail={detail} onBack={() => router.push('/algorithms')} />;
+  return <>{contentError && <p role="alert" className="rounded-xl border border-rose-100 bg-white p-4 text-sm text-rose-700">{contentError}</p>}<AlgorithmSimulationView key={`${category}/${algo}`} algorithmDetail={detail} lessonContent={content} onBack={() => router.push('/algorithms')} /></>;
 }

@@ -46,3 +46,13 @@ be/media/
 
 # File HTML mẫu để phát triển bộ quét (không commit)
 _samples/
+
+# Lesson image downloads are stored on R2; retain source metadata only.
+be/algorithms/data/references/openstax-hamilton/assets/
+fe/public/lesson-assets/**/*.webp
+fe/public/lesson-assets/**/*.png
+fe/public/lesson-assets/**/*.jpg
+fe/public/lesson-assets/**/*.jpeg
+fe/public/lesson-assets/**/*.gif
+fe/public/lesson-assets/**/*.svg
+!fe/public/lesson-assets/openstax/hamilton-graph-g.webp

@@ -1,0 +1,348 @@
+{
+  "lesson_fields": {
+    "title": "Mã đi tuần — Knight’s Tour",
+    "theory": "Mỗi nước mã thay đổi một tọa độ 2 và tọa độ kia 1. Tám độ lệch: (2,1), (1,2), (−1,2), (−2,1), (−2,−1), (−1,−2), (1,−2), (2,−1).\n\nChỉ chọn ô trong bàn và chưa ghé. Ghi số thứ tự vào ô rồi đệ quy. Nếu không tìm được đường hoàn chỉnh thì đặt lại −1 và thử bước khác. Khi số ô đã ghé bằng N², trả thành công. Không kiểm tra cạnh cuối về đầu vì bài này không yêu cầu hành trình khép kín.",
+    "example": "Bàn 3×3: từ (0,0) có thể đến (2,1), rồi (0,2). Nhưng ô giữa (1,1) không có bước quân mã nào trong bàn nên không thể ghé đủ chín ô. Với bàn 5×5, phần ứng dụng lưu một lời giải để xem lại từng bước.",
+    "problem": "Trên bàn cờ N×N, bắt đầu tại góc (0,0), tìm dãy nước đi hợp lệ của quân mã ghé mọi ô đúng một lần. Đây là bài toán đường Hamilton trên đồ thị các bước quân mã.",
+    "summary": "Tìm đường đi của quân mã qua mọi ô đúng một lần bằng quay lui; bài học không bắt buộc quay về ô xuất phát.",
+    "complexity": "Đặt V=N². Mỗi lời gọi thử tối đa 8 ứng viên, độ sâu tối đa V, nên cận trên thô O(8^V); bộ nhớ O(V) cho bàn và ngăn xếp. Quy tắc Warnsdorff ưu tiên ô có ít lối ra chưa ghé, chỉ là heuristic thứ tự thử, không bảo đảm mọi lựa chọn tham lam đều thành công. Code gốc thử thứ tự cố định.",
+    "objectives": "Nhận biết tám bước chữ L; kiểm tra biên và ô đã ghé; đánh dấu và hoàn tác; phân biệt hành trình mở, khép kín; giải thích trường hợp không có nghiệm.",
+    "pseudocode": "SEARCH(r,c,count):\n  nếu count = N*N: trả true\n  với mỗi độ lệch (dr,dc):\n    nr ← r+dr; nc ← c+dc\n    nếu (nr,nc) trong bàn và chưa ghé:\n      board[nr][nc] ← count\n      nếu SEARCH(nr,nc,count+1): trả true\n      board[nr][nc] ← −1\n  trả false\nĐánh dấu board[0][0]=0; gọi SEARCH(0,0,1).",
+    "references": "Mã nguồn C++ và mô phỏng trong kho Synapse Lab; đối chiếu mã nguồn gốc algorithm-visualizer (giấy phép MIT): https://github.com/algorithm-visualizer/algorithms/tree/master/Backtracking/Knight%27s%20Tour%20Problem\nCác sơ đồ và câu hỏi luyện tập trong bài này do Synapse Lab tự biên soạn. Tài liệu OpenStax được giữ riêng ở kho tham khảo, không dùng làm nội dung tiếng Anh hiển thị trong bài học.",
+    "inputOutput": "Đầu vào bản C++: N từ 1 đến 5; bắt đầu (0,0). Đầu ra: ma trận thứ tự ghé 0…N²−1 hoặc thông báo vô nghiệm. Ô chưa ghé mang −1. Mô phỏng JavaScript gốc dùng N=3 để minh họa tìm kiếm thất bại.",
+    "applications": "Robot kiểm tra lưới thử nghiệm: Một robot mô phỏng có 25 vị trí kiểm tra trên lưới 5×5. Bộ điều khiển trong bài tập chỉ cho chuyển lệch (2,1) hoặc (1,2). Tuyến 25 ô cho thứ tự kiểm tra không lặp điểm dưới đúng quy tắc di chuyển đã giả định. Giới hạn: Đây là mô hình giáo dục với quy tắc chữ L, không phải robot thông thường hay phương pháp mã hóa an toàn. Hình chạy lại một lời giải 5×5 đã tìm được, không hiển thị toàn bộ cây tìm kiếm. Không suy ra rằng mọi kích thước bàn cờ đều có nghiệm.\n\nThiết kế màn chơi quân mã: Nhà thiết kế cần một lời giải cho màn chơi: xuất phát góc trên trái, đi chữ L và ghé hết 25 ô. Lời giải lưu lại giúp tạo hướng dẫn hoặc đối chiếu đường đi của người chơi. Giới hạn: Đây là mô hình giáo dục với quy tắc chữ L, không phải robot thông thường hay phương pháp mã hóa an toàn. Hình chạy lại một lời giải 5×5 đã tìm được, không hiển thị toàn bộ cây tìm kiếm. Không suy ra rằng mọi kích thước bàn cờ đều có nghiệm.\n\nTạo chuỗi kiểm thử trạng thái: Một bộ kiểm thử giáo dục biểu diễn 25 trạng thái trên lưới; chuyển trạng thái hợp lệ được quy định giống bước quân mã. Chuỗi thu được ghé đủ trạng thái đúng một lần, dùng làm dữ liệu kiểm thử quy tắc chuyển. Giới hạn: Đây là mô hình giáo dục với quy tắc chữ L, không phải robot thông thường hay phương pháp mã hóa an toàn. Hình chạy lại một lời giải 5×5 đã tìm được, không hiển thị toàn bộ cây tìm kiếm. Không suy ra rằng mọi kích thước bàn cờ đều có nghiệm.\n\nBài thực hành lập kế hoạch đường đi: Lớp học cần minh họa việc tìm tuyến trên một mạng có ràng buộc, bằng bàn cờ 5×5 và bước quân mã. Học viên có một tuyến hoàn chỉnh để kiểm tra tính hợp lệ của từng bước và số ô được ghé. Giới hạn: Đây là mô hình giáo dục với quy tắc chữ L, không phải robot thông thường hay phương pháp mã hóa an toàn. Hình chạy lại một lời giải 5×5 đã tìm được, không hiển thị toàn bộ cây tìm kiếm. Không suy ra rằng mọi kích thước bàn cờ đều có nghiệm."
+  },
+  "lesson_blocks": [
+    {
+      "id": "knights-tour-problem-theory-1",
+      "kind": "theory",
+      "title": "Bài toán quân mã đi tuần",
+      "text": "Trên bàn cờ N×N, quân mã xuất phát từ ô (0,0) và cần ghé đủ N² ô, mỗi ô đúng một lần. Một nước đi đổi hàng và cột theo (±2,±1) hoặc (±1,±2); quân mã nhảy qua các ô giữa. Xem mỗi ô là một đỉnh, mỗi nước đi hợp lệ là một cạnh: lời giải là đường Hamilton trên đồ thị này. Chương trình chỉ cần một hành trình đi qua mọi ô, không yêu cầu ô cuối nối về ô đầu. Hành trình khép kín là điều kiện bổ sung khác.",
+      "image": "",
+      "alt": "",
+      "caption": "",
+      "source": "",
+      "attribution": "Synapse Lab · Nội dung và sơ đồ tự biên soạn.",
+      "answerType": "essay",
+      "options": "",
+      "answer": "",
+      "hint": "",
+      "solution": ""
+    },
+    {
+      "id": "knights-tour-problem-theory-2",
+      "kind": "theory",
+      "title": "Đầu vào, trạng thái và điều kiện dừng",
+      "text": "Bản C++ nhận N từ 1 đến 5 và bắt đầu ở góc (0,0). board[r][c] = −1 nghĩa là chưa ghé; ô xuất phát được đánh số 0. visitedCount đếm số ô đã nằm trong đường đi, nên lời gọi đầu tiên là knightTour(0,0,1). Khi visitedCount = N², mọi ô đã được ghé và hàm trả true. N=1 thành công ngay; trên bàn 3×3, ô giữa không có nước mã nào nối tới nên không thể có hành trình đủ chín ô.",
+      "image": "",
+      "alt": "",
+      "caption": "",
+      "source": "",
+      "attribution": "Synapse Lab · Nội dung và sơ đồ tự biên soạn.",
+      "answerType": "essay",
+      "options": "",
+      "answer": "",
+      "hint": "",
+      "solution": ""
+    },
+    {
+      "id": "knights-tour-problem-theory-3",
+      "kind": "theory",
+      "title": "Một bước quay lui diễn ra thế nào?",
+      "text": "Tại ô hiện tại, chương trình duyệt tám cặp độ lệch dr[i], dc[i]. Mỗi ứng viên phải nằm trong bàn và có giá trị −1. Nếu hợp lệ, ghi visitedCount vào ô đó rồi tìm tiếp với visitedCount+1. Nhánh con thành công thì chuyển true ngược lên toàn bộ lời gọi cha. Nhánh con thất bại thì đặt lại ô vừa thử thành −1 trước khi xét nước đi kế tiếp. Bước hoàn tác này cho phép một nhánh khác dùng lại ô, nhưng không xóa các ô thuộc đường đi của lời gọi cha.",
+      "image": "",
+      "alt": "",
+      "caption": "",
+      "source": "",
+      "attribution": "Synapse Lab · Nội dung và sơ đồ tự biên soạn.",
+      "answerType": "essay",
+      "options": "",
+      "answer": "",
+      "hint": "",
+      "solution": ""
+    },
+    {
+      "id": "knights-tour-problem-theory-4",
+      "kind": "theory",
+      "title": "Theo dõi một nhánh trên bàn 3×3",
+      "text": "Từ (0,0), quân mã có thể thử (1,2) hoặc (2,1). Giả sử chọn (2,1): board[2][1] nhận số 1. Từ đó có thể đi (0,2), ghi số 2. Dù nhánh tiếp tục ra sao, ô giữa (1,1) không thể đạt bằng bất kỳ nước mã hợp lệ nào trong bàn 3×3. Khi hết ứng viên, lời gọi ở cuối nhánh trả false; chương trình xóa các dấu 2, rồi 1 khi quay về các mức tương ứng. Không tìm được nghiệm sau khi thử toàn bộ cây là kết luận của tìm kiếm, không phải lỗi chương trình.",
+      "image": "",
+      "alt": "",
+      "caption": "",
+      "source": "",
+      "attribution": "Synapse Lab · Nội dung và sơ đồ tự biên soạn.",
+      "answerType": "essay",
+      "options": "",
+      "answer": "",
+      "hint": "",
+      "solution": ""
+    },
+    {
+      "id": "knights-tour-problem-theory-5",
+      "kind": "theory",
+      "title": "Vì sao cách tìm đúng và tốn bao nhiêu?",
+      "text": "Bất biến là những ô có số 0…visitedCount−1 tạo thành một đường đi hợp lệ, không trùng ô; mọi ô khác mang −1. Kiểm tra biên và chưa ghé giữ bất biến khi mở rộng, còn hoàn tác khôi phục trạng thái trước lần thử. Mỗi nước hợp lệ trong tám hướng đều được xét, nên nếu có lời giải, một nhánh sẽ tới N²; nếu mọi nhánh thất bại thì không có lời giải theo điểm xuất phát này. Độ sâu tối đa N², mỗi mức tối đa tám ứng viên: O(8^(N²)) là cận trên thô, bộ nhớ O(N²) cho bàn và ngăn xếp.",
+      "image": "",
+      "alt": "",
+      "caption": "",
+      "source": "",
+      "attribution": "Synapse Lab · Nội dung và sơ đồ tự biên soạn.",
+      "answerType": "essay",
+      "options": "",
+      "answer": "",
+      "hint": "",
+      "solution": ""
+    },
+    {
+      "id": "knights-tour-problem-theory-6",
+      "kind": "theory",
+      "title": "Thứ tự thử và những điều dễ nhầm",
+      "text": "Quy tắc Warnsdorff ưu tiên ô ứng viên còn ít đường đi tiếp chưa ghé. Nếu chỉ dùng nó để sắp thứ tự rồi vẫn quay lui, tìm kiếm không mất nghiệm; nếu chọn tham lam một ô và bỏ các ô khác, không còn bảo đảm tìm đủ. Đừng nhầm số ô đã ghé với số nước đi: một hành trình qua V ô có V−1 nước đi. Đừng yêu cầu quay về đầu khi bài toán chỉ cần đường đi mở, và đừng quên khôi phục −1 sau nhánh thất bại. Minh họa robot đi ô chữ L chỉ là mô hình giáo dục, không mô tả chuyển động robot thông thường.",
+      "image": "",
+      "alt": "",
+      "caption": "",
+      "source": "",
+      "attribution": "Synapse Lab · Nội dung và sơ đồ tự biên soạn.",
+      "answerType": "essay",
+      "options": "",
+      "answer": "",
+      "hint": "",
+      "solution": ""
+    },
+    {
+      "id": "knights-tour-problem-visual-exercise-1",
+      "kind": "exercise",
+      "title": "Hai bước từ góc bàn",
+      "text": "Trên bàn 5×5, quân mã ở ô (1,1). Liệt kê tất cả ô có thể đến bằng đúng một nước đi.",
+      "image": "/lesson-assets/algorithms/backtracking/knight-1.svg",
+      "alt": "Bàn cờ 5 nhân 5, quân mã ở góc trên trái.",
+      "caption": "Sơ đồ do Synapse Lab biên soạn; tọa độ hàng, cột bắt đầu từ 1.",
+      "source": "",
+      "attribution": "Synapse Lab · Nội dung và sơ đồ tự biên soạn.",
+      "answerType": "essay",
+      "options": "",
+      "answer": "(2,3) và (3,2).",
+      "hint": "Thử tám cặp độ lệch và loại những tọa độ ngoài 1…5.",
+      "solution": "Từ (1,1), cộng các độ lệch (1,2) và (2,1) còn nằm trong bàn. Sáu hướng còn lại vượt biên."
+    },
+    {
+      "id": "knights-tour-problem-visual-exercise-2",
+      "kind": "exercise",
+      "title": "Tám bước từ giữa bàn",
+      "text": "Quân mã ở ô (3,3) của bàn 5×5. Có bao nhiêu đích hợp lệ và đó là những ô nào?",
+      "image": "/lesson-assets/algorithms/backtracking/knight-2.svg",
+      "alt": "Bàn cờ 5 nhân 5, quân mã ở ô chính giữa.",
+      "caption": "Sơ đồ do Synapse Lab biên soạn; tọa độ hàng, cột bắt đầu từ 1.",
+      "source": "",
+      "attribution": "Synapse Lab · Nội dung và sơ đồ tự biên soạn.",
+      "answerType": "essay",
+      "options": "",
+      "answer": "8 ô: (1,2), (1,4), (2,1), (2,5), (4,1), (4,5), (5,2), (5,4).",
+      "hint": "Đếm các vị trí cách ô hiện tại hai hàng một cột hoặc một hàng hai cột.",
+      "solution": "Mỗi nước đổi một tọa độ ±2 và tọa độ kia ±1. Từ (3,3), cả tám tổ hợp đều nằm trong bàn."
+    },
+    {
+      "id": "knights-tour-problem-visual-exercise-3",
+      "kind": "exercise",
+      "title": "Vì sao bàn 3×3 vô nghiệm?",
+      "text": "Quan sát bàn 3×3 và giải thích vì sao không thể có hành trình quân mã ghé đủ chín ô.",
+      "image": "/lesson-assets/algorithms/backtracking/knight-3.svg",
+      "alt": "Bàn 3 nhân 3 có ô giữa được đánh dấu.",
+      "caption": "Sơ đồ do Synapse Lab biên soạn; tọa độ hàng, cột bắt đầu từ 1.",
+      "source": "",
+      "attribution": "Synapse Lab · Nội dung và sơ đồ tự biên soạn.",
+      "answerType": "essay",
+      "options": "",
+      "answer": "Ô giữa (2,2) không thể đến từ bất kỳ ô nào bằng bước quân mã trong bàn 3×3.",
+      "hint": "Kiểm tra tám nước có thể xuất phát từ ô giữa.",
+      "solution": "Từ (2,2), dịch ±1 theo một chiều và ±2 theo chiều kia luôn vượt biên; do cạnh của đồ thị là hai chiều, không ô nào đi vào được ô giữa. Bắt đầu ở ô khác sẽ không ghé được ô giữa; bắt đầu ở ô giữa thì không đi tiếp được."
+    },
+    {
+      "id": "knights-tour-problem-visual-exercise-4",
+      "kind": "exercise",
+      "title": "Các lựa chọn sau ba ô đã ghé",
+      "text": "Trên bàn 5×5, các ô đánh số 0,1,2 đã ghé; quân mã đang ở ô số 2. Liệt kê các đích hợp lệ chưa ghé.",
+      "image": "/lesson-assets/algorithms/backtracking/knight-4.svg",
+      "alt": "Bàn 5 nhân 5, quân mã tại (1,3); (1,1) và (3,2) đã ghé.",
+      "caption": "Sơ đồ do Synapse Lab biên soạn; tọa độ hàng, cột bắt đầu từ 1.",
+      "source": "",
+      "attribution": "Synapse Lab · Nội dung và sơ đồ tự biên soạn.",
+      "answerType": "essay",
+      "options": "",
+      "answer": "(2,1), (2,5) và (3,4).",
+      "hint": "Trước tiên lọc theo biên, sau đó loại ô mang số 1.",
+      "solution": "Từ (1,3) có bốn ô trong biên: (2,1), (2,5), (3,2), (3,4). Ô (3,2) đã ghé nên bị loại."
+    },
+    {
+      "id": "knights-tour-problem-visual-exercise-5",
+      "kind": "exercise",
+      "title": "Hoàn tác một nước đi",
+      "text": "Sau khi thử ô số 3 mà nhánh con thất bại, chương trình cần đặt lại ô nào và giữ lại những ô nào?",
+      "image": "/lesson-assets/algorithms/backtracking/knight-5.svg",
+      "alt": "Bàn 5 nhân 5 có các ô 0,1,2 và quân mã tại ô đang thử số 3.",
+      "caption": "Sơ đồ do Synapse Lab biên soạn; tọa độ hàng, cột bắt đầu từ 1.",
+      "source": "",
+      "attribution": "Synapse Lab · Nội dung và sơ đồ tự biên soạn.",
+      "answerType": "essay",
+      "options": "",
+      "answer": "Đặt board[1][0] về −1 (tọa độ 0-based); giữ nguyên các ô số 0,1,2.",
+      "hint": "Ô M nằm ở tọa độ (2,1) nếu đếm từ 1.",
+      "solution": "Mỗi lời gọi chỉ hoàn tác ô do chính mức đó vừa đánh dấu. Xóa các ô của lời gọi cha sẽ làm sai trạng thái để thử ứng viên kế tiếp."
+    },
+    {
+      "id": "knights-tour-problem-visual-exercise-6",
+      "kind": "exercise",
+      "title": "Bàn 1×1 và điều kiện dừng",
+      "text": "Với bàn chỉ có một ô, visitedCount bằng mấy ở lời gọi đầu tiên? Hàm có cần thử nước đi nào không?",
+      "image": "/lesson-assets/algorithms/backtracking/knight-6.svg",
+      "alt": "Bàn cờ một ô có quân mã ở ô duy nhất.",
+      "caption": "Sơ đồ do Synapse Lab biên soạn; tọa độ hàng, cột bắt đầu từ 1.",
+      "source": "",
+      "attribution": "Synapse Lab · Nội dung và sơ đồ tự biên soạn.",
+      "answerType": "essay",
+      "options": "",
+      "answer": "visitedCount=1; không cần thử nước đi, trả true ngay.",
+      "hint": "Phân biệt số thứ tự ô đầu là 0 với số ô đã ghé là 1.",
+      "solution": "Đã ghé N²=1 ô. Điều kiện dừng được kiểm tra trước vòng lặp tám hướng."
+    },
+    {
+      "id": "knights-tour-problem-visual-exercise-7",
+      "kind": "exercise",
+      "title": "Đường đi mở và đường đi khép kín",
+      "text": "Nếu một hành trình trên bàn 5×5 ghé đủ 25 ô nhưng ô cuối không đi được về ô đầu bằng một nước mã, bản C++ hiện tại có chấp nhận không?",
+      "image": "/lesson-assets/algorithms/backtracking/knight-7.svg",
+      "alt": "Bàn 5 nhân 5 minh họa điểm xuất phát của hành trình.",
+      "caption": "Sơ đồ do Synapse Lab biên soạn; tọa độ hàng, cột bắt đầu từ 1.",
+      "source": "",
+      "attribution": "Synapse Lab · Nội dung và sơ đồ tự biên soạn.",
+      "answerType": "essay",
+      "options": "",
+      "answer": "Có, bản C++ chấp nhận hành trình mở.",
+      "hint": "Đọc đúng điều kiện dừng của knightTour, đừng thêm yêu cầu ngoài đề.",
+      "solution": "Điều kiện dừng chỉ kiểm tra visitedCount == N². Muốn hành trình khép kín phải thêm kiểm tra ô cuối kề ô đầu."
+    },
+    {
+      "id": "knights-tour-problem-visual-exercise-8",
+      "kind": "exercise",
+      "title": "Ưu tiên ứng viên theo Warnsdorff",
+      "text": "Giả sử từ ô M có hai nước hợp lệ: ứng viên A còn 2 nước đi tiếp chưa ghé, ứng viên B còn 5. Nếu dùng Warnsdorff chỉ để sắp thứ tự thử, nên xét ứng viên nào trước? Nếu A thất bại thì sao?",
+      "image": "/lesson-assets/algorithms/backtracking/knight-8.svg",
+      "alt": "Bàn 5 nhân 5 có hai ứng viên được đánh dấu quanh quân mã ở giữa.",
+      "caption": "Sơ đồ do Synapse Lab biên soạn; tọa độ hàng, cột bắt đầu từ 1.",
+      "source": "",
+      "attribution": "Synapse Lab · Nội dung và sơ đồ tự biên soạn.",
+      "answerType": "essay",
+      "options": "",
+      "answer": "Thử A trước; nếu A thất bại vẫn quay lui và thử B.",
+      "hint": "Ưu tiên không đồng nghĩa với loại bỏ các lựa chọn còn lại.",
+      "solution": "Warnsdorff ưu tiên ô có ít lối ra chưa ghé. Nó chỉ đổi thứ tự thử khi vẫn giữ đầy đủ nhánh quay lui."
+    }
+  ],
+  "summary": "Tìm đường đi của quân mã qua mọi ô đúng một lần bằng quay lui; bài học không bắt buộc quay về ô xuất phát.",
+  "theory": "Mỗi nước mã thay đổi một tọa độ 2 và tọa độ kia 1. Tám độ lệch: (2,1), (1,2), (−1,2), (−2,1), (−2,−1), (−1,−2), (1,−2), (2,−1).\n\nChỉ chọn ô trong bàn và chưa ghé. Ghi số thứ tự vào ô rồi đệ quy. Nếu không tìm được đường hoàn chỉnh thì đặt lại −1 và thử bước khác. Khi số ô đã ghé bằng N², trả thành công. Không kiểm tra cạnh cuối về đầu vì bài này không yêu cầu hành trình khép kín.",
+  "applications": [
+    "Robot kiểm tra lưới thử nghiệm",
+    "Thiết kế màn chơi quân mã",
+    "Tạo chuỗi kiểm thử trạng thái",
+    "Bài thực hành lập kế hoạch đường đi"
+  ],
+  "time_worst": "O(8^(N²)) (cận trên thô)",
+  "space": "O(N²)",
+  "status": "draft",
+  "code_lesson": {
+    "steps": [
+      {
+        "note": "iostream đọc kích thước bàn và in kết quả; vector lưu bàn cờ hai chiều.",
+        "title": "Chuẩn bị nhập xuất và mảng",
+        "end_line": 3,
+        "start_line": 1
+      },
+      {
+        "note": "n là số hàng và cột. Giá trị −1 đánh dấu ô chưa ghé.",
+        "title": "Lưu kích thước và trạng thái bàn",
+        "end_line": 6,
+        "start_line": 5
+      },
+      {
+        "note": "Mỗi cặp dr[i], dc[i] đổi một tọa độ 2 và tọa độ kia 1.",
+        "title": "Định nghĩa tám nước đi chữ L",
+        "end_line": 8,
+        "start_line": 7
+      },
+      {
+        "note": "row, col là ô hiện tại; visitedCount là số ô đã có trong đường đi.",
+        "title": "Khai báo hàm tìm kiếm đệ quy",
+        "end_line": 10,
+        "start_line": 10
+      },
+      {
+        "note": "Khi đã ghé n×n ô, trả thành công; không yêu cầu cạnh nối về ô đầu.",
+        "title": "Nhận biết hành trình hoàn chỉnh",
+        "end_line": 11,
+        "start_line": 11
+      },
+      {
+        "note": "Duyệt tám cặp độ lệch rồi tính tọa độ ứng viên.",
+        "title": "Thử từng ô đích",
+        "end_line": 14,
+        "start_line": 12
+      },
+      {
+        "note": "Kiểm tra biên trước khi truy cập board, rồi loại ô đã ghé.",
+        "title": "Loại ứng viên không hợp lệ",
+        "end_line": 16,
+        "start_line": 15
+      },
+      {
+        "note": "Ghi thứ tự ghé vào ô mới để nhánh con không dùng lại ô đó.",
+        "title": "Đánh dấu lựa chọn",
+        "end_line": 17,
+        "start_line": 17
+      },
+      {
+        "note": "Chuyển sang ô vừa chọn với số ô đã ghé tăng một; nếu thành công thì trả true lên trên.",
+        "title": "Tìm tiếp bằng đệ quy",
+        "end_line": 18,
+        "start_line": 18
+      },
+      {
+        "note": "Đặt lại ô vừa chọn thành −1 để nhánh khác có thể dùng; đây là bước quay lui.",
+        "title": "Hoàn tác khi nhánh thất bại",
+        "end_line": 19,
+        "start_line": 19
+      },
+      {
+        "note": "Nếu cả tám hướng đều không dẫn tới nghiệm, trả false cho lời gọi cha.",
+        "title": "Báo nhánh hiện tại thất bại",
+        "end_line": 22,
+        "start_line": 20
+      },
+      {
+        "note": "Chỉ nhận N từ 1 đến 5 vì tìm kiếm vét cạn có thể tốn nhiều thời gian.",
+        "title": "Đọc và kiểm tra đầu vào",
+        "end_line": 28,
+        "start_line": 24
+      },
+      {
+        "note": "Đặt mọi ô thành −1, sau đó đánh số 0 cho ô (0,0).",
+        "title": "Khởi tạo ô xuất phát",
+        "end_line": 30,
+        "start_line": 29
+      },
+      {
+        "note": "Đã ghé một ô nên gọi knightTour(0,0,1); false nghĩa là không tìm được hành trình với bàn và điểm đầu này.",
+        "title": "Chạy tìm kiếm và xử lý vô nghiệm",
+        "end_line": 34,
+        "start_line": 31
+      },
+      {
+        "note": "Mỗi giá trị cho biết thứ tự ghé; một nghiệm có đủ các số từ 0 đến n×n−1.",
+        "title": "In bàn cờ kết quả",
+        "end_line": 40,
+        "start_line": 35
+      }
+    ],
+    "source": "#include <iostream>\n#include <vector>\nusing namespace std;\n\nint n;\nvector<vector<int>> board;\nconst int dr[8] = {2, 1, -1, -2, -2, -1, 1, 2};\nconst int dc[8] = {1, 2, 2, 1, -1, -2, -2, -1};\n\nbool knightTour(int row, int col, int visitedCount) {\n    if (visitedCount == n * n) return true;\n    for (int i = 0; i < 8; ++i) {\n        int nextRow = row + dr[i];\n        int nextCol = col + dc[i];\n        if (nextRow < 0 || nextRow >= n || nextCol < 0 || nextCol >= n) continue;\n        if (board[nextRow][nextCol] != -1) continue;\n        board[nextRow][nextCol] = visitedCount;\n        if (knightTour(nextRow, nextCol, visitedCount + 1)) return true;\n        board[nextRow][nextCol] = -1;\n    }\n    return false;\n}\n\nint main() {\n    if (!(cin >> n) || n < 1 || n > 5) {\n        cout << \"Use a board size from 1 to 5.\\n\";\n        return 1;\n    }\n    board.assign(n, vector<int>(n, -1));\n    board[0][0] = 0;\n    if (!knightTour(0, 0, 1)) {\n        cout << \"Solution does not exist\\n\";\n        return 0;\n    }\n    for (const auto& row : board) {\n        for (int value : row) cout << value << ' ';\n        cout << '\\n';\n    }\n    return 0;\n}\n",
+    "language": "cpp"
+  }
+}

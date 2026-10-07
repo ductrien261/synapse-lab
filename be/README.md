@@ -8,7 +8,7 @@ Django 5 + Django REST Framework + SimpleJWT. Hướng dẫn chạy toàn bộ d
 |---|---|
 | `core` | settings, urls gốc, health check |
 | `users` | tài khoản (đăng nhập bằng email), role `user` / `admin`, chuyên ngành `cs` / `med`, phân quyền |
-| `knowledge` | `Document` (giáo trình, file trên Neon Object Storage), `DocumentChunk` (đoạn trích + số trang + vector 768 chiều) |
+| `knowledge` | `Document` (giáo trình, file trên Cloudflare R2 qua API S3 hoặc local), `DocumentChunk` (đoạn trích + số trang + vector 768 chiều) |
 | `anatomy` | `BodySystem` → `AnatomyModel` (Sketchfab) → `ModelAnnotation` (chú thích số) → `Structure` (kiến thức) → `StructureReference` (trích giáo trình) |
 | `algorithms` | `AlgorithmCategory`, `Algorithm` (đồng bộ từ algo-server), `AlgorithmContent` (giải thích), `AlgorithmReference` |
 | `learning` | `LearningActivity` (lịch sử học), `StudyDay` (ngày có học) |

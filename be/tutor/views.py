@@ -59,11 +59,144 @@ def message_data(m: TutorMessage) -> dict:
     qc = m.quick_check
     if qc and 'answered_index' not in qc:
         qc = {k: v for k, v in qc.items() if k not in ('correct_index', 'explanation')}  # chưa trả lời -> ẩn đáp án
+    activity = m.action_data
+    if activity and m.action_kind == 'quiz' and isinstance(activity.get('questions'), list):
+        activity = {
+            **activity,
+            'questions': [
+                question if 'answered_index' in question else {
+                    k: v for k, v in question.items()
+                    if k not in ('correct_index', 'explanation', 'source_quote', 'source_n')
+                }
+                for question in activity['questions']
+            ],
+        }
+    elif activity and m.action_kind in ('quiz', 'scenario') and 'answered_index' not in activity:
+        activity = {k: v for k, v in activity.items() if k not in ('correct_index', 'explanation')}
     return {
         'id': m.id, 'role': m.role, 'content': m.content, 'status': m.status, 'part_index': m.part_index,
         'citations': m.citations, 'highlights': m.highlights, 'suggestions': m.suggestions,
-        'from_cache': m.from_cache, 'feedback': m.feedback, 'quick_check': qc, 'created_at': m.created_at,
+        'from_cache': m.from_cache, 'feedback': m.feedback, 'quick_check': qc,
+        'action_kind': m.action_kind, 'action_data': activity, 'created_at': m.created_at,
     }
+
+
+class ActionView(APIView):
+    """Create a sourced anatomy activity and save it in the tutor conversation."""
+
+    permission_classes = [IsAuthenticated]
+    throttle_classes = [AskThrottle]
+
+    class Input(serializers.Serializer):
+        action = serializers.ChoiceField(choices=['quiz', 'scenario', 'summary', 'flashcards'])
+        model_uid = serializers.CharField(max_length=32)
+        part_index = serializers.IntegerField(required=False, allow_null=True, min_value=0)
+        conversation_id = serializers.UUIDField(required=False, allow_null=True)
+        topic = serializers.CharField(max_length=160, required=False, allow_blank=True)
+        style = serializers.ChoiceField(choices=['clinic', 'imaging'], required=False, default='clinic')
+        question_count = serializers.IntegerField(required=False, default=5, min_value=1, max_value=10)
+        quiz_style = serializers.ChoiceField(choices=['theory', 'application', 'practice'], required=False, default='theory')
+        card_count = serializers.IntegerField(required=False, default=5, min_value=1, max_value=10)
+        focus_note = serializers.CharField(max_length=200, required=False, allow_blank=True)
+
+    def post(self, request):
+        serializer = self.Input(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        v = serializer.validated_data
+        qs = AnatomyModel.objects.all() if is_admin(request.user) else AnatomyModel.objects.filter(is_published=True)
+        model = get_object_or_404(qs, sketchfab_uid=v['model_uid'])
+        conversation = None
+        if v.get('conversation_id'):
+            conversation = get_object_or_404(Conversation, pk=v['conversation_id'], user=request.user,
+                                             anatomy_model=model)
+        part_index = v.get('part_index')
+        part = next((p for p in model_parts(model) if p['index'] == part_index), None)
+        subject = v.get('topic') or (part or {}).get('name_vi') or (part or {}).get('name_en') or model.title_vi or model.title
+        labels = {'quiz': 'Trắc nghiệm', 'scenario': 'Tình huống', 'summary': 'Tóm tắt', 'flashcards': 'Flashcard'}
+        question = f"{labels[v['action']]} về {subject}"
+        if v['action'] == 'quiz':
+            question = f"Tạo {v['question_count']} câu trắc nghiệm về {subject}"
+        elif v['action'] == 'flashcards':
+            question = f"Tạo {v['card_count']} flashcard về {subject}"
+            if v.get('focus_note'):
+                question += f" · {v['focus_note']}"
+        question = question[:1000]
+        try:
+            result = call_ai('/v1/tutor/action', {
+                'action': v['action'], 'model_title': model.title_vi or model.title,
+                'part': part, 'topic': v.get('topic', ''), 'style': v['style'],
+                'question_count': v['question_count'], 'quiz_style': v['quiz_style'],
+                'card_count': v['card_count'], 'focus_note': v.get('focus_note', ''),
+            }, user=request.user, feature='tutor')
+        except AIError as exc:
+            return Response({'detail': str(exc)}, status=exc.status_code)
+        if result.get('status') != 'ok':
+            return Response({'detail': result.get('error') or 'Chưa tạo được nội dung có nguồn.'},
+                            status=status.HTTP_422_UNPROCESSABLE_ENTITY)
+        if v['action'] == 'quiz' and (
+            not isinstance(result.get('data'), dict)
+            or not isinstance(result['data'].get('questions'), list)
+            or len(result['data']['questions']) != v['question_count']
+        ):
+            return Response({'detail': 'Bộ câu hỏi chưa đúng số lượng yêu cầu. Vui lòng thử lại.'},
+                            status=status.HTTP_422_UNPROCESSABLE_ENTITY)
+        if v['action'] == 'flashcards' and (
+            not isinstance(result.get('data'), dict)
+            or not isinstance(result['data'].get('cards'), list)
+            or len(result['data']['cards']) != v['card_count']
+        ):
+            return Response({'detail': 'Bộ flashcard chưa đúng số lượng yêu cầu. Vui lòng thử lại.'},
+                            status=status.HTTP_422_UNPROCESSABLE_ENTITY)
+        if conversation is None:
+            conversation = Conversation.objects.create(user=request.user, anatomy_model=model, title=question[:200])
+        user_message = TutorMessage.objects.create(conversation=conversation, role='user', content=question,
+                                                  part_index=part_index)
+        activity = result['data']
+        if v['action'] == 'quiz':
+            content = '\n'.join(item['question'] for item in activity['questions'])
+        elif v['action'] == 'scenario':
+            content = activity['question']
+        elif v['action'] == 'summary':
+            content = '\n'.join(activity['items'])
+        else:
+            content = '\n'.join(f"{card['front']} — {card['back']}" for card in activity['cards'])
+        msg = TutorMessage.objects.create(
+            conversation=conversation, role='assistant', content=content, status='ok',
+            part_index=part_index, citations=result['citations'], action_kind=v['action'], action_data=activity,
+        )
+        Conversation.objects.filter(pk=conversation.pk).update(updated_at=timezone.now())
+        return Response({'conversation_id': str(conversation.pk), 'user_message': message_data(user_message),
+                         'message': message_data(msg)},
+                        status=status.HTTP_201_CREATED)
+
+
+class ActionAnswerView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        msg = get_object_or_404(TutorMessage, pk=pk, conversation__user=request.user,
+                                role='assistant', action_kind__in=('quiz', 'scenario'))
+        data = msg.action_data or {}
+        questions = data.get('questions') if msg.action_kind == 'quiz' else None
+        try:
+            question_index = int(request.data.get('question_index', 0))
+        except (TypeError, ValueError):
+            return Response({'detail': 'Câu hỏi không hợp lệ.'}, status=status.HTTP_400_BAD_REQUEST)
+        if questions is not None and question_index not in range(len(questions)):
+            return Response({'detail': 'Câu hỏi không hợp lệ.'}, status=status.HTTP_400_BAD_REQUEST)
+        target = questions[question_index] if questions is not None else data
+        try:
+            choice = int(request.data.get('choice'))
+        except (TypeError, ValueError):
+            return Response({'detail': 'Đáp án không hợp lệ.'}, status=status.HTTP_400_BAD_REQUEST)
+        if choice not in range(len(target.get('options', []))):
+            return Response({'detail': 'Đáp án không hợp lệ.'}, status=status.HTTP_400_BAD_REQUEST)
+        if 'answered_index' not in target:
+            target['answered_index'] = choice
+            target['correct'] = choice == target['correct_index']
+            msg.action_data = data
+            msg.save(update_fields=['action_data'])
+        return Response(message_data(msg)['action_data'])
 
 
 class AskView(APIView):

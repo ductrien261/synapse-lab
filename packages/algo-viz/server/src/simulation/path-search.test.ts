@@ -1,0 +1,31 @@
+import assert from 'assert';
+import { createPathSearch, PathSearchDefinition } from './path-search';
+import definitions from './path-definitions.json';
+
+const base = definitions['backtracking/hamiltonean-cycles'].search as PathSearchDefinition;
+const triangle = [[0, 1, 1], [1, 0, 1], [1, 1, 0]];
+const chain = [[0, 1, 0, 0], [1, 0, 1, 0], [0, 1, 0, 1], [0, 0, 1, 0]];
+const count = (matrix: number[][], options: Partial<PathSearchDefinition>) => {
+  const before = JSON.stringify(matrix);
+  const trace = createPathSearch({ ...base, ...options })(matrix);
+  assert.strictEqual(JSON.stringify(matrix), before);
+  trace.steps.forEach(step => assert(step.narration && !step.narration.text!.includes('{{')));
+  return trace.steps.filter(step => step.action.tone === 'complete');
+};
+assert.strictEqual(count(triangle, { closed: true }).length, 1);
+assert.strictEqual(count(triangle, { closed: false }).length, 2);
+assert.strictEqual(count(triangle, { closed: true, start: 2 }).length, 1);
+assert.strictEqual(count(chain, { closed: true }).length, 0);
+assert.strictEqual(count(chain, { closed: false }).length, 1);
+assert.strictEqual(count(triangle, { closed: false, targetLength: 2, minimumLength: 2 }).length, 2);
+const two = [[0, 1], [1, 0]];
+assert.strictEqual(count(two, { closed: true }).length, 0);
+assert.strictEqual(count(two, { closed: false, minimumLength: 2 }).length, 1);
+assert.throws(() => createPathSearch({ ...base, start: 9 })(triangle));
+assert.throws(() => createPathSearch({ ...base, targetLength: 4 })(triangle));
+assert.throws(() => createPathSearch({ ...base, teaching: {} })(triangle), /Missing path-search presentation/);
+const routes = count(triangle, { closed: false, start: 2 });
+assert(routes.every(step => step.metrics[0].value.startsWith('2 → ') && !step.metrics[0].value.endsWith('→ 2')));
+const cycleTrace = createPathSearch(base)(triangle);
+assert(cycleTrace.steps.every(step => step.graph!.edges.every(edge => edge.from !== edge.to)));
+console.log('Passed: one path engine handles closed cycles, open paths, nonzero start, partial paths and impossible cases.');

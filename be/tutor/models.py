@@ -47,8 +47,13 @@ class TutorMessage(models.Model):
 
     feedback = models.SmallIntegerField(null=True, blank=True)  # 1 = hữu ích, -1 = chưa tốt
     feedback_note = models.CharField(max_length=500, blank=True)
+    # Một số database đã có cột này từ luồng duyệt phản hồi cũ. Luôn gửi giá trị
+    # khi tạo tin nhắn để không vi phạm ràng buộc NOT NULL của database đó.
+    feedback_reviewed = models.BooleanField(default=False)
     # "Kiểm tra nhanh": {question, options, correct_index, explanation, answered_index?, correct?}
     quick_check = models.JSONField(null=True, blank=True)
+    action_kind = models.CharField(max_length=12, blank=True)
+    action_data = models.JSONField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

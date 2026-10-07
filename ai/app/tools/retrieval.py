@@ -13,7 +13,7 @@ from psycopg_pool import ConnectionPool
 
 from ..config import get_settings
 from ..llm.context import RunContext
-from .embeddings import embed_query
+from .embeddings import EmbeddingError, embed_query
 from .translate import english_query
 
 RRF_K = 60
@@ -101,25 +101,33 @@ def _scope_sql(scope: str | None, document_ids: list[str] | None) -> tuple[str, 
 
 
 def search(ctx: RunContext, query: str, k: int = 5, scope: str | None = None, per_section: int = 2,
-           document_ids: list[str] | None = None) -> tuple[list[Hit], dict]:
+           document_ids: list[str] | None = None,
+           allow_keyword_fallback: bool = False) -> tuple[list[Hit], dict]:
     query = (query or '').strip()
     if not query:
         return [], {}
     en, translated = english_query(ctx, query)
-    qvec = embed_query(ctx, f'{query}\n{en}' if translated else query)
-    vec_literal = '[' + ','.join(f'{v:.7f}' for v in qvec) + ']'
+    try:
+        qvec = embed_query(ctx, f'{query}\n{en}' if translated else query)
+    except EmbeddingError:
+        if scope != 'cs' and not allow_keyword_fallback:
+            raise
+        qvec = None
+    vec_literal = '[' + ','.join(f'{v:.7f}' for v in qvec) + ']' if qvec else None
     extra, params = _scope_sql(scope, document_ids)
     terms = keyword_terms(en)
 
     with _pool().connection() as conn:
         conn.read_only = True
         with conn.cursor() as cur:
-            cur.execute(
-                f'SELECT c.id FROM {CHUNK} c JOIN {DOC} d ON d.id = c.document_id '
-                f'WHERE c.embedding IS NOT NULL{extra} ORDER BY c.embedding <=> %s::vector LIMIT %s',
-                [*params, vec_literal, CANDIDATES],
-            )
-            dense = [r[0] for r in cur.fetchall()]
+            dense = []
+            if vec_literal:
+                cur.execute(
+                    f'SELECT c.id FROM {CHUNK} c JOIN {DOC} d ON d.id = c.document_id '
+                    f'WHERE c.embedding IS NOT NULL{extra} ORDER BY c.embedding <=> %s::vector LIMIT %s',
+                    [*params, vec_literal, CANDIDATES],
+                )
+                dense = [r[0] for r in cur.fetchall()]
             keyword: list[int] = []
             if terms:
                 cur.execute(

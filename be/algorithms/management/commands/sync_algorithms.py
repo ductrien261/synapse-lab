@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand, CommandError
 
-from algorithms.services import sync_from_algo_server
+from algorithms.services.catalog import sync_from_algo_server
 
 
 class Command(BaseCommand):

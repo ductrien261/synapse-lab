@@ -12,6 +12,7 @@ import {
   type DocScope,
   type IngestJob,
   type OpenStaxBook,
+  type CuratedSource,
 } from '@/lib/admin-knowledge';
 import { TocPicker } from './TocPicker';
 
@@ -21,9 +22,42 @@ export function AddDocumentPanel({ busy, startJob, reloadSignal }: { busy: boole
   return (
     <div className="flex flex-col gap-5">
       <OpenStaxCard busy={busy} startJob={startJob} reloadSignal={reloadSignal} />
+      <CuratedSourcesCard busy={busy} startJob={startJob} reloadSignal={reloadSignal} />
       <PdfCard busy={busy} startJob={startJob} />
     </div>
   );
+}
+
+function CuratedSourcesCard({ busy, startJob, reloadSignal }: { busy: boolean; startJob: StartJob; reloadSignal: number }) {
+  const [sources, setSources] = useState<CuratedSource[]>([]);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    adminKnowledgeApi.curatedSources()
+      .then((data) => { if (!cancelled) setSources(data); })
+      .catch((err: unknown) => { if (!cancelled) setError(err instanceof Error ? err.message : 'Không tải được nguồn tài liệu'); });
+    return () => { cancelled = true; };
+  }, [reloadSignal]);
+
+  return <section className="overflow-hidden rounded-2xl border border-stone-200/90 bg-white">
+    <div className="border-b border-stone-100 px-5 py-4">
+      <h2 className="flex items-center gap-2 text-base font-bold text-stone-900"><Book className="h-4 w-4 text-[#1E3F82]" /> Giáo trình mở CNTT</h2>
+      <p className="mt-1 text-xs text-stone-500">Nguồn từ tác giả, có giấy phép cho phép sao chép và tái sử dụng khi ghi công. Nạp vào kho CNTT; hệ thống giữ link gốc và giấy phép để trích dẫn.</p>
+    </div>
+    {error && <p className="px-5 py-3 text-sm text-rose-700">{error}</p>}
+    <ul className="divide-y divide-stone-100">
+      {sources.map((source) => <li key={source.key} className="flex flex-wrap items-center gap-3 px-5 py-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-bold text-stone-800">{source.title}</p>
+          <p className="mt-0.5 text-xs text-stone-500">{source.authors} · <a href={source.url} target="_blank" rel="noreferrer" className="hover:underline">Trang gốc ↗</a> · <a href={source.license_url} target="_blank" rel="noreferrer" className="hover:underline">{source.license_name}</a></p>
+        </div>
+        <button type="button" disabled={busy || Boolean(source.document_id)} onClick={() => void startJob(() => adminKnowledgeApi.ingestCurated(source.key))} className="rounded-xl border border-[#1E3F82]/30 px-3 py-2 text-xs font-bold text-[#1E3F82] hover:bg-[#F4F7FC] disabled:cursor-default disabled:opacity-50">
+          {source.document_id ? 'Đã có trong kho' : 'Nạp tài liệu'}
+        </button>
+      </li>)}
+    </ul>
+  </section>;
 }
 
 /* ---------------- Sách OpenStax ---------------- */

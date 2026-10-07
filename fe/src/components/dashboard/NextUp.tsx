@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { ArrowRight, Lightbulb } from 'react-bootstrap-icons';
 import type { RecentItem } from '@/lib/recent';
 import { useAlgoCatalog } from '@/lib/algo-catalog';
-import { categoryLabelVi } from '@/lib/algo-categories';
 import { modelHref, modelTitle, useAnatomyModels, useBodySystems } from '@/lib/anatomy-catalog';
 import type { Track } from '@/lib/tracks';
 
@@ -38,7 +37,7 @@ export function NextUp({ track, recent }: { track: Track; recent: RecentItem[] }
         suggestions.push({
           href,
           title: algo.name,
-          subtitle: categoryLabelVi(cat.key, cat.name),
+          subtitle: cat.name,
           reason: cat.key === lastGroup ? 'Cùng nhóm bạn vừa học' : 'Chưa khám phá',
         });
         if (suggestions.length >= MAX) break;

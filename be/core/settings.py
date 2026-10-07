@@ -118,23 +118,31 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # ------------------------------------------------------------
 # Lưu file upload (giáo trình PDF...)
-# - Có S3_BUCKET trong .env  -> lưu lên Neon Object Storage (chuẩn S3)
+# - Có S3_BUCKET trong .env  -> lưu lên AWS S3 hoặc storage tương thích S3
 # - Không có                 -> lưu local trong be/media/ (tiện khi dev)
 # ------------------------------------------------------------
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
-S3_BUCKET = env('S3_BUCKET', default='') if env('S3_ENDPOINT_URL', default='') else ''
+S3_ENDPOINT_URL = env('S3_ENDPOINT_URL', default='')
+S3_BUCKET = env('S3_BUCKET', default='') if S3_ENDPOINT_URL else ''
+S3_REGION = env('S3_REGION', default='auto')
+if not S3_ENDPOINT_URL and S3_REGION == 'auto':
+    S3_REGION = 'us-east-1'
+LESSON_ASSETS_ON_S3 = env.bool('LESSON_ASSETS_ON_S3', default=False)
+if LESSON_ASSETS_ON_S3 and not S3_BUCKET:
+    from django.core.exceptions import ImproperlyConfigured
+    raise ImproperlyConfigured('LESSON_ASSETS_ON_S3 requires S3_BUCKET.')
 if S3_BUCKET:
     STORAGES = {
         'default': {
             'BACKEND': 'storages.backends.s3.S3Storage',
             'OPTIONS': {
                 'bucket_name': S3_BUCKET,
-                'endpoint_url': env('S3_ENDPOINT_URL'),
-                'access_key': env('S3_ACCESS_KEY_ID'),
-                'secret_key': env('S3_SECRET_ACCESS_KEY'),
-                'region_name': env('S3_REGION', default='auto'),
+                'endpoint_url': S3_ENDPOINT_URL or None,
+                'access_key': env('S3_ACCESS_KEY_ID', default='') or None,
+                'secret_key': env('S3_SECRET_ACCESS_KEY', default='') or None,
+                'region_name': S3_REGION,
                 'addressing_style': 'path',
                 'signature_version': 's3v4',
                 'default_acl': None,
@@ -144,6 +152,11 @@ if S3_BUCKET:
             },
         },
         'staticfiles': {'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage'},
+    }
+    # Stable asset keys; document uploads retain their existing no-overwrite policy.
+    STORAGES['lesson_assets'] = {
+        'BACKEND': 'storages.backends.s3.S3Storage',
+        'OPTIONS': {**STORAGES['default']['OPTIONS'], 'file_overwrite': True},
     }
 
 # Service AI (thư mục ai/ — FastAPI + LangGraph). Mọi lần gọi LLM đi qua service này.

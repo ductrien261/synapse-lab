@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ArrowCounterclockwise, CheckLg, ClockHistory, Controller, ExclamationTriangleFill, Trash } from 'react-bootstrap-icons';
 import { BOX_LABEL, learnerApi, reviewIn, type LearnerProfileData, type MasteryRow, type MisconceptionRow } from '@/lib/learner';
 
@@ -30,10 +30,14 @@ export function LearningEmpty() {
 /** Hồ sơ học tập: số liệu + mức nắm vững (trái) + cần ôn & chỗ hay nhầm (phải). */
 export function LearningOverview({ data, onChanged }: { data: LearnerProfileData; onChanged: () => void }) {
   const [showResolved, setShowResolved] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
   const s = data.stats;
   const active = data.misconceptions.filter((m) => m.status === 'active');
   const resolved = data.misconceptions.filter((m) => m.status === 'resolved');
-  const now = Date.now();
   const due = data.mastery.filter((r) => r.next_review_at && new Date(r.next_review_at).getTime() <= now).slice(0, 6);
 
   const act = (m: MisconceptionRow, action: 'resolve' | 'reopen' | 'delete') => {

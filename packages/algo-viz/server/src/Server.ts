@@ -13,7 +13,11 @@ import { errorHandlerMiddleware, frontendMiddleware, redirectMiddleware } from '
 
 export default class Server {
   readonly hierarchy = new Hierarchy();
-  readonly tracers = Object.values(Tracers).map(Tracer => new Tracer());
+  // Legacy /api/tracers endpoints need Docker/AWS inside this process. The
+  // catalog simulation API uses simulation/service instead and does not need them.
+  readonly tracers = process.env.LEGACY_TRACERS_ENABLED === '1'
+    ? Object.values(Tracers).map(Tracer => new Tracer())
+    : [];
   private readonly app = express();
 
   constructor() {
@@ -59,4 +63,3 @@ export default class Server {
     }
   }
 }
-

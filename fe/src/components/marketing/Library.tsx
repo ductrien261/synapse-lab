@@ -1,13 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ArrowRight, Box, CodeSlash, Search } from 'react-bootstrap-icons';
-import { algoVizApi, type AlgoCategory } from '@/lib/algo-api';
-import { categoryLabelVi } from '@/lib/algo-categories';
 import { modelHref, modelTitle, useAnatomyModels, useBodySystems } from '@/lib/anatomy-catalog';
 import { Container } from './ui';
-import { SortDemo } from './SortDemo';
+import { AlgorithmLibraryTab } from './AlgorithmLibraryTab';
 
 type Tab = 'models' | 'algorithms';
 
@@ -53,7 +51,7 @@ export function Library({ initialTab }: { initialTab: Tab }) {
         </Container>
       </div>
       <section className="bg-[#F4F7FC] py-12 md:py-16">
-        <Container>{tab === 'models' ? <ModelsTab /> : <AlgorithmsTab />}</Container>
+        <Container>{tab === 'models' ? <ModelsTab /> : <AlgorithmLibraryTab />}</Container>
       </section>
     </>
   );
@@ -137,75 +135,6 @@ function ModelsTab() {
           ))}
         </Grid>
       )}
-    </div>
-  );
-}
-
-function AlgorithmsTab() {
-  const [categories, setCategories] = useState<AlgoCategory[] | null>(null);
-  const [failed, setFailed] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    algoVizApi
-      .getCategories()
-      .then((data) => {
-        if (!cancelled) setCategories(Array.isArray(data.categories) ? data.categories.filter((c) => c.algorithms?.length) : []);
-      })
-      .catch(() => {
-        if (!cancelled) setFailed(true);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  return (
-    <div className="flex flex-col gap-12">
-      <div>
-        <h2 className="mb-5 text-xl font-bold text-[#0F2258]">Chạy thử ngay</h2>
-        <SortDemo />
-      </div>
-      <div>
-        <h2 className="mb-5 text-xl font-bold text-[#0F2258]">Thư viện giải thuật</h2>
-        {failed ? (
-          <p className="rounded-xl border border-dashed border-slate-300 bg-white px-6 py-10 text-center text-slate-500">
-            Chưa tải được thư viện giải thuật. Vui lòng thử lại sau.
-          </p>
-        ) : categories === null ? (
-          <Grid>
-            {Array.from({ length: 3 }, (_, i) => (
-              <li key={i} className="h-40 animate-pulse rounded-xl bg-white" />
-            ))}
-          </Grid>
-        ) : (
-          <div className="flex flex-col gap-10">
-            {categories.map((cat) => (
-              <div key={cat.key}>
-                <p className="mb-4 text-sm font-semibold text-slate-500">
-                  {categoryLabelVi(cat.key, cat.name)} · {cat.algorithms.length} giải thuật
-                </p>
-                <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {cat.algorithms.map((algo) => (
-                    <li key={algo.key}>
-                      <Link
-                        href={`/algorithms/${cat.key}/${algo.key}`}
-                        className="group flex h-full items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white px-5 py-4 transition-colors hover:border-[#1E3F82]"
-                      >
-                        <span>
-                          <span className="block font-semibold text-[#0F2258]">{algo.name}</span>
-                          {algo.description && <span className="mt-1 line-clamp-2 block text-sm text-slate-500">{algo.description}</span>}
-                        </span>
-                        <ArrowRight className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-hover:translate-x-1 group-hover:text-[#1E3F82]" />
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
     </div>
   );
 }

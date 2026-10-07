@@ -21,7 +21,10 @@ EMBEDDING_DIMENSIONS = 768  # Gemini embedding, output_dimensionality=768
 
 
 def document_upload_path(instance: 'Document', filename: str) -> str:
-    return f'documents/{instance.id}{Path(filename).suffix.lower()}'
+    suffix = Path(filename).suffix.lower()
+    if instance.scope == Document.Scope.CS:
+        return f'documents/cs/{instance.id}{suffix}'
+    return f'documents/{instance.id}{suffix}'
 
 
 class Document(TimeStampedModel):

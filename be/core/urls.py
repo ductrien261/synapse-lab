@@ -36,7 +36,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/users/', include('users.urls')),
     path('api/anatomy/', include('anatomy.urls')),
-    path('api/algorithms/', include('algorithms.urls')),
+    path('api/algorithms/', include('algorithms.api.urls')),
     path('api/learning/', include('learning.urls')),
     path('api/translate/', include('translation.urls')),
     path('api/knowledge/', include('knowledge.urls')),

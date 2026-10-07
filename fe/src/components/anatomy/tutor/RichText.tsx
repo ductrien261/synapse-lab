@@ -42,7 +42,28 @@ function inline<C extends CiteLike>(text: string, citations: C[], onCite: (c: C)
 }
 
 /** Hiển thị câu trả lời: đoạn văn, gạch đầu dòng, in đậm, số trích dẫn bấm được. */
-export function RichText<C extends CiteLike>({ text, citations, onCite }: { text: string; citations: C[]; onCite: (c: C) => void }) {
+export function RichText<C extends CiteLike>({ text, citations, onCite, highlightQuestion = false }: { text: string; citations: C[]; onCite: (c: C) => void; highlightQuestion?: boolean }) {
+  if (highlightQuestion) {
+    const heading = /^[ \t]*(?:#{1,6}[ \t]*)?(?:\*\*)?Câu hỏi[ \t]*:[ \t]*(?:\*\*)?/im.exec(text);
+    if (heading) {
+      const questionStart = heading.index + heading[0].length;
+      const answer = /^[ \t]*(?:#{1,6}[ \t]*)?(?:\*\*)?(?:Giải thích đáp án|Đáp án|Lời giải)[ \t]*:[ \t]*(?:\*\*)?/im.exec(text.slice(questionStart));
+      const answerStart = answer ? questionStart + answer.index : text.length;
+      const before = text.slice(0, heading.index).trim();
+      const question = text.slice(questionStart, answerStart).trim();
+      const after = text.slice(answerStart).trim();
+      return (
+        <div className="flex flex-col gap-3">
+          {before && <RichText text={before} citations={citations} onCite={onCite} />}
+          <section className="rounded-xl border border-amber-200 border-l-4 border-l-amber-500 bg-amber-50 px-3 py-3" aria-label="Câu hỏi tình huống">
+            <div className="mb-1 text-xs font-bold uppercase tracking-wide text-amber-900">Câu hỏi cần trả lời</div>
+            {question && <RichText text={question} citations={citations} onCite={onCite} />}
+          </section>
+          {after && <RichText text={after} citations={citations} onCite={onCite} />}
+        </div>
+      );
+    }
+  }
   const blocks: ReactNode[] = [];
   let list: string[] = [];
   const flush = () => {

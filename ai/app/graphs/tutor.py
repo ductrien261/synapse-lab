@@ -91,7 +91,10 @@ def build(ctx: RunContext):
         # Câu hỏi không nêu tên bộ phận nào -> ghép tên bộ phận đang chọn để tìm đúng chỗ
         if part and part.get('name_en') and not _mentions_any(question, state.get('parts', [])):
             query = f'{question} ({part["name_en"]})'
-        hits, info = search(ctx, query, k=MAX_SOURCES, scope=state.get('scope') or None, per_section=2)
+        hits, info = search(
+            ctx, query, k=MAX_SOURCES, scope=state.get('scope') or None, per_section=2,
+            allow_keyword_fallback=True,
+        )
         if not any(h.keyword_rank for h in hits):
             return {'sources': [], 'status': 'no_source', 'english_query': info.get('english_query', '')}
         return {'sources': hits, 'attempts': 0, 'english_query': info.get('english_query', '')}

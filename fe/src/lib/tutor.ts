@@ -24,6 +24,24 @@ export interface QuickCheck {
   correct?: boolean;
 }
 
+export type TutorAction = 'quiz' | 'scenario' | 'summary' | 'flashcards';
+export type TutorQuizStyle = 'theory' | 'application' | 'practice';
+
+export interface TutorQuizQuestion {
+  question: string;
+  options: string[];
+  correct_index?: number;
+  explanation?: string;
+  answered_index?: number;
+  correct?: boolean;
+}
+
+export interface TutorActionData extends Partial<TutorQuizQuestion> {
+  items?: string[];
+  cards?: { front: string; back: string }[];
+  questions?: TutorQuizQuestion[];
+}
+
 export type TutorStatus = 'ok' | 'unverified' | 'no_source' | 'error' | '';
 
 export interface TutorMessage {
@@ -38,6 +56,8 @@ export interface TutorMessage {
   from_cache: boolean;
   feedback: number | null;
   quick_check: QuickCheck | null;
+  action_kind: TutorAction | '';
+  action_data: TutorActionData | null;
   created_at: string;
 }
 
@@ -57,6 +77,25 @@ export interface AskHandlers {
 }
 
 export const tutorApi = {
+  action: (body: {
+    action: TutorAction;
+    model_uid: string;
+    part_index?: number | null;
+    conversation_id?: string | null;
+    topic?: string;
+    style?: 'clinic' | 'imaging';
+    question_count?: number;
+    quiz_style?: TutorQuizStyle;
+    card_count?: number;
+    focus_note?: string;
+  }, signal?: AbortSignal) => request<{ conversation_id: string; user_message: TutorMessage; message: TutorMessage }>('/tutor/action/', {
+    method: 'POST', body: JSON.stringify(body), signal,
+  }),
+
+  answerAction: (messageId: number, choice: number, questionIndex = 0) =>
+    request<TutorActionData>(`/tutor/messages/${messageId}/action-answer/`, {
+      method: 'POST', body: JSON.stringify({ choice, question_index: questionIndex }),
+    }),
   ask: (
     body: { question: string; model_uid?: string; part_index?: number | null; conversation_id?: string | null },
     h: AskHandlers,

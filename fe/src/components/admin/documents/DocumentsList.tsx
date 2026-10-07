@@ -6,6 +6,7 @@ import {
   Book,
   BoxArrowUpRight,
   ChevronDown,
+  Eye,
   FileEarmarkPdf,
   PlusLg,
   Trash,
@@ -22,6 +23,7 @@ import {
   type KnowledgeDocumentDetail,
 } from '@/lib/admin-knowledge';
 import { TocPicker } from './TocPicker';
+import { PdfPreviewModal } from './PdfPreviewModal';
 
 type StartJob = (fn: () => Promise<IngestJob>) => Promise<boolean>;
 
@@ -48,6 +50,7 @@ export function DocumentsList({
   const [docs, setDocs] = useState<KnowledgeDocument[] | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [filter, setFilter] = useState<DocScope | ''>('');
+  const [preview, setPreview] = useState<{ id: string; title: string } | null>(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -133,6 +136,7 @@ export function DocumentsList({
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-sm font-bold text-stone-900 truncate">{d.title}</span>
                   <span className={`text-[10.5px] font-bold px-2 py-0.5 rounded-full ${STATUS[d.status].cls}`}>{STATUS[d.status].label}</span>
+                  {d.index_mode === 'keyword' && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10.5px] font-semibold text-amber-700" title="Có thể tra cứu theo từ khóa; tạo vector khi cập nhật khóa Gemini">Chỉ từ khóa</span>}
                   <span className="text-[10.5px] font-semibold px-2 py-0.5 rounded-full bg-stone-100 text-stone-600">{SCOPE_LABEL[d.scope]}</span>
                 </div>
                 <div className="text-xs text-stone-500 mt-0.5 truncate">
@@ -145,6 +149,7 @@ export function DocumentsList({
             {isOpen && (
               <DocumentDetail
                 id={d.id}
+                onPreview={(document) => setPreview({ id: document.id, title: document.title })}
                 busy={busy}
                 startJob={startJob}
                 reloadSignal={reloadSignal}
@@ -159,12 +164,14 @@ export function DocumentsList({
         );
       })}
     </ul>
+    {preview && <PdfPreviewModal key={preview.id} {...preview} onClose={() => setPreview(null)} />}
     </div>
   );
 }
 
 function DocumentDetail({
   id,
+  onPreview,
   busy,
   startJob,
   reloadSignal,
@@ -172,6 +179,7 @@ function DocumentDetail({
   onDeleted,
 }: {
   id: string;
+  onPreview: (doc: KnowledgeDocumentDetail) => void;
   busy: boolean;
   startJob: StartJob;
   reloadSignal: number;
@@ -234,11 +242,21 @@ function DocumentDetail({
       {error && <div className="rounded-xl bg-rose-50 text-rose-700 text-sm px-3 py-2">{error}</div>}
 
       <div className="flex flex-wrap items-center gap-2 text-xs text-stone-600">
+        {!isOpenStax && (
+          <button
+            type="button"
+            onClick={() => onPreview(doc)}
+            className="inline-flex items-center gap-1.5 font-semibold text-[#1E3F82] hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1E3F82]"
+          >
+            <Eye className="h-4 w-4" /> Xem PDF
+          </button>
+        )}
         {doc.source_url && (
           <a href={doc.source_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-semibold text-[#1E3F82] hover:underline">
             Mở nguồn <BoxArrowUpRight className="w-3 h-3" />
           </a>
         )}
+        {doc.license_name && doc.license_url && <a href={doc.license_url} target="_blank" rel="noreferrer" className="font-semibold text-[#1E3F82] hover:underline">{doc.license_name}</a>}
         {doc.original_filename && <span>File: {doc.original_filename}</span>}
         <label className="inline-flex items-center gap-1.5 ml-auto">
           Dùng cho

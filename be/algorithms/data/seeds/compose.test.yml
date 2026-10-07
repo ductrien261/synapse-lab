@@ -1,0 +1,23 @@
+# Isolated, disposable PostgreSQL. No host ports, .env import or shared DB volume.
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_PASSWORD: seed-test-only
+      POSTGRES_DB: seedcheck
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U postgres -d seedcheck']
+      interval: 1s
+      retries: 30
+  check:
+    image: synapse-lab-be
+    working_dir: /app
+    volumes:
+      - ../../..:/app
+    environment:
+      DATABASE_URL: postgres://postgres:seed-test-only@db:5432/seedcheck
+    depends_on:
+      db:
+        condition: service_healthy

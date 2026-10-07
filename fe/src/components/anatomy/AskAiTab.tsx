@@ -3,28 +3,30 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   BoxArrowUpRight,
-  ChatLeftText,
+  CardText,
   CheckCircleFill,
-  ClockHistory,
   ExclamationTriangleFill,
   HandThumbsDown,
   HandThumbsDownFill,
   HandThumbsUp,
   HandThumbsUpFill,
   Lightning,
+  Lightbulb,
+  JournalText,
   PinMapFill,
-  PlusLg,
-  Robot,
+  QuestionCircle,
   Send,
   Stars,
-  Trash,
   XLg,
 } from 'react-bootstrap-icons';
-import { TokenQuotaCard } from '@/components/ai/TokenQuotaCard';
 import { refreshAiQuota } from '@/lib/ai';
-import { tutorApi, type ConversationSummary, type TutorCitation, type TutorMessage } from '@/lib/tutor';
+import { tutorApi, type TutorAction, type TutorCitation, type TutorMessage, type TutorQuizStyle } from '@/lib/tutor';
+import { QuizSetup } from './tutor/QuizSetup';
 import { QuickCheckCard } from './tutor/QuickCheckCard';
+import { FlashcardSetup } from './tutor/FlashcardSetup';
 import { RichText } from './tutor/RichText';
+import { ScenarioSetup } from './tutor/ScenarioSetup';
+import { TutorActionCard } from './tutor/TutorActionCard';
 import { partName, type PartItem } from './types';
 
 interface Draft {
@@ -36,9 +38,17 @@ interface Draft {
 function userMessage(content: string, partIndex: number | null): TutorMessage {
   return {
     id: -Date.now(), role: 'user', content, status: '', part_index: partIndex, citations: [], highlights: [],
-    suggestions: [], from_cache: false, feedback: null, quick_check: null, created_at: '',
+    suggestions: [], from_cache: false, feedback: null, quick_check: null,
+    action_kind: '', action_data: null, created_at: '',
   };
 }
+
+const TUTOR_ACTIONS = [
+  { key: 'quiz', label: 'Tạo bài tập trắc nghiệm', icon: QuestionCircle },
+  { key: 'scenario', label: 'Tạo tình huống', icon: Lightbulb },
+  { key: 'summary', label: 'Tóm tắt kiến thức', icon: JournalText },
+  { key: 'flashcards', label: 'Tạo flashcard', icon: CardText },
+] as const;
 
 /**
  * Tab "Hỏi AI" — gia sư Synapse: trả lời dần từng chữ, chỉ dựa trên giáo trình, có trích dẫn,
@@ -63,19 +73,27 @@ export function AskAiTab({
   const [input, setInput] = useState('');
   const [error, setError] = useState('');
   const [cite, setCite] = useState<TutorCitation | null>(null);
-  const [history, setHistory] = useState<ConversationSummary[] | null>(null);
-  const [showHistory, setShowHistory] = useState(false);
+  const [showScenarioSetup, setShowScenarioSetup] = useState(false);
+  const [showQuizSetup, setShowQuizSetup] = useState(false);
+  const [showFlashcardSetup, setShowFlashcardSetup] = useState(false);
   const bottom = useRef<HTMLDivElement>(null);
+  const actionStart = useRef<HTMLDivElement>(null);
   const abort = useRef<AbortController | null>(null);
 
   const subject = part ? partName(part) : modelTitle;
   const starters = part
     ? [`${subject} có chức năng gì?`, `${subject} nằm ở đâu, liên quan với cấu trúc nào?`, `Bệnh lý thường gặp liên quan tới ${subject}?`]
     : ['Mô hình này mô tả điều gì?', 'Những bộ phận quan trọng cần nhớ trong mô hình?'];
+  const newestMessage = messages[messages.length - 1];
+  const scrollToAction = newestMessage?.role === 'assistant' && Boolean(newestMessage.action_kind);
 
   useEffect(() => {
-    bottom.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-  }, [messages.length, draft?.text]);
+    if (!draft?.question && scrollToAction) {
+      actionStart.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else {
+      bottom.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
+  }, [messages.length, draft?.question, draft?.text, scrollToAction]);
 
   useEffect(() => () => abort.current?.abort(), []);
 
@@ -121,44 +139,62 @@ export function AskAiTab({
     }
   };
 
-  const newConversation = () => {
-    abort.current?.abort();
-    setConversationId(null);
-    setMessages([]);
+  const createAction = async (action: TutorAction, options?: {
+    topic: string;
+    style?: 'clinic' | 'imaging';
+    question_count?: number;
+    quiz_style?: TutorQuizStyle;
+    card_count?: number;
+    focus_note?: string;
+  }) => {
+    if (draft) return;
+    const question = `${TUTOR_ACTIONS.find((item) => item.key === action)?.label} về ${options?.topic || subject}`;
     setError('');
-    setShowHistory(false);
-  };
-
-  const toggleHistory = () => {
-    const next = !showHistory;
-    setShowHistory(next);
-    if (next) {
-      tutorApi
-        .conversations(modelUid)
-        .then(setHistory)
-        .catch(() => setHistory([]));
+    setShowScenarioSetup(false);
+    setShowQuizSetup(false);
+    setShowFlashcardSetup(false);
+    setDraft({ question, text: '', status: 'Đang tìm nguồn và tạo nội dung...' });
+    const controller = new AbortController();
+    abort.current = controller;
+    try {
+      const result = await tutorApi.action({
+        action, model_uid: modelUid, part_index: part?.index ?? null, conversation_id: conversationId,
+        topic: options?.topic, style: options?.style,
+        question_count: options?.question_count, quiz_style: options?.quiz_style,
+        card_count: options?.card_count, focus_note: options?.focus_note,
+      }, controller.signal);
+      if (controller.signal.aborted) return;
+      setConversationId(result.conversation_id);
+      setMessages((list) => [...list, result.user_message, result.message]);
+      refreshAiQuota();
+    } catch (err) {
+      if (!controller.signal.aborted) setError(err instanceof Error ? err.message : 'Chưa tạo được nội dung.');
+    } finally {
+      if (!controller.signal.aborted) setDraft(null);
+      if (abort.current === controller) abort.current = null;
     }
   };
 
-  const loadConversation = (id: string) => {
-    tutorApi
-      .conversation(id)
-      .then((c) => {
-        setConversationId(c.id);
-        setMessages(c.messages);
-        setShowHistory(false);
-      })
-      .catch((err: unknown) => setError(err instanceof Error ? err.message : 'Không mở được cuộc trò chuyện'));
-  };
-
-  const removeConversation = (id: string) => {
-    tutorApi
-      .deleteConversation(id)
-      .then(() => {
-        setHistory((h) => h?.filter((c) => c.id !== id) ?? null);
-        if (id === conversationId) newConversation();
-      })
-      .catch(() => undefined);
+  const runAction = (key: TutorAction) => {
+    if (key === 'quiz') {
+      setShowScenarioSetup(false);
+      setShowFlashcardSetup(false);
+      setShowQuizSetup(true);
+      return;
+    }
+    if (key === 'scenario') {
+      setShowQuizSetup(false);
+      setShowFlashcardSetup(false);
+      setShowScenarioSetup(true);
+      return;
+    }
+    if (key === 'flashcards') {
+      setShowQuizSetup(false);
+      setShowScenarioSetup(false);
+      setShowFlashcardSetup(true);
+      return;
+    }
+    void createAction(key);
   };
 
   const setFeedback = (m: TutorMessage, value: 1 | -1) => {
@@ -177,71 +213,26 @@ export function AskAiTab({
 
   return (
     <div className="flex flex-col min-h-full">
-      {/* Thanh trên */}
-      <div className="flex items-center gap-2 px-4 pt-3 pb-2">
-        <span className="inline-flex items-center gap-1.5 text-sm font-bold text-stone-800">
-          <Robot className="w-4 h-4 text-[#1E3F82]" /> Gia sư Synapse
-        </span>
-        <div className="ml-auto flex items-center gap-1">
-          <IconButton label="Lịch sử trò chuyện" onClick={toggleHistory} active={showHistory}>
-            <ClockHistory className="w-3.5 h-3.5" />
-          </IconButton>
-          <IconButton label="Cuộc trò chuyện mới" onClick={newConversation}>
-            <PlusLg className="w-3.5 h-3.5" />
-          </IconButton>
-        </div>
-      </div>
-      <div className="px-4 pb-2">
-        <TokenQuotaCard compact />
-      </div>
-
-      {showHistory && (
-        <div className="mx-4 mb-2 rounded-xl border border-stone-200 bg-white max-h-56 overflow-y-auto">
-          {history === null ? (
-            <div className="p-3 text-xs text-stone-500">Đang tải...</div>
-          ) : history.length === 0 ? (
-            <div className="p-3 text-xs text-stone-500">Chưa có cuộc trò chuyện nào với mô hình này.</div>
-          ) : (
-            history.map((c) => (
-              <div
-                key={c.id}
-                className={`flex items-center gap-2 px-3 py-2 border-t first:border-t-0 border-stone-100 text-sm ${c.id === conversationId ? 'bg-[#F4F7FC]' : ''}`}
-              >
-                <button type="button" onClick={() => loadConversation(c.id)} className="flex-1 min-w-0 text-left truncate text-stone-700 hover:text-[#1E3F82] cursor-pointer">
-                  <ChatLeftText className="w-3 h-3 inline mr-1.5 text-stone-400" />
-                  {c.title || 'Cuộc trò chuyện'}
-                </button>
-                <button type="button" onClick={() => removeConversation(c.id)} className="text-stone-300 hover:text-rose-600 cursor-pointer" aria-label="Xóa">
-                  <Trash className="w-3 h-3" />
-                </button>
-              </div>
-            ))
-          )}
-        </div>
-      )}
-
       {/* Nội dung */}
-      <div className="flex-1 flex flex-col gap-4 px-4 pb-4">
-        {empty && (
-          <>
-            <div>
-              <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-stone-500 mb-2">
-                <Stars className="w-3.5 h-3.5 text-amber-500" /> Câu hỏi gợi ý
-              </div>
-              <div className="flex flex-col gap-2">
-                {starters.map((q) => (
-                  <button
-                    key={q}
-                    type="button"
-                    onClick={() => void ask(q)}
-                    className="text-left rounded-xl border border-stone-200 px-3 py-2 text-sm text-stone-700 bg-white hover:border-[#1E3F82]/40 hover:bg-[#F7F9FD] cursor-pointer"
-                  >
-                    {q}
-                  </button>
-                ))}
-              </div>
+      <div className="flex-1 flex flex-col gap-4 px-4 pt-4 pb-4">
+        {empty && !showScenarioSetup && !showQuizSetup && !showFlashcardSetup && (
+          <div>
+            <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-stone-500 mb-2">
+              <Stars className="w-3.5 h-3.5 text-amber-500" /> Câu hỏi gợi ý
             </div>
-          </>
+            <div className="flex flex-col gap-2">
+              {starters.map((q) => (
+                <button
+                  key={q}
+                  type="button"
+                  onClick={() => void ask(q)}
+                  className="text-left rounded-xl border border-stone-200 px-3 py-2 text-sm text-stone-700 bg-white hover:border-[#1E3F82]/40 hover:bg-[#F7F9FD] cursor-pointer"
+                >
+                  {q}
+                </button>
+              ))}
+            </div>
+          </div>
         )}
 
         {messages.map((m) =>
@@ -250,11 +241,19 @@ export function AskAiTab({
               {m.content}
             </div>
           ) : (
-            <div key={m.id} className="flex flex-col gap-2">
-              <div className="rounded-2xl rounded-bl-md bg-white border border-stone-200/90 px-3.5 py-3">
-                <RichText text={m.content} citations={m.citations} onCite={setCite} />
-                <StatusLine message={m} />
-              </div>
+            <div
+              key={m.id}
+              ref={m === last && m.action_kind ? actionStart : undefined}
+              className="flex flex-col gap-2 scroll-mt-20"
+            >
+              {m.action_kind && m.action_data ? (
+                <TutorActionCard key={m.id} messageId={m.id} kind={m.action_kind} initial={m.action_data} citations={m.citations} onCite={setCite} />
+              ) : (
+                <div className="rounded-2xl rounded-bl-md bg-white border border-stone-200/90 px-3.5 py-3">
+                  <RichText text={m.content} citations={m.citations} onCite={setCite} />
+                  <StatusLine message={m} />
+                </div>
+              )}
 
               {m.highlights.length > 0 && (
                 <div className="flex flex-wrap items-center gap-1.5 text-xs">
@@ -274,7 +273,7 @@ export function AskAiTab({
 
               {m.id > 0 && (
                 <div className="flex flex-wrap items-start gap-2">
-                  {m.citations.length > 0 && (
+                  {m.citations.length > 0 && !m.action_kind && (
                     <QuickCheckCard key={m.id} messageId={m.id} initial={m.quick_check} citations={m.citations} onCite={setCite} />
                   )}
                   <div className="ml-auto flex items-center gap-1">
@@ -331,57 +330,100 @@ export function AskAiTab({
         <div ref={bottom} />
       </div>
 
-      {/* Nguồn đang xem */}
-      {cite && (
-        <div className="sticky bottom-[68px] mx-4 mb-2 rounded-xl border border-stone-200 bg-white shadow-lg p-3 text-xs">
-          <div className="flex items-start gap-2">
-            <span className="font-bold text-[#1E3F82]">[{cite.n}]</span>
-            <div className="flex-1 min-w-0">
-              <div className="font-semibold text-stone-800">{cite.document_title}</div>
-              <div className="text-stone-500">
-                {cite.heading}
-                {cite.page_label && ` · ${cite.page_label}`}
+      <div className="sticky bottom-0 z-20 shrink-0 border-t border-stone-100 bg-white">
+        {/* Nguồn đang xem */}
+        {cite && (
+          <div className="mx-3 mt-2 rounded-xl border border-stone-200 bg-white p-3 text-xs shadow-lg">
+            <div className="flex items-start gap-2">
+              <span className="font-bold text-[#1E3F82]">[{cite.n}]</span>
+              <div className="min-w-0 flex-1">
+                <div className="font-semibold text-stone-800">{cite.document_title}</div>
+                <div className="text-stone-500">
+                  {cite.heading}
+                  {cite.page_label && ` · ${cite.page_label}`}
+                </div>
               </div>
+              <button type="button" onClick={() => setCite(null)} className="cursor-pointer text-stone-400 hover:text-stone-700" aria-label="Đóng">
+                <XLg className="h-3 w-3" />
+              </button>
             </div>
-            <button type="button" onClick={() => setCite(null)} className="text-stone-400 hover:text-stone-700 cursor-pointer" aria-label="Đóng">
-              <XLg className="w-3 h-3" />
+            <p className="mt-2 line-clamp-6 leading-relaxed text-stone-600">“{cite.excerpt}…”</p>
+            {cite.url && (
+              <a href={cite.url} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 font-bold text-[#1E3F82] hover:underline">
+                Đọc trong sách <BoxArrowUpRight className="h-3 w-3" />
+              </a>
+            )}
+          </div>
+        )}
+
+        {showScenarioSetup && (
+          <ScenarioSetup
+            key={part?.index ?? 'model'}
+            initialTopic={subject}
+            onCancel={() => setShowScenarioSetup(false)}
+            onCreate={(options) => void createAction('scenario', options)}
+          />
+        )}
+
+        {showQuizSetup && (
+          <QuizSetup
+            key={`${modelUid}:${part?.index ?? 'model'}`}
+            initialTopic={subject}
+            onCancel={() => setShowQuizSetup(false)}
+            onCreate={(options) => void createAction('quiz', options)}
+          />
+        )}
+
+        {showFlashcardSetup && (
+          <FlashcardSetup
+            key={`${modelUid}:${part?.index ?? 'model'}`}
+            initialTopic={subject}
+            onCancel={() => setShowFlashcardSetup(false)}
+            onCreate={(options) => void createAction('flashcards', options)}
+          />
+        )}
+
+        <div role="group" aria-label="Công cụ học tập với AI" className="flex min-w-0 gap-2 overflow-x-auto px-3 pt-3 pb-1">
+          {TUTOR_ACTIONS.map(({ key, label, icon: Icon }) => (
+            <button
+              key={label}
+              type="button"
+              disabled={Boolean(draft)}
+              onClick={() => runAction(key)}
+              className="inline-flex min-h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-rose-100 bg-rose-50 px-3 text-xs font-semibold text-rose-700 transition-colors hover:border-rose-200 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Icon className="h-3.5 w-3.5" /> {label}
+            </button>
+          ))}
+        </div>
+
+        {/* Ô nhập */}
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            void ask(input);
+          }}
+          className="p-3 pt-2"
+        >
+          <div className="flex items-center gap-2 rounded-2xl border border-stone-200 bg-stone-50 pl-4 pr-1.5 py-1.5 focus-within:border-[#1E3F82]">
+            <input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              maxLength={1000}
+              placeholder={part ? `Hỏi về ${subject}...` : 'Hỏi về mô hình này...'}
+              className="flex-1 bg-transparent text-sm outline-none placeholder:text-stone-400"
+            />
+            <button
+              type="submit"
+              disabled={!input.trim() || Boolean(draft)}
+              aria-label="Gửi"
+              className="w-9 h-9 rounded-xl bg-[#1E3F82] hover:bg-[#163070] text-white flex items-center justify-center disabled:bg-stone-300 cursor-pointer disabled:cursor-not-allowed"
+            >
+              <Send className="w-4 h-4" />
             </button>
           </div>
-          <p className="mt-2 text-stone-600 leading-relaxed line-clamp-6">“{cite.excerpt}…”</p>
-          {cite.url && (
-            <a href={cite.url} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 font-bold text-[#1E3F82] hover:underline">
-              Đọc trong sách <BoxArrowUpRight className="w-3 h-3" />
-            </a>
-          )}
-        </div>
-      )}
-
-      {/* Ô nhập */}
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          void ask(input);
-        }}
-        className="sticky bottom-0 p-3 border-t border-stone-100 bg-white"
-      >
-        <div className="flex items-center gap-2 rounded-2xl border border-stone-200 bg-stone-50 pl-4 pr-1.5 py-1.5 focus-within:border-[#1E3F82]">
-          <input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            maxLength={1000}
-            placeholder={part ? `Hỏi về ${subject}...` : 'Hỏi về mô hình này...'}
-            className="flex-1 bg-transparent text-sm outline-none placeholder:text-stone-400"
-          />
-          <button
-            type="submit"
-            disabled={!input.trim() || Boolean(draft)}
-            aria-label="Gửi"
-            className="w-9 h-9 rounded-xl bg-[#1E3F82] hover:bg-[#163070] text-white flex items-center justify-center disabled:bg-stone-300 cursor-pointer disabled:cursor-not-allowed"
-          >
-            <Send className="w-4 h-4" />
-          </button>
-        </div>
-      </form>
+        </form>
+      </div>
     </div>
   );
 }

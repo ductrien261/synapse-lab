@@ -1,0 +1,172 @@
+{
+  "backtracking/hamiltonean-cycles": {
+    "config": {
+      "renderer": "graph",
+      "title": "Mô phỏng chu trình Hamilton",
+      "samples": [
+        {
+          "key": "cycle",
+          "label": "5 đỉnh — có chu trình"
+        },
+        {
+          "key": "none",
+          "label": "4 đỉnh — không có chu trình"
+        }
+      ],
+      "customInput": {
+        "kind": "undirected-graph",
+        "minVertices": 2,
+        "maxVertices": 5
+      }
+    },
+    "samples": {
+      "cycle": [
+        [
+          0,
+          1,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          0,
+          1,
+          0,
+          0
+        ],
+        [
+          1,
+          1,
+          0,
+          1,
+          0
+        ],
+        [
+          0,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          0,
+          0,
+          1,
+          0
+        ]
+      ],
+      "none": [
+        [
+          0,
+          1,
+          0,
+          0
+        ],
+        [
+          1,
+          0,
+          1,
+          0
+        ],
+        [
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          0,
+          0,
+          1,
+          0
+        ]
+      ]
+    },
+    "search": {
+      "sourceFile": "Backtracking/Hamiltonean Cycles/Code.cpp",
+      "start": 0,
+      "closed": true,
+      "deduplicateReverse": true,
+      "minimumLength": 3,
+      "resultLabel": "chu trình",
+      "markers": {
+        "start": "start",
+        "try": "try",
+        "reject.edge": "edge",
+        "reject.duplicate": "duplicate",
+        "reject.close": "close",
+        "reject.reverse": "cycle",
+        "choose": "choose",
+        "recurse": "recurse",
+        "exhausted": "return",
+        "backtrack": "backtrack",
+        "solution": "cycle",
+        "done": "done"
+      },
+      "teaching": {
+        "start": {
+          "text": "Ta đặt đỉnh bắt đầu là {{start}}. Đường đi hiện tại chỉ có {{route}}; các đỉnh còn lại chưa được chọn.",
+          "next": "Thử đỉnh cho vị trí 1.",
+          "pause": false
+        },
+        "try": {
+          "text": "Từ đỉnh {{from}}, ta thử nối sang đỉnh {{candidate}} cho vị trí {{k}}. Chưa thêm đỉnh này vào đường đi.",
+          "next": "Kiểm tra cạnh nối và xem đỉnh này đã đi qua chưa.",
+          "pause": false
+        },
+        "reject.edge": {
+          "text": "Ta bỏ đỉnh {{candidate}} vì không có cạnh nối từ {{from}}. Chưa kết luận cả nhánh hay cả bài toán thất bại.",
+          "next": "Thử ứng viên tiếp theo.",
+          "pause": false
+        },
+        "reject.duplicate": {
+          "text": "Đỉnh {{candidate}} đã có trong đường đi {{route}}, nên ta bỏ qua để không đi qua một đỉnh hai lần.",
+          "next": "Thử ứng viên tiếp theo.",
+          "pause": false
+        },
+        "reject.close": {
+          "text": "Đỉnh {{candidate}} là ứng viên cuối nhưng không có cạnh quay về {{start}}, nên chưa khép được vòng và phải bỏ qua.",
+          "next": "Thử ứng viên tiếp theo.",
+          "pause": false
+        },
+        "reject.reverse": {
+          "text": "Chu trình này là chiều đi ngược của một kết quả đã ghi nhận, nên không tính thành một chu trình vô hướng mới.",
+          "next": "Quay lui để xét lựa chọn khác.",
+          "pause": false
+        },
+        "choose": {
+          "text": "Đỉnh {{candidate}} thỏa các điều kiện, nên ta thêm vào đường đi: {{route}}.",
+          "next": "Nếu đã đủ đỉnh thì ghi nhận kết quả; nếu chưa thì tìm tiếp.",
+          "pause": false
+        },
+        "recurse": {
+          "text": "Ta giữ đường đi {{route}} và tìm tiếp đỉnh chưa dùng để mở rộng nhánh này.",
+          "next": "Thử các đỉnh ở vị trí kế tiếp.",
+          "pause": false
+        },
+        "exhausted": {
+          "text": "Đã thử hết các ứng viên ở vị trí {{k}}. Ta trở về mức trước để đổi lựa chọn.",
+          "next": "Bỏ lựa chọn cuối và xét đỉnh khác.",
+          "pause": false
+        },
+        "backtrack": {
+          "text": "Đã xét xong nhánh qua đỉnh {{candidate}}; ta bỏ lựa chọn này, giữ lại đường đi {{route}}.",
+          "next": "Thử đỉnh khác ở vị trí {{k}}.",
+          "pause": true
+        },
+        "solution": {
+          "text": "Đường đi {{route}} đã thỏa điều kiện: tìm được {{result}} thứ {{found}}.",
+          "next": "Ghi nhận kết quả rồi quay lui để xét các lựa chọn còn lại.",
+          "pause": true
+        },
+        "done": {
+          "text": "Đã kết thúc tìm kiếm; ghi nhận {{found}} {{result}} cho đầu vào này.",
+          "next": "Có thể đổi đồ thị hoặc chạy lại.",
+          "pause": true
+        }
+      }
+    }
+  }
+}

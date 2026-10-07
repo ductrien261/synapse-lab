@@ -1,12 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { CollectionFill, ExclamationTriangleFill, PlusLg, Search } from 'react-bootstrap-icons';
+import { CollectionFill, ExclamationTriangleFill, PlusLg } from 'react-bootstrap-icons';
 import { AdminPageHeader } from '@/components/admin/AdminPageHeader';
 import { JobProgress } from '@/components/admin/JobProgress';
 import { AddDocumentPanel } from '@/components/admin/documents/AddDocumentPanel';
 import { DocumentsList } from '@/components/admin/documents/DocumentsList';
-import { SearchTester } from '@/components/admin/documents/SearchTester';
 import { ApiError } from '@/lib/api';
 import {
   adminKnowledgeApi,
@@ -17,7 +16,7 @@ import {
 } from '@/lib/admin-knowledge';
 import { isJobActive } from '@/lib/jobs';
 
-type Tab = 'library' | 'add' | 'search';
+type Tab = 'library' | 'add';
 
 export default function AdminDocumentsPage() {
   const [tab, setTab] = useState<Tab>('library');
@@ -122,16 +121,12 @@ export default function AdminDocumentsPage() {
         <TabButton active={tab === 'add'} onClick={() => setTab('add')}>
           <PlusLg className="w-4 h-4" /> Thêm tài liệu
         </TabButton>
-        <TabButton active={tab === 'search'} onClick={() => setTab('search')}>
-          <Search className="w-4 h-4" /> Thử tìm kiếm
-        </TabButton>
       </div>
 
       {tab === 'library' && (
         <DocumentsList busy={busy} startJob={startJob} reloadSignal={reloadSignal} onChanged={reload} onAdd={() => setTab('add')} />
       )}
       {tab === 'add' && <AddDocumentPanel busy={busy} startJob={startJob} reloadSignal={reloadSignal} />}
-      {tab === 'search' && <SearchTester />}
     </>
   );
 }

@@ -22,6 +22,7 @@ export class Hierarchy {
     const algorithm = category.algorithms.find(algorithm => algorithm.key === algorithmKey);
     if (!algorithm) return;
 
+    algorithm.refresh();
     const categoryName = category.name;
     const algorithmName = algorithm.name;
     const files = algorithm.files;

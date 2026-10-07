@@ -5,13 +5,17 @@ from .models import Document, IngestJob
 
 class DocumentSerializer(serializers.ModelSerializer):
     section_count = serializers.IntegerField(read_only=True, default=0)
+    index_mode = serializers.SerializerMethodField()
+
+    def get_index_mode(self, obj):
+        return obj.meta.get('index_mode', 'hybrid')
 
     class Meta:
         model = Document
         fields = [
             'id', 'title', 'source_type', 'source_key', 'source_url', 'license_name', 'license_url',
             'authors', 'year', 'scope', 'language', 'status', 'error_message', 'chunk_count', 'section_count',
-            'page_count', 'original_filename', 'file_size', 'created_at', 'updated_at', 'processed_at',
+            'page_count', 'original_filename', 'file_size', 'index_mode', 'created_at', 'updated_at', 'processed_at',
         ]
         read_only_fields = [f for f in fields if f not in ('title', 'authors', 'year', 'scope')]
 

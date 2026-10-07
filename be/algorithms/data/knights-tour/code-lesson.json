@@ -1,0 +1,96 @@
+{
+  "language": "cpp",
+  "source": "#include <iostream>\n#include <vector>\nusing namespace std;\n\nint n;\nvector<vector<int>> board;\nconst int dr[8] = {2, 1, -1, -2, -2, -1, 1, 2};\nconst int dc[8] = {1, 2, 2, 1, -1, -2, -2, -1};\n\nbool knightTour(int row, int col, int visitedCount) {\n    if (visitedCount == n * n) return true;\n    for (int i = 0; i < 8; ++i) {\n        int nextRow = row + dr[i];\n        int nextCol = col + dc[i];\n        if (nextRow < 0 || nextRow >= n || nextCol < 0 || nextCol >= n) continue;\n        if (board[nextRow][nextCol] != -1) continue;\n        board[nextRow][nextCol] = visitedCount;\n        if (knightTour(nextRow, nextCol, visitedCount + 1)) return true;\n        board[nextRow][nextCol] = -1;\n    }\n    return false;\n}\n\nint main() {\n    if (!(cin >> n) || n < 1 || n > 5) {\n        cout << \"Use a board size from 1 to 5.\\n\";\n        return 1;\n    }\n    board.assign(n, vector<int>(n, -1));\n    board[0][0] = 0;\n    if (!knightTour(0, 0, 1)) {\n        cout << \"Solution does not exist\\n\";\n        return 0;\n    }\n    for (const auto& row : board) {\n        for (int value : row) cout << value << ' ';\n        cout << '\\n';\n    }\n    return 0;\n}\n",
+  "steps": [
+    {
+      "start_line": 1,
+      "end_line": 3,
+      "title": "Import input/output and array support",
+      "note": "iostream reads the board size and prints the result. vector stores the two-dimensional board."
+    },
+    {
+      "start_line": 5,
+      "end_line": 6,
+      "title": "Store the board and its size",
+      "note": "n is the board width and height. A value of -1 means a square has not been visited."
+    },
+    {
+      "start_line": 7,
+      "end_line": 8,
+      "title": "Define the eight knight moves",
+      "note": "Each move changes one coordinate by two squares and the other by one. Matching indices of dr and dc form one legal offset."
+    },
+    {
+      "start_line": 10,
+      "end_line": 10,
+      "title": "Declare the recursive search",
+      "note": "row and col describe the current square; visitedCount counts squares already included in the route."
+    },
+    {
+      "start_line": 11,
+      "end_line": 11,
+      "title": "Recognize a complete tour",
+      "note": "There are n*n board squares. Reaching that many visits is success. No closing-edge condition is imposed."
+    },
+    {
+      "start_line": 12,
+      "end_line": 14,
+      "title": "Try each destination",
+      "note": "Loop through the eight offsets and compute the destination from the current square."
+    },
+    {
+      "start_line": 15,
+      "end_line": 16,
+      "title": "Reject invalid candidates",
+      "note": "Skip out-of-bounds coordinates before indexing the board, then skip squares that have already been visited."
+    },
+    {
+      "start_line": 17,
+      "end_line": 17,
+      "title": "Choose the candidate",
+      "note": "Write the visit number into the destination so later recursive calls cannot reuse it."
+    },
+    {
+      "start_line": 18,
+      "end_line": 18,
+      "title": "Continue recursively",
+      "note": "Search from the new square with one more visited square. Propagate success immediately."
+    },
+    {
+      "start_line": 19,
+      "end_line": 19,
+      "title": "Undo an unsuccessful choice",
+      "note": "Reset the square to -1 so another branch can use it. This is the essential backtracking operation."
+    },
+    {
+      "start_line": 20,
+      "end_line": 22,
+      "title": "Report failure of this branch",
+      "note": "After all eight choices fail, return false to the previous search call."
+    },
+    {
+      "start_line": 24,
+      "end_line": 28,
+      "title": "Read and validate the demonstration input",
+      "note": "Accept board sizes 1 through 5. The upper limit is a demonstration restriction because exhaustive search can be expensive."
+    },
+    {
+      "start_line": 29,
+      "end_line": 30,
+      "title": "Initialize the start",
+      "note": "Fill every square with -1, then number the starting square (0,0) as visit 0."
+    },
+    {
+      "start_line": 31,
+      "end_line": 34,
+      "title": "Run the search and handle failure",
+      "note": "One square is already visited, so call knightTour(0,0,1). A false result means the exhaustive search found no route for this board and start."
+    },
+    {
+      "start_line": 35,
+      "end_line": 40,
+      "title": "Print the completed board",
+      "note": "Each value identifies the order in which its square was visited. There are n*n different values, from 0 to n*n-1."
+    }
+  ]
+}

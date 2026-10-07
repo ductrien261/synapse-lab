@@ -138,6 +138,34 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   return (text ? JSON.parse(text) : undefined) as T;
 }
 
+/** Download a protected file with the same bearer-token refresh behavior as JSON requests. */
+export async function requestBlob(path: string): Promise<Blob> {
+  const hadToken = Boolean(getAccessToken());
+  const send = () => {
+    const token = getAccessToken();
+    return fetch(`${BASE_URL}${path}`, {
+      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    });
+  };
+  let res = await send();
+  if (res.status === 401 && hadToken) {
+    if (await refreshAccessToken()) {
+      res = await send();
+    } else {
+      clearTokens();
+      if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
+        window.location.href = '/login';
+      }
+      throw new ApiError('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.', 401);
+    }
+  }
+  if (!res.ok) {
+    const data = await res.json().catch(() => undefined);
+    throw new ApiError(extractMessage(data, res.status), res.status, data);
+  }
+  return res.blob();
+}
+
 /**
  * Gọi API trả về Server-Sent Events (vd. gia sư AI trả lời dần từng chữ).
  * Dùng fetch (EventSource không gửi được token). Lỗi trước khi stream -> ApiError.
@@ -312,29 +340,6 @@ export const learningApi = {
     request<LearningActivityDto>('/learning/activities/', { method: 'POST', body: JSON.stringify(data) }),
 
   summary: () => request<LearningSummaryDto>('/learning/summary/'),
-};
-
-// ---------------- Giải thích thuật toán (backend) ----------------
-
-export interface AlgorithmContentDto {
-  summary: string;
-  theory: string;
-  time_best: string;
-  time_average: string;
-  time_worst: string;
-  space: string;
-  applications: string[];
-  status: 'draft' | 'published';
-  updated_at: string;
-}
-
-export const algorithmContentApi = {
-  get: (categoryKey: string, algorithmKey: string) =>
-    request<{
-      algorithm: { id: number; key: string; name: string; category_key: string; category_name: string };
-      content: AlgorithmContentDto | null;
-      references: { id: number; citation: string; page_start: number | null; page_end: number | null; excerpt: string }[];
-    }>(`/algorithms/${categoryKey}/${algorithmKey}/`),
 };
 
 // ---------------- Dịch tự động ----------------

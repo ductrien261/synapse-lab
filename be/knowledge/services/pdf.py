@@ -6,6 +6,7 @@ PDF scan (ảnh) cần OCR — chưa hỗ trợ.
 """
 
 import re
+import unicodedata
 from collections import Counter
 
 from .chunking import Section
@@ -18,7 +19,12 @@ class PdfError(Exception):
     pass
 
 
-def parse_pdf(data: bytes, title: str) -> tuple[list[Section], int]:
+def clean_pdf_text(text: str) -> str:
+    """Normalize extractable PDF text before storing it in PostgreSQL."""
+    return unicodedata.normalize('NFKC', text).replace('\x00', ' ').replace('\uffff', '').strip()
+
+
+def parse_pdf(data: bytes, title: str, *, normalize_text: bool = False, split_pages: bool = False) -> tuple[list[Section], int]:
     """Trả về (các Section, số trang)."""
     try:
         import pymupdf
@@ -38,6 +44,10 @@ def parse_pdf(data: bytes, title: str) -> tuple[list[Section], int]:
                 if not spans:
                     continue
                 text = ' '.join(s['text'].strip() for s in spans)
+                if normalize_text:
+                    text = clean_pdf_text(text)
+                if not text:
+                    continue
                 if any(p.search(text) for p in NOISE):
                     continue
                 lines.append((page_no, round(max(s['size'] for s in spans), 1), text))
@@ -59,8 +69,15 @@ def parse_pdf(data: bytes, title: str) -> tuple[list[Section], int]:
         if len(text) >= 40:
             sections.append(Section(heading_path=path.copy() or [title], text=text, page=start_page))
 
+    previous_page = None
     for page_no, size, text in lines:
-        if size >= body_size * HEADING_RATIO and len(text) < 120:
+        if split_pages and previous_page is not None and page_no != previous_page:
+            flush()
+        previous_page = page_no
+        is_heading = size >= body_size * HEADING_RATIO and len(text) < 120
+        if normalize_text:
+            is_heading = is_heading and len(text) >= 4 and sum(c.isalpha() for c in text) >= 4
+        if is_heading:
             flush()
             level = 1 if size >= body_size * 1.6 else 2
             path = (path[: level - 1] + [text]) if level > 1 else [text]

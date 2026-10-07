@@ -1,0 +1,26 @@
+.scene { background: var(--scene-bg, #f3f7fd); }
+.moving { transition: transform 650ms cubic-bezier(.4, 0, .2, 1); }
+.tile { transition: fill 250ms, width 400ms; }
+.route { stroke-dasharray: 9 5; animation: application-route 1.4s linear infinite; }
+.scene[data-running='false'] .route { animation-play-state: paused; }
+.appear { animation: application-appear 350ms ease-out; }
+@keyframes application-route { to { stroke-dashoffset: -28; } }
+@keyframes application-appear { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .moving, .tile { transition: none !important; }
+  .route, .appear { animation: none; }
+}
+.streetMover { animation: street-travel 650ms ease-in-out both; }
+.drill { animation: drill-down 600ms ease-in-out both; }
+.pulse { animation: scan-pulse 1s ease-out infinite; }
+.hop { animation: knight-hop 600ms ease-in-out; }
+.parcel { animation: handover 650ms ease-out both; }
+.scene[data-running='false'] .pulse { animation-play-state: paused; }
+@keyframes street-travel { from { offset-distance: 0%; } to { offset-distance: 100%; } }
+@keyframes drill-down { 0%,100% { transform: translateY(-14px); } 50% { transform: translateY(0); } }
+@keyframes scan-pulse { 0% { opacity: .3; } 50% { opacity: 1; } 100% { opacity: .3; } }
+@keyframes knight-hop { 50% { transform: translateY(-22px); } }
+@keyframes handover { from { transform: translate(0, -15px); } to { transform: translate(34px, 5px); } }
+@media (prefers-reduced-motion: reduce) {
+ .streetMover, .drill, .pulse, .hop, .parcel { animation: none; }
+}

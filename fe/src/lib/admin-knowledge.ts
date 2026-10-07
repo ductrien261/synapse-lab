@@ -2,7 +2,7 @@
 // SYNAPSE-LAB — API quản trị kho tri thức / Tài liệu (chỉ admin)
 // ============================================================
 
-import { request } from './api';
+import { request, requestBlob } from './api';
 import type { BackgroundJob } from './jobs';
 
 export type DocScope = 'cs' | 'med' | 'general';
@@ -63,6 +63,7 @@ export interface KnowledgeDocument {
   chunk_count: number;
   section_count: number;
   page_count: number | null;
+  index_mode: 'hybrid' | 'keyword';
   original_filename: string;
   file_size: number;
   created_at: string;
@@ -102,6 +103,16 @@ export interface OpenStaxBook {
   license_name: string;
   license_url: string;
   toc: TocChapter[];
+}
+
+export interface CuratedSource {
+  key: string;
+  title: string;
+  authors: string;
+  url: string;
+  license_name: string;
+  license_url: string;
+  document_id: string | null;
 }
 
 export interface IngestJob extends BackgroundJob {
@@ -148,6 +159,8 @@ export const adminKnowledgeApi = {
 
   document: (id: string) => request<KnowledgeDocumentDetail>(`${BASE}/documents/${id}/`),
 
+  previewPdf: (id: string) => requestBlob(`${BASE}/documents/${id}/preview/`),
+
   updateDocument: (id: string, data: Partial<Pick<KnowledgeDocument, 'title' | 'authors' | 'year' | 'scope'>>) =>
     request<KnowledgeDocument>(`${BASE}/documents/${id}/`, { method: 'PATCH', body: JSON.stringify(data) }),
 
@@ -167,6 +180,11 @@ export const adminKnowledgeApi = {
 
   ingestOpenStax: (book: string, pages: string[], scope?: DocScope) =>
     request<IngestJob>(`${BASE}/openstax/ingest/`, { method: 'POST', body: JSON.stringify({ book, pages, scope }) }),
+
+  curatedSources: () => request<CuratedSource[]>(`${BASE}/curated/`),
+
+  ingestCurated: (key: string) =>
+    request<IngestJob>(`${BASE}/curated/`, { method: 'POST', body: JSON.stringify({ key }) }),
 
   uploadPdf: (data: { file: File; title: string; authors: string; year: string; scope: DocScope }) => {
     const form = new FormData();

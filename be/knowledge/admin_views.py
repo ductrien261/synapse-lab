@@ -3,6 +3,7 @@
 from pathlib import Path
 
 from django.core.cache import cache
+from django.http import FileResponse
 from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404
 from rest_framework import serializers, status
@@ -15,7 +16,7 @@ from users.permissions import IsAdminRole
 
 from .models import Document, DocumentChunk, IngestJob
 from .serializers import DocumentSerializer, IngestJobSerializer
-from .services import embeddings, openstax
+from .services import curated, embeddings, openstax
 from .services.ingest import active_job, refresh_document_stats, start_job
 
 MAX_PDF_BYTES = 50 * 1024 * 1024
@@ -114,6 +115,25 @@ class DocumentDetailView(APIView):
             document.file.delete(save=False)
         document.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class DocumentPdfPreviewView(APIView):
+    """Stream the stored PDF to an authenticated admin viewer."""
+
+    permission_classes = [IsAdminRole]
+
+    def get(self, request, pk):
+        document = get_object_or_404(Document, pk=pk, source_type=Document.SourceType.PDF)
+        if not document.file:
+            return Response({'detail': 'Tài liệu này không có file PDF để xem.'}, status=status.HTTP_404_NOT_FOUND)
+        try:
+            file = document.file.open('rb')
+        except (FileNotFoundError, OSError):
+            return Response({'detail': 'Không đọc được file PDF đã lưu.'}, status=status.HTTP_404_NOT_FOUND)
+        response = FileResponse(file, content_type='application/pdf', as_attachment=False,
+                                filename=document.original_filename or f'{document.pk}.pdf')
+        response['Cache-Control'] = 'private, no-store'
+        return response
 
 
 class RemoveSectionsView(APIView):
@@ -249,6 +269,42 @@ class PdfUploadView(APIView):
         )
         document.file.save(upload.name, upload, save=False)
         document.save()
+        job = start_job(IngestJob.Kind.PDF, document, {}, request.user)
+        return Response(IngestJobSerializer(job).data, status=status.HTTP_202_ACCEPTED)
+
+
+class CuratedSourceView(APIView):
+    """List reviewed CC BY PDFs or import one into the CS collection."""
+
+    permission_classes = [IsAdminRole]
+
+    def get(self, request):
+        existing = dict(Document.objects.filter(
+            source_type=Document.SourceType.PDF,
+            scope=Document.Scope.CS,
+            source_key__in=curated.SOURCES,
+        ).values_list('source_key', 'id'))
+        return Response([{
+            'key': source.key, 'title': source.title, 'authors': source.authors,
+            'url': source.landing_url, 'license_name': source.license_name,
+            'license_url': source.license_url,
+            'document_id': str(existing[source.key]) if source.key in existing else None,
+        } for source in curated.SOURCES.values()])
+
+    def post(self, request):
+        key = request.data.get('key')
+        source = curated.SOURCES.get(key) if isinstance(key, str) else None
+        if source is None:
+            return Response({'detail': 'Nguồn tài liệu không có trong danh mục đã kiểm tra.'}, status=status.HTTP_400_BAD_REQUEST)
+        if (job := active_job()) is not None:
+            return _busy(job)
+        if Document.objects.filter(source_type=Document.SourceType.PDF, scope=Document.Scope.CS, source_key=key).exists():
+            return Response({'detail': 'Tài liệu này đã có trong kho.'}, status=status.HTTP_409_CONFLICT)
+        try:
+            data = curated.download_pdf(source)
+        except curated.SourceDownloadError as exc:
+            return Response({'detail': str(exc)}, status=status.HTTP_502_BAD_GATEWAY)
+        document = curated.create_document(source, data, request.user)
         job = start_job(IngestJob.Kind.PDF, document, {}, request.user)
         return Response(IngestJobSerializer(job).data, status=status.HTTP_202_ACCEPTED)
 

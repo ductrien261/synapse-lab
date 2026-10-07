@@ -1,0 +1,204 @@
+{
+  "language": "cpp",
+  "source": "// C++ adaptation of Code.java: same ham/nextVal search and candidate order.\n// Input: n, followed by an n-by-n adjacency matrix of 0/1 values.\n#include <iostream>\n#include <vector>\nusing namespace std;\nint n, found = 0;\nvector<vector<int>> adjacencyMatrix;\nvector<int> x;\n\nbool nextVal(int k) {\n    while (true) {\n        x[k] = (x[k] + 1) % (n + 1);\n        if (x[k] == n) { x[k] = -1; return false; }\n        if (adjacencyMatrix[x[k - 1]][x[k]] != 1) continue;\n        int i = 0;\n        for (; i < k; ++i) if (x[i] == x[k]) break;\n        if (i != k) continue;\n        if (k == n - 1 && adjacencyMatrix[x[k]][x[0]] != 1) continue;\n        return true;\n    }\n}\nvoid ham(int k) {\n    while (nextVal(k)) {\n        if (k == n - 1) {\n            found = 1;\n            for (int v : x) cout << v << ' ';\n            cout << x[0] << '\\n';\n        } else {\n            ham(k + 1);\n        }\n    }\n}\nint main() {\n    if (!(cin >> n) || n < 3 || n > 6) return 1;\n    adjacencyMatrix.assign(n, vector<int>(n));\n    for (auto &row : adjacencyMatrix)\n        for (int &value : row)\n            if (!(cin >> value) || (value != 0 && value != 1)) return 1;\n    x.assign(n, -1); x[0] = 0;\n    ham(1);\n    if (!found) cout << \"No Hamiltonian cycle\\n\";\n}",
+  "steps": [
+    {
+      "start_line": 3,
+      "end_line": 3,
+      "title": "Nhập thư viện nhập/xuất",
+      "note": "iostream cung cấp cin để đọc đồ thị và cout để in chu trình tìm được."
+    },
+    {
+      "start_line": 4,
+      "end_line": 4,
+      "title": "Nhập thư viện vector",
+      "note": "Dùng vector để lưu ma trận cạnh và đường đi với kích thước theo số đỉnh."
+    },
+    {
+      "start_line": 5,
+      "end_line": 5,
+      "title": "Dùng không gian tên std",
+      "note": "Cho phép viết vector, cin, cout mà không cần tiền tố std::."
+    },
+    {
+      "start_line": 6,
+      "end_line": 6,
+      "title": "Khai báo số đỉnh và cờ kết quả",
+      "note": "n là số đỉnh; found ban đầu bằng 0, sau này được đặt thành 1 khi tìm được chu trình."
+    },
+    {
+      "start_line": 7,
+      "end_line": 7,
+      "title": "Lưu các cạnh của đồ thị",
+      "note": "adjacencyMatrix[u][v] bằng 1 nghĩa là có cạnh nối đỉnh u với đỉnh v."
+    },
+    {
+      "start_line": 8,
+      "end_line": 8,
+      "title": "Lưu đường đi đang xây dựng",
+      "note": "x[k] là đỉnh được chọn ở vị trí k. Mỗi đỉnh chỉ được xuất hiện một lần."
+    },
+    {
+      "start_line": 10,
+      "end_line": 10,
+      "title": "Khai báo hàm chọn đỉnh tiếp theo",
+      "note": "nextVal(k) tìm một đỉnh hợp lệ cho vị trí k. Trả true khi tìm được; false khi đã hết ứng viên."
+    },
+    {
+      "start_line": 11,
+      "end_line": 11,
+      "title": "Lặp để thử các ứng viên",
+      "note": "Tiếp tục thử đỉnh khác nếu ứng viên hiện tại không thỏa các điều kiện."
+    },
+    {
+      "start_line": 12,
+      "end_line": 12,
+      "title": "Chuyển sang ứng viên tiếp theo",
+      "note": "Tăng x[k]. Phép chia dư cho n + 1 dành giá trị n làm dấu hiệu đã thử hết đỉnh 0 đến n − 1."
+    },
+    {
+      "start_line": 13,
+      "end_line": 13,
+      "title": "Dừng khi hết lựa chọn",
+      "note": "Đặt lại vị trí này thành −1 và trả false để hàm gọi biết cần quay lui."
+    },
+    {
+      "start_line": 14,
+      "end_line": 14,
+      "title": "Kiểm tra cạnh nối",
+      "note": "Đỉnh đang thử phải nối với đỉnh đứng trước. Không có cạnh thì continue để thử ứng viên khác."
+    },
+    {
+      "start_line": 15,
+      "end_line": 15,
+      "title": "Chuẩn bị kiểm tra đỉnh trùng",
+      "note": "i sẽ duyệt những vị trí đã chọn trước k."
+    },
+    {
+      "start_line": 16,
+      "end_line": 16,
+      "title": "Tìm đỉnh đã xuất hiện",
+      "note": "So sánh x[k] với các đỉnh trước đó. Nếu trùng thì dừng vòng lặp tại vị trí trùng."
+    },
+    {
+      "start_line": 17,
+      "end_line": 17,
+      "title": "Loại ứng viên trùng",
+      "note": "Nếu i chưa tới k thì đã phát hiện đỉnh trùng. Bỏ ứng viên này và thử tiếp."
+    },
+    {
+      "start_line": 18,
+      "end_line": 18,
+      "title": "Kiểm tra cạnh khép chu trình",
+      "note": "Ở vị trí cuối, đỉnh được chọn còn phải nối về x[0]. Ví dụ đường 0 → 1 → 2 cần cạnh 2 → 0."
+    },
+    {
+      "start_line": 19,
+      "end_line": 21,
+      "title": "Chấp nhận ứng viên",
+      "note": "Ứng viên đã qua các điều kiện. Trả true để ham tiếp tục xây dựng đường đi."
+    },
+    {
+      "start_line": 22,
+      "end_line": 22,
+      "title": "Khai báo hàm quay lui",
+      "note": "ham(k) tìm các cách đi tiếp từ vị trí k. Hàm gọi lại chính nó để xử lý vị trí kế tiếp."
+    },
+    {
+      "start_line": 23,
+      "end_line": 23,
+      "title": "Duyệt các đỉnh hợp lệ",
+      "note": "Mỗi lần nextVal(k) trả true, xử lý một lựa chọn. Khi trả false, kết thúc tìm kiếm ở mức này."
+    },
+    {
+      "start_line": 24,
+      "end_line": 24,
+      "title": "Kiểm tra đã chọn đủ đỉnh",
+      "note": "Vị trí cuối là n − 1. nextVal đã kiểm tra cả cạnh nối về đỉnh đầu nên đây là một chu trình hợp lệ."
+    },
+    {
+      "start_line": 25,
+      "end_line": 25,
+      "title": "Ghi nhận đã có kết quả",
+      "note": "Đặt found thành 1 để chương trình biết ít nhất một chu trình đã được tìm thấy."
+    },
+    {
+      "start_line": 26,
+      "end_line": 26,
+      "title": "In các đỉnh của đường đi",
+      "note": "Duyệt x theo thứ tự và in từng đỉnh. Ví dụ: 0 1 2."
+    },
+    {
+      "start_line": 27,
+      "end_line": 27,
+      "title": "In đỉnh đầu để khép chu trình",
+      "note": "In thêm x[0] và xuống dòng. Kết quả ví dụ trở thành 0 1 2 0."
+    },
+    {
+      "start_line": 28,
+      "end_line": 28,
+      "title": "Xử lý đường đi còn thiếu đỉnh",
+      "note": "Nếu chưa ở vị trí cuối, tiếp tục tìm đỉnh cho vị trí kế tiếp."
+    },
+    {
+      "start_line": 29,
+      "end_line": 32,
+      "title": "Gọi đệ quy",
+      "note": "Gọi ham(k + 1). Khi lời gọi con kết thúc, vòng lặp ở mức hiện tại thử lựa chọn khác: đó là quay lui."
+    },
+    {
+      "start_line": 33,
+      "end_line": 33,
+      "title": "Khai báo hàm bắt đầu chương trình",
+      "note": "main đọc đầu vào, chuẩn bị dữ liệu và khởi động tìm chu trình Hamilton."
+    },
+    {
+      "start_line": 34,
+      "end_line": 34,
+      "title": "Đọc và kiểm tra số đỉnh",
+      "note": "Bản C++ này nhận 3–6 đỉnh. Đầu vào không hợp lệ thì kết thúc với mã lỗi 1."
+    },
+    {
+      "start_line": 35,
+      "end_line": 35,
+      "title": "Tạo ma trận n × n",
+      "note": "Cấp n hàng, mỗi hàng có n phần tử để lưu thông tin cạnh."
+    },
+    {
+      "start_line": 36,
+      "end_line": 36,
+      "title": "Duyệt từng hàng của ma trận",
+      "note": "row tham chiếu tới hàng hiện tại để nhập trực tiếp vào ma trận."
+    },
+    {
+      "start_line": 37,
+      "end_line": 37,
+      "title": "Duyệt từng ô trong hàng",
+      "note": "value tham chiếu tới từng ô; vòng lặp này nằm trong vòng lặp duyệt hàng."
+    },
+    {
+      "start_line": 38,
+      "end_line": 38,
+      "title": "Đọc giá trị cạnh",
+      "note": "Mỗi ô chỉ nhận 0 hoặc 1. Bản C++ giả định đồ thị đầu vào là vô hướng và không có cạnh tự nối."
+    },
+    {
+      "start_line": 39,
+      "end_line": 39,
+      "title": "Khởi tạo đường đi",
+      "note": "Đặt các vị trí chưa chọn thành −1 và cố định x[0] = 0 để bắt đầu từ đỉnh 0."
+    },
+    {
+      "start_line": 40,
+      "end_line": 40,
+      "title": "Bắt đầu tìm từ vị trí thứ hai",
+      "note": "Đỉnh đầu đã được chọn. ham(1) tìm đỉnh cho x[1], rồi tiếp tục đệ quy."
+    },
+    {
+      "start_line": 41,
+      "end_line": 42,
+      "title": "Thông báo khi không có chu trình",
+      "note": "Sau khi thử hết lựa chọn, nếu found vẫn bằng 0 thì in thông báo không có chu trình Hamilton."
+    }
+  ]
+}

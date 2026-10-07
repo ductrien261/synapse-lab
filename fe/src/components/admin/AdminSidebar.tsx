@@ -42,7 +42,7 @@ const GROUPS: { title: string; items: Item[] }[] = [
     title: 'Nội dung học',
     items: [
       { href: '/admin/documents', label: 'Tài liệu', icon: FileEarmarkTextFill },
-      { href: '/admin/algorithms', label: 'Thuật toán', icon: BoxFill, soon: true },
+      { href: '/admin/algorithms', label: 'Thuật toán', icon: BoxFill },
       { href: '/admin/anatomy', label: 'Giải phẫu', icon: HeartPulseFill },
     ],
   },

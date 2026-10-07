@@ -5,15 +5,19 @@
 // ============================================================
 
 import { useEffect, useState } from 'react';
-import { algoVizApi, type AlgoCategory } from './algo-api';
+import { algorithmApi, type AlgorithmCategory } from './algorithm-api';
 
-let cache: Promise<AlgoCategory[]> | null = null;
+let cache: Promise<AlgorithmCategory[]> | null = null;
 
-export function loadAlgoCatalog(): Promise<AlgoCategory[]> {
+export function invalidateAlgoCatalog() {
+  cache = null;
+}
+
+export function loadAlgoCatalog(): Promise<AlgorithmCategory[]> {
   if (!cache) {
-    cache = algoVizApi
-      .getCategories()
-      .then((data) => (Array.isArray(data.categories) ? data.categories : []))
+    cache = algorithmApi
+      .categories()
+      .then((data) => (Array.isArray(data) ? data : []))
       .catch((err: unknown) => {
         cache = null; // lần sau thử lại
         throw err;
@@ -24,8 +28,8 @@ export function loadAlgoCatalog(): Promise<AlgoCategory[]> {
 
 export type CatalogState = 'loading' | 'ready' | 'error';
 
-export function useAlgoCatalog(): { categories: AlgoCategory[]; state: CatalogState } {
-  const [categories, setCategories] = useState<AlgoCategory[]>([]);
+export function useAlgoCatalog(): { categories: AlgorithmCategory[]; state: CatalogState } {
+  const [categories, setCategories] = useState<AlgorithmCategory[]>([]);
   const [state, setState] = useState<CatalogState>('loading');
 
   useEffect(() => {
@@ -47,6 +51,6 @@ export function useAlgoCatalog(): { categories: AlgoCategory[]; state: CatalogSt
   return { categories, state };
 }
 
-export function countAlgorithms(categories: AlgoCategory[]): number {
+export function countAlgorithms(categories: AlgorithmCategory[]): number {
   return categories.reduce((sum, c) => sum + (c.algorithms?.length ?? 0), 0);
 }

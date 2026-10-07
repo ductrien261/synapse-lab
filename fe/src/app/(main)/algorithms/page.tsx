@@ -4,8 +4,7 @@ import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { BoxFill, Search } from 'react-bootstrap-icons';
-import { algoVizApi, type AlgoCategory } from '@/lib/algo-api';
-import { categoryLabelVi } from '@/lib/algo-categories';
+import { algorithmApi, type AlgorithmCategory } from '@/lib/algorithm-api';
 
 export default function AlgorithmsPage() {
   // useSearchParams cần Suspense bao ngoài (yêu cầu của Next khi build)
@@ -23,15 +22,15 @@ function AlgorithmsBrowser() {
 }
 
 function AlgorithmsList({ initialQuery }: { initialQuery: string }) {
-  const [categories, setCategories] = useState<AlgoCategory[]>([]);
+  const [categories, setCategories] = useState<AlgorithmCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [search, setSearch] = useState(initialQuery);
 
   useEffect(() => {
-    algoVizApi
-      .getCategories()
-      .then((data) => setCategories(Array.isArray(data.categories) ? data.categories : []))
+    algorithmApi
+      .categories()
+      .then((data) => setCategories(Array.isArray(data) ? data : []))
       .catch(() => setError(true))
       .finally(() => setLoading(false));
   }, []);
@@ -42,7 +41,7 @@ function AlgorithmsList({ initialQuery }: { initialQuery: string }) {
       const catMatch =
         !q ||
         cat.name.toLowerCase().includes(q) ||
-        categoryLabelVi(cat.key, '').toLowerCase().includes(q);
+        cat.name.toLowerCase().includes(q);
       const all = cat.algorithms ?? [];
       return {
         ...cat,
@@ -78,7 +77,7 @@ function AlgorithmsList({ initialQuery }: { initialQuery: string }) {
         <ListSkeleton />
       ) : error ? (
         <div className="text-center py-12 text-stone-500 text-sm">
-          Không kết nối được máy chủ thuật toán (algo-server).
+          Không tải được kho bài học từ hệ thống.
         </div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-12 text-stone-400 text-sm">Không tìm thấy thuật toán phù hợp</div>
@@ -88,7 +87,7 @@ function AlgorithmsList({ initialQuery }: { initialQuery: string }) {
             <div key={cat.key} className="bg-white rounded-2xl border border-stone-200/90 p-5 shadow-[0_2px_12px_rgba(0,0,0,0.03)]">
               <div className="flex items-center gap-2 mb-4">
                 <span className="text-xs font-bold px-2.5 py-1 rounded-lg bg-[#1E3F82]/10 text-[#1E3F82] border border-[#1E3F82]/15">
-                  {categoryLabelVi(cat.key, cat.name)}
+                  {cat.name}
                 </span>
                 <span className="text-xs text-stone-400">
                   {cat.name} · {cat.algorithms.length} thuật toán
@@ -107,7 +106,7 @@ function AlgorithmsList({ initialQuery }: { initialQuery: string }) {
                     {algo.description && (
                       <span className="text-xs text-stone-400 line-clamp-2 leading-relaxed">{algo.description}</span>
                     )}
-                    <span className="text-[11px] font-semibold text-[#1E3F82]/60 mt-auto">Xem mô phỏng →</span>
+                    <span className="text-[11px] font-semibold text-[#1E3F82]/60 mt-auto">Xem thuật toán →</span>
                   </Link>
                 ))}
               </div>

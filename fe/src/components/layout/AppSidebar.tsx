@@ -5,8 +5,6 @@ import { usePathname } from 'next/navigation';
 import { useState, type ComponentType, type ReactNode } from 'react';
 import {
   BoxFill,
-  ChevronDoubleLeft,
-  ChevronDoubleRight,
   ChevronDown,
   ClockHistory,
   CpuFill,
@@ -19,7 +17,6 @@ import { useUser } from '@/lib/user-context';
 import { useRecent } from '@/lib/recent';
 import { TRACKS, type Track } from '@/lib/tracks';
 import { useAlgoCatalog } from '@/lib/algo-catalog';
-import { categoryLabelVi } from '@/lib/algo-categories';
 import { useBodySystems } from '@/lib/anatomy-catalog';
 
 type Icon = ComponentType<{ className?: string }>;
@@ -35,10 +32,9 @@ interface SubItem {
 
 interface Props {
   collapsed: boolean;
-  onToggle: () => void;
 }
 
-export function AppSidebar({ collapsed, onToggle }: Props) {
+export function AppSidebar({ collapsed }: Props) {
   const pathname = usePathname();
   const { user, guest } = useUser();
   const track = user?.track ?? null;
@@ -106,23 +102,6 @@ export function AppSidebar({ collapsed, onToggle }: Props) {
         ) : (
           track && <TrackBadge track={track} collapsed={collapsed} />
         )}
-        <button
-          type="button"
-          onClick={onToggle}
-          title={collapsed ? 'Mở rộng thanh bên' : 'Thu gọn thanh bên'}
-          className={`w-full flex items-center gap-3 rounded-xl py-2.5 text-xs font-semibold text-stone-500 hover:text-[#1E3F82] hover:bg-[#F4F7FC] transition-colors cursor-pointer ${
-            collapsed ? 'justify-center' : 'px-3'
-          }`}
-        >
-          {collapsed ? (
-            <ChevronDoubleRight className="w-4 h-4" />
-          ) : (
-            <>
-              <ChevronDoubleLeft className="w-4 h-4" />
-              <span>Thu gọn</span>
-            </>
-          )}
-        </button>
       </div>
     </aside>
   );
@@ -273,7 +252,7 @@ function AlgorithmsNav({ active, collapsed }: { active: boolean; collapsed: bool
       loading={state === 'loading'}
       items={categories.map((c) => ({
         href: `/algorithms?q=${encodeURIComponent(c.name)}`,
-        label: categoryLabelVi(c.key, c.name),
+        label: c.name,
         count: c.algorithms?.length ?? 0,
       }))}
     />

@@ -1,12 +1,17 @@
 """Kiểm thử không cần mạng/DB: kiểm chứng trích dẫn, gộp RRF, quy trình viết nháp (LLM + tìm kiếm giả), bảo vệ API."""
 
+import json
+
 import pytest
 from fastapi.testclient import TestClient
 
 from app.config import get_settings
 from app.graphs import draft as draft_graph
+from app.graphs import algorithm_draft
 from app.llm.chat import LLMError, parse_json
 from app.llm.context import RunContext
+from app.tools import retrieval
+from app.tools.embeddings import EmbeddingError
 from app.tools.retrieval import Hit, keyword_terms, rrf
 from app.verify.citations import check, strip_invalid
 
@@ -34,6 +39,90 @@ def test_rrf_and_terms():
     fused = rrf([[1, 2, 3], [3, 1]])
     assert max(fused, key=fused.get) == 1
     assert keyword_terms('What is the left ventricle? left') == 'what | is | the | left | ventricle'
+
+
+def test_cs_search_uses_keyword_index_when_embedding_is_unavailable(monkeypatch):
+    class FakeCursor:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            pass
+
+        def execute(self, sql, params):
+            self.sql = sql
+            assert 'embedding <=>' not in sql
+            if 'search_vector @@' in sql:
+                assert params[1] == ['cs', 'general']
+
+        def fetchall(self):
+            if 'search_vector @@' in self.sql:
+                return [(1,)]
+            return [(1, 'doc-1', 'Algorithms', 'CC BY 4.0', 'Backtracking', 'https://example.org/book.pdf#page=2',
+                     'Backtracking tries every valid option.', 2, 2)]
+
+    class FakeConnection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            pass
+
+        def cursor(self):
+            return FakeCursor()
+
+    class FakePool:
+        def connection(self):
+            return FakeConnection()
+
+    monkeypatch.setattr(retrieval, '_pool', lambda: FakePool())
+    monkeypatch.setattr(retrieval, 'embed_query', lambda *_: (_ for _ in ()).throw(EmbeddingError('unavailable')))
+    hits, info = retrieval.search(RunContext('search'), 'backtracking', scope='cs')
+    assert len(hits) == 1 and info['dense'] == 0 and info['keyword'] == 1
+    with pytest.raises(EmbeddingError):
+        retrieval.search(RunContext('search'), 'heart', scope='med')
+
+
+def test_med_tutor_can_opt_in_to_keyword_fallback(monkeypatch):
+    class FakeCursor:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            pass
+
+        def execute(self, sql, params):
+            self.sql = sql
+            assert 'embedding <=>' not in sql
+            if 'search_vector @@' in sql:
+                assert params[1] == ['med', 'general']
+
+        def fetchall(self):
+            if 'search_vector @@' in self.sql:
+                return [(2,)]
+            return [(2, 'doc-2', 'Anatomy', 'CC BY', 'Heart', 'https://example.org/heart',
+                     'The heart pumps blood through the circulatory system.', None, None)]
+
+    class FakeConnection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            pass
+
+        def cursor(self):
+            return FakeCursor()
+
+    class FakePool:
+        def connection(self):
+            return FakeConnection()
+
+    monkeypatch.setattr(retrieval, '_pool', lambda: FakePool())
+    monkeypatch.setattr(retrieval, 'embed_query', lambda *_: (_ for _ in ()).throw(EmbeddingError('unavailable')))
+    hits, info = retrieval.search(RunContext('search'), 'heart', scope='med', allow_keyword_fallback=True)
+    assert len(hits) == 1
+    assert hits[0].keyword_rank == 1
+    assert info['dense'] == 0
 
 
 def test_parse_json():
@@ -73,6 +162,110 @@ def test_draft_retries_when_citations_missing(fake_search, monkeypatch):
     assert calls == ['generate#1', 'generate#2']
     assert [c['n'] for c in out['citations']] == [1, 2]
     assert out['warnings'] == []
+
+
+def test_algorithm_draft_uses_explicit_approved_source(monkeypatch):
+    fields = {
+        key: {'value': '', 'status': 'missing', 'confidence': 0, 'sources': []}
+        for key in algorithm_draft.P.FIELDS
+    }
+    fields['summary'] = {
+        'value': 'BFS duyệt đồ thị theo từng lớp [1].',
+        'status': 'found', 'confidence': 0.9, 'sources': [1],
+    }
+    monkeypatch.setattr(algorithm_draft, 'search', lambda *a, **k: pytest.fail('không tìm kho khi chỉ dùng nguồn URL'))
+    monkeypatch.setattr(algorithm_draft, 'chat', lambda *a, **k: json.dumps({'fields': fields}))
+
+    result = algorithm_draft.run(RunContext('algorithm_draft'), 'Breadth-First Search', 'Graph', explicit_sources=[{
+        'title': 'Approved algorithms guide', 'url': 'https://docs.example.test/bfs',
+        'license_name': 'CC BY', 'content': 'Breadth-first search visits graph vertices one layer at a time.' * 5,
+    }])
+
+    assert result['status'] == 'pending'
+    assert result['fields']['summary']['status'] == 'found'
+    assert result['citations'][0]['url'] == 'https://docs.example.test/bfs'
+
+
+def test_algorithm_draft_only_accepts_inline_valid_citations():
+    fields = {
+        key: {'value': '', 'status': 'missing', 'confidence': 0, 'sources': []}
+        for key in algorithm_draft.P.FIELDS
+    }
+    fields['summary'] = {
+        'value': 'BFS duyệt đồ thị theo từng lớp.',
+        'status': 'found', 'confidence': 0.9, 'sources': [1],
+    }
+
+    normalized, used, problems = algorithm_draft._normalize({'fields': fields}, 1)
+
+    assert normalized['summary']['status'] == 'weak'
+    assert normalized['summary']['sources'] == []
+    assert used == set()
+    assert problems
+
+
+def test_algorithm_draft_focuses_on_named_section_of_long_page():
+    page = 'Unrelated introduction.\n' + ('Other topic details. ' * 140)
+    page += '\nBinary Search Algorithm\nCompare with the middle item and discard half the sorted list.\n'
+    excerpt = algorithm_draft._focused_excerpt(page, 'Binary Search')
+    assert 'Binary Search Algorithm' in excerpt
+    assert 'discard half the sorted list' in excerpt
+    assert len(excerpt) <= algorithm_draft.EXPLICIT_EXCERPT_CHARS
+
+
+def test_algorithm_draft_stops_at_next_topic_on_multi_algorithm_page():
+    page = (
+        'Binary Search Algorithm\nCompare with the middle item and discard half the sorted list.\n'
+        'Merge Sort Algorithm\nSplit a list and merge sorted halves.\n'
+    )
+    excerpt = algorithm_draft._focused_excerpt(
+        page, 'Binary Search Algorithm', ['Binary Search Algorithm', 'Merge Sort Algorithm'],
+    )
+    assert 'discard half the sorted list' in excerpt
+    assert 'Merge Sort' not in excerpt
+
+
+def test_algorithm_draft_stops_at_next_parent_section():
+    page = (
+        'Hashing\nA hash table maps keys to slots.\n'
+        'Graph Problems\nAn unrelated introduction to graphs.\n'
+        'Depth-First Search\nVisit adjacent vertices recursively.\n'
+    )
+    excerpt = algorithm_draft._focused_excerpt(
+        page, 'Hashing', ['Hashing', 'Depth-First Search'], [
+            {'level': 4, 'title': 'Hashing'},
+            {'level': 3, 'title': 'Graph Problems'},
+            {'level': 5, 'title': 'Depth-First Search'},
+        ],
+    )
+    assert 'hash table maps keys' in excerpt
+    assert 'Graph Problems' not in excerpt
+
+
+def test_algorithm_draft_rejects_unrelated_explicit_page(monkeypatch):
+    monkeypatch.setattr(algorithm_draft, 'chat', lambda *a, **k: pytest.fail('không gọi AI với nguồn lạc đề'))
+    result = algorithm_draft.run(RunContext('algorithm_draft'), 'Binary Search', 'Searching', explicit_sources=[{
+        'title': 'Văn học dân gian', 'url': 'https://example.test/literature',
+        'content': 'Các thể loại văn học dân gian có nhiều tác phẩm và ví dụ minh họa.' * 5,
+    }])
+    assert result['status'] == 'no_source'
+
+
+def test_algorithm_draft_keeps_verified_pseudocode_when_model_omits_it(monkeypatch):
+    monkeypatch.setattr(algorithm_draft, 'chat', lambda *a, **k: '{"fields": {}}')
+    code = 'procedure binarySearch(arr)\n  return -1'
+    result = algorithm_draft.run(
+        RunContext('algorithm_draft'), 'Binary Search', 'Searching', explicit_sources=[{
+            'title': 'Binary Search | Algorithm Visualizer',
+            'url': 'https://algorithm-visualizer.seancoughlin.me/searching/binarySearch',
+            'content': 'Binary Search\n' + 'Searches a sorted array. ' * 12 + '\nPseudocode\n' + code,
+            'pseudocode': code,
+        }],
+    )
+    assert result['status'] == 'pending'
+    assert result['fields']['pseudocode']['status'] == 'found'
+    assert code in result['fields']['pseudocode']['value']
+    assert result['citations'][0]['url'].endswith('/binarySearch')
 
 
 # ---------------- API ----------------

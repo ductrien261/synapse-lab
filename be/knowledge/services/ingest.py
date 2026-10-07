@@ -16,9 +16,9 @@ from django.db.models import F, Max
 from django.utils import timezone
 
 from ..models import Document, DocumentChunk, IngestJob
-from . import openstax
+from . import curated, openstax
 from .chunking import Section, chunk_sections, contextual_text
-from .embeddings import embed_documents
+from .embeddings import EmbeddingError, embed_documents
 from .pdf import parse_pdf
 
 STALE_AFTER = timedelta(minutes=15)
@@ -63,7 +63,7 @@ def active_job() -> IngestJob | None:
 # Lưu đoạn
 # ------------------------------------------------------------
 
-def save_sections(document: Document, section_key: str, section_title: str, sections: list[Section], on_batch=None) -> int:
+def save_sections(document: Document, section_key: str, section_title: str, sections: list[Section], on_batch=None, use_embeddings=True) -> int:
     """Thay toàn bộ đoạn của 1 trang nguồn bằng bản mới. Trả về số đoạn."""
     drafts = chunk_sections(sections)
     # Đoạn giống hệt (cùng tiêu đề + nội dung) đã có vector trong tài liệu này -> dùng lại, khỏi gọi Gemini
@@ -78,9 +78,9 @@ def save_sections(document: Document, section_key: str, section_title: str, sect
     missing = [i for i, k in enumerate(keys) if k not in known]
     new_vectors = embed_documents(
         [contextual_text(document.title, drafts[i].section.breadcrumb, drafts[i].text) for i in missing], on_batch
-    ) if missing else []
+    ) if missing and use_embeddings else []
     fresh = dict(zip(missing, new_vectors))
-    vectors = [fresh[i] if i in fresh else known[keys[i]] for i in range(len(drafts))]
+    vectors = [fresh.get(i, known.get(keys[i])) if use_embeddings else None for i in range(len(drafts))]
 
     with transaction.atomic():
         DocumentChunk.objects.filter(document=document, section_key=section_key).delete()
@@ -92,7 +92,7 @@ def save_sections(document: Document, section_key: str, section_title: str, sect
                 section_key=section_key,
                 section_title=section_title[:300],
                 heading=d.section.breadcrumb[:500],
-                url=d.section.url,
+                url=d.section.url or (f'{document.source_url}#page={d.section.page}' if document.scope == Document.Scope.CS and document.source_key in curated.SOURCES and d.section.page else ''),
                 content=d.text,
                 page_start=d.section.page,
                 page_end=d.section.page,
@@ -149,10 +149,17 @@ def _run_openstax(job: IngestJob):
 
 def _run_pdf(job: IngestJob):
     document = job.document
+    is_curated_cs = document.scope == Document.Scope.CS and document.source_key in curated.SOURCES
+    if is_curated_cs and document.meta.get('index_source') == 'outlined_pdf':
+        raise ValueError('Nguồn ODS đã được nạp theo mục lục PDF; dùng lệnh seed_curated_cs --apply để cập nhật.')
     _log(job, f'Đang đọc file “{document.original_filename or document.title}”...')
     with document.file.open('rb') as fh:
         data = fh.read()
-    sections, page_count = parse_pdf(data, document.title)
+    sections, page_count = parse_pdf(data, document.title, normalize_text=is_curated_cs, split_pages=is_curated_cs)
+    if is_curated_cs:
+        sections = [section for section in sections if section.heading_path[0].casefold() not in {
+            'contents', 'table of contents', 'bibliography', 'index',
+        }]
     document.page_count = page_count
     document.save(update_fields=['page_count', 'updated_at'])
     _log(job, f'{page_count} trang, {len(sections)} mục. Đang chia đoạn và tạo vector...')
@@ -160,7 +167,20 @@ def _run_pdf(job: IngestJob):
     def progress(done: int, total: int):
         IngestJob.objects.filter(pk=job.pk).update(total=total, processed=done, updated_at=timezone.now())
 
-    count = save_sections(document, 'pdf', document.title, sections, on_batch=progress)
+    keyword_only = is_curated_cs and bool(job.params.get('keyword_only'))
+    try:
+        count = save_sections(document, 'pdf', document.title, sections, on_batch=progress, use_embeddings=not keyword_only)
+    except EmbeddingError:
+        if not is_curated_cs:
+            raise
+        keyword_only = True
+        _log(job, 'Dịch vụ tạo vector không khả dụng; nạp chỉ mục từ khóa cho tài liệu CNTT.', 'warning')
+        count = save_sections(document, 'pdf', document.title, sections, use_embeddings=False)
+    if is_curated_cs:
+        document.meta = {**document.meta, 'index_mode': 'keyword' if keyword_only else 'hybrid'}
+        document.save(update_fields=['meta', 'updated_at'])
+    if keyword_only:
+        progress(count, count)
     job.refresh_from_db()
     _bump(job, created_count=1)
     _log(job, f'Đã lưu {count} đoạn.', 'success')
