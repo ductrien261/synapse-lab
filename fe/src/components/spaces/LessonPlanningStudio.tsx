@@ -1,8 +1,9 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
-import { BoxArrowLeft, Broadcast, Check2, Clipboard, PeopleFill, PersonPlusFill, PersonVideo3 } from 'react-bootstrap-icons';
+import { BoxArrowLeft, Broadcast, Check2, Clipboard, PeopleFill, PersonPlusFill, PersonVideo3, StopCircle } from 'react-bootstrap-icons';
 import { classroomApi, type ClassroomDto } from './classroom-api';
 import { AnatomyModelPicker } from './AnatomyModelPicker';
 import { DocumentWorkspace } from './DocumentWorkspace';
@@ -16,6 +17,7 @@ import { ApiError } from '@/lib/api';
 import type { AnatomyModelSummary } from '@/lib/anatomy-catalog';
 
 export function LessonPlanningStudio({ roomCode: rawRoomCode }: { roomCode: string; roomName?: string }) {
+  const router = useRouter();
   const roomCode = String(rawRoomCode || 'BFS204').toUpperCase();
   const [classroom, setClassroom] = useState<ClassroomDto | null>(null);
   const [loading, setLoading] = useState(true);
@@ -24,10 +26,11 @@ export function LessonPlanningStudio({ roomCode: rawRoomCode }: { roomCode: stri
   const [copied, setCopied] = useState(false);
   const [planDto, setPlanDto] = useState<LessonPlanDto | null>(null);
   const [planLoading, setPlanLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const uploadingRef = useRef(false);
   const [modelPickerStepId, setModelPickerStepId] = useState<string | null>(null);
   const quizSaveTimerRef = useRef<number | null>(null);
-  const classroomIsOwner = classroom?.is_owner;
-  const classroomTitle = classroom?.name;
   const plan = planDto ? mapLessonPlan(planDto) : null;
   const [selectedResourceKey, setSelectedResourceKey] = useState('');
   const activeSession = classroom?.active_session;
@@ -37,38 +40,37 @@ export function LessonPlanningStudio({ roomCode: rawRoomCode }: { roomCode: stri
 
   useEffect(() => {
     let mounted = true;
-    const load = (initial = false) => classroomApi.get(roomCode)
+    const initialClassroom = classroomApi.get(roomCode);
+    void initialClassroom
       .then((result) => { if (mounted) setClassroom(result); })
-      .catch((reason: unknown) => { if (mounted && initial) setMessage(reason instanceof Error ? reason.message : 'Không thể tải không gian.'); })
-      .finally(() => { if (mounted && initial) setLoading(false); });
-    void load(true);
-    const timer = window.setInterval(() => { void load(); }, 5000);
+      .catch((reason: unknown) => { if (mounted) setMessage(reason instanceof Error ? reason.message : 'Không thể tải không gian.'); })
+      .finally(() => { if (mounted) setLoading(false); });
+
+    void lessonPlanApi.get(roomCode)
+      .catch(async (reason: unknown) => {
+        if (!(reason instanceof ApiError && (reason.status === 403 || reason.status === 404))) throw reason;
+        const classroom = await initialClassroom;
+        if (!mounted || !classroom.is_owner) return null;
+        if (reason.status !== 404) throw reason;
+        return lessonPlanApi.create(roomCode, {
+          subject: 'anatomy',
+          title: classroom.name,
+          objective: 'Nhận diện cấu trúc và vận dụng kiến thức Giải phẫu trong thực hành.',
+        });
+      })
+      .then((result) => { if (mounted && result) setPlanDto(result); })
+      .catch((reason: unknown) => { if (mounted) setMessage(reason instanceof Error ? reason.message : 'Không thể tải bài dạy.'); })
+      .finally(() => { if (mounted) setPlanLoading(false); });
+
+    const timer = window.setInterval(() => {
+      void classroomApi.get(roomCode).then((result) => { if (mounted) setClassroom(result); }).catch(() => {});
+    }, 5000);
     return () => { mounted = false; window.clearInterval(timer); };
   }, [roomCode]);
 
   useEffect(() => () => {
     if (quizSaveTimerRef.current) window.clearTimeout(quizSaveTimerRef.current);
   }, []);
-
-  useEffect(() => {
-    if (classroomIsOwner === undefined || !classroomTitle) return;
-    let mounted = true;
-    lessonPlanApi.get(roomCode)
-      .catch((reason: unknown) => {
-        if (reason instanceof ApiError && reason.status === 404 && classroomIsOwner) {
-          return lessonPlanApi.create(roomCode, {
-            subject: 'anatomy',
-            title: classroomTitle,
-            objective: 'Nhận diện cấu trúc và vận dụng kiến thức Giải phẫu trong thực hành.',
-          });
-        }
-        throw reason;
-      })
-      .then((result) => { if (mounted) setPlanDto(result); })
-      .catch((reason: unknown) => { if (mounted) setMessage(reason instanceof Error ? reason.message : 'Không thể tải bài dạy.'); })
-      .finally(() => { if (mounted) setPlanLoading(false); });
-    return () => { mounted = false; };
-  }, [classroomIsOwner, classroomTitle, roomCode]);
 
   const reloadPlan = async () => {
     const result = await lessonPlanApi.get(roomCode);
@@ -86,9 +88,8 @@ export function LessonPlanningStudio({ roomCode: rawRoomCode }: { roomCode: stri
     setActionPending(true);
     setMessage('');
     try {
-      const result = await classroomApi.joinSession(roomCode);
-      if (result.join_url) { window.location.assign(result.join_url); return; }
-      setMessage('Bạn đã vào phòng mô phỏng. Khi BBB được bật, thao tác này sẽ mở phòng video.');
+      await classroomApi.joinSession(roomCode);
+      router.push(`/spaces/${encodeURIComponent(roomCode)}/video`);
     } catch (reason) {
       setMessage(reason instanceof Error ? reason.message : 'Không thể tham gia buổi học.');
     } finally {
@@ -102,9 +103,8 @@ export function LessonPlanningStudio({ roomCode: rawRoomCode }: { roomCode: stri
     try {
       const updated = await classroomApi.startSession(roomCode);
       setClassroom(updated);
-      const result = await classroomApi.joinSession(roomCode);
-      if (result.join_url) { window.location.assign(result.join_url); return; }
-      setMessage('Buổi học mô phỏng đã bắt đầu.');
+      await classroomApi.joinSession(roomCode);
+      router.push(`/spaces/${encodeURIComponent(roomCode)}/video`);
     } catch (reason) {
       setMessage(reason instanceof Error ? reason.message : 'Không thể bắt đầu buổi học.');
     } finally {
@@ -127,26 +127,36 @@ export function LessonPlanningStudio({ roomCode: rawRoomCode }: { roomCode: stri
   };
 
   const addFiles = async (files: FileList | null, requestedStepId?: string) => {
-    if (!files?.length || !planDto?.sections.length) return;
+    if (!files?.length || !planDto?.sections.length || uploadingRef.current) return;
     const targetStepId = requestedStepId || selectedResource?.stepId || plan?.steps[0]?.id;
     if (!targetStepId) return;
-    const uploads = Array.from(files).map((file, index) => {
-      const extension = file.name.split('.').pop()?.toLowerCase();
-      const kind: MaterialKind = extension === 'pdf' ? 'pdf' : extension === 'doc' || extension === 'docx' ? 'doc' : 'slide';
-      const form = new FormData();
-      form.append('kind', kind);
-      form.append('title', file.name);
-      form.append('file', file);
-      form.append('position', String((planDto.sections.find((item) => item.id === targetStepId)?.resources.length || 0) + index));
-      form.append('metadata', JSON.stringify({ size_label: file.size > 1_048_576 ? `${(file.size / 1_048_576).toFixed(1)} MB` : `${Math.max(1, Math.round(file.size / 1024))} KB` }));
-      return lessonPlanApi.createResource(roomCode, targetStepId, form);
-    });
+    uploadingRef.current = true;
+    setUploading(true);
+    setUploadProgress(0);
+    setMessage('Đang tải tài liệu lên…');
     try {
-      const created = await Promise.all(uploads);
+      const created = [];
+      for (const [index, file] of Array.from(files).entries()) {
+        setUploadProgress(0);
+        const extension = file.name.split('.').pop()?.toLowerCase();
+        const kind: MaterialKind = extension === 'pdf' ? 'pdf' : extension === 'doc' || extension === 'docx' ? 'doc' : 'slide';
+        const form = new FormData();
+        form.append('kind', kind);
+        form.append('title', file.name);
+        form.append('file', file);
+        form.append('position', String((planDto.sections.find((item) => item.id === targetStepId)?.resources.length || 0) + index));
+        form.append('metadata', JSON.stringify({ size_label: file.size > 1_048_576 ? `${(file.size / 1_048_576).toFixed(1)} MB` : `${Math.max(1, Math.round(file.size / 1024))} KB` }));
+        created.push(await lessonPlanApi.createResource(roomCode, targetStepId, form, setUploadProgress));
+      }
       await reloadPlan();
       setSelectedResourceKey(`material:${targetStepId}:${created[0].id}`);
+      setMessage('Đã tải tài liệu lên.');
     } catch (reason) {
       setMessage(reason instanceof Error ? reason.message : 'Không thể tải tài liệu lên.');
+    } finally {
+      uploadingRef.current = false;
+      setUploading(false);
+      setUploadProgress(null);
     }
   };
 
@@ -303,7 +313,7 @@ export function LessonPlanningStudio({ roomCode: rawRoomCode }: { roomCode: stri
     if (!section) return;
     void lessonPlanApi.createResource(roomCode, section.id, {
       kind: 'quiz', title: 'Mini-quiz kiểm tra nhanh', position: section.resources.length,
-      quiz: { question: 'Cấu trúc giải phẫu nào đang được mô tả?', options: ['Đáp án A', 'Đáp án B', 'Đáp án C', 'Đáp án D'], correct_option: 0, duration_seconds: 60, trigger_mode: 'manual', trigger_minute: 0, delay_seconds: 0, success_threshold: 70 },
+      quiz: { question: 'Buồng tim nào bơm máu giàu oxy vào động mạch chủ để nuôi cơ thể?', options: ['Tâm thất trái', 'Tâm thất phải', 'Tâm nhĩ trái', 'Tâm nhĩ phải'], correct_option: 0, duration_seconds: 60, trigger_mode: 'manual', trigger_minute: 0, delay_seconds: 0, success_threshold: 70 },
     }).then(() => reloadPlan()).then(() => setSelectedResourceKey(`quiz:${section.id}`)).catch((reason: unknown) => setMessage(reason instanceof Error ? reason.message : 'Không thể thêm quiz.'));
   };
 
@@ -345,19 +355,19 @@ export function LessonPlanningStudio({ roomCode: rawRoomCode }: { roomCode: stri
       <header className="grid min-h-16 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 border-b border-stone-200 px-4 py-3">
         <div className="flex min-w-0 items-center gap-3">
           <Link href="/spaces" aria-label="Quay lại Không gian" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-stone-200 text-stone-500 hover:bg-stone-50 hover:text-[#1E3F82]"><BoxArrowLeft className="h-4 w-4" /></Link>
-          <div className="min-w-0"><div className="flex items-center gap-2"><h1 className="truncate text-sm font-extrabold text-stone-900">Xưởng thiết kế bài dạy</h1><span className="rounded-full bg-violet-50 px-2 py-0.5 text-[9px] font-extrabold text-violet-700">Giáo viên</span>{activeSession && <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[9px] font-extrabold uppercase text-rose-600">● Trực tiếp</span>}</div><button type="button" onClick={copyCode} className="mt-0.5 flex max-w-full items-center gap-1.5 text-[11px] font-semibold text-stone-500 hover:text-[#1E3F82]"><span className="truncate">{plan.title}</span><span className="text-stone-300">·</span><span className="font-extrabold tracking-wider text-[#1E3F82]">{roomCode}</span>{copied ? <Check2 className="h-3 w-3 text-emerald-600" /> : <Clipboard className="h-3 w-3" />}</button></div>
+          <div className="min-w-0"><div className="flex items-center gap-2"><h1 className="truncate text-sm font-extrabold text-stone-900">Xưởng thiết kế bài dạy</h1><span className="rounded-full bg-violet-50 px-2 py-0.5 text-[9px] font-extrabold text-violet-700">Giáo viên</span>{activeSession && <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[9px] font-extrabold uppercase text-rose-600">● Video LiveKit</span>}</div><button type="button" onClick={copyCode} className="mt-0.5 flex max-w-full items-center gap-1.5 text-[11px] font-semibold text-stone-500 hover:text-[#1E3F82]"><span className="truncate">{plan.title}</span><span className="text-stone-300">·</span><span className="font-extrabold tracking-wider text-[#1E3F82]">{roomCode}</span>{copied ? <Check2 className="h-3 w-3" /> : <Clipboard className="h-3 w-3" />}</button></div>
         </div>
         <div className="flex items-center justify-center gap-2 rounded-xl bg-stone-50 px-2.5 py-2 text-[11px] font-bold text-stone-600 sm:px-3"><PeopleFill className="h-3.5 w-3.5 text-[#397BF6]" /><span className="hidden sm:inline">{classroom.member_count} người trong lớp</span><span className="sm:hidden">{classroom.member_count}</span></div>
         <div className="flex items-center justify-end gap-2">
           <button type="button" onClick={copyCode} className="flex h-9 items-center gap-2 rounded-xl bg-[#E8F0FB] px-3 text-xs font-bold text-[#1E3F82] hover:bg-[#D5E4F7]"><PersonPlusFill className="h-3.5 w-3.5" /><span className="hidden sm:inline">Mời học viên</span></button>
-          {activeSession ? <button type="button" disabled={actionPending} onClick={joinSession} className="flex h-9 items-center gap-2 rounded-xl bg-[#1E3F82] px-3 text-xs font-bold text-white hover:bg-[#163070] disabled:opacity-50"><PersonVideo3 className="h-3.5 w-3.5" /><span className="hidden lg:inline">Mở BBB</span></button> : <button type="button" disabled={actionPending || loading} onClick={startSession} className="flex h-9 items-center gap-2 rounded-xl bg-emerald-600 px-3 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50"><Broadcast className="h-3.5 w-3.5" /><span className="hidden lg:inline">Bắt đầu buổi dạy</span></button>}
+          {activeSession ? <button type="button" disabled={actionPending} onClick={joinSession} className="flex h-9 items-center gap-2 rounded-xl bg-[#1E3F82] px-3 text-xs font-bold text-white hover:bg-[#163070] disabled:opacity-50"><PersonVideo3 className="h-3.5 w-3.5" /><span className="hidden lg:inline">Vào phòng</span></button> : <button type="button" disabled={actionPending || loading} onClick={startSession} className="flex h-9 items-center gap-2 rounded-xl bg-emerald-600 px-3 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50"><Broadcast className="h-3.5 w-3.5" /><span className="hidden lg:inline">Bắt đầu buổi dạy</span></button>}
+          {activeSession && <button type="button" disabled={actionPending} onClick={endSession} aria-label="Kết thúc phiên" title="Kết thúc phiên" className="flex h-9 items-center gap-2 rounded-xl border border-rose-200 px-3 text-xs font-bold text-rose-600 hover:bg-rose-50 disabled:opacity-50"><StopCircle className="h-3.5 w-3.5" /><span className="hidden lg:inline">Kết thúc phiên</span></button>}
         </div>
       </header>
 
       {message && <div className="border-b border-[#D9E6FA] bg-[#EEF4FF] px-4 py-2 text-xs font-semibold text-[#1E3F82]">{message}</div>}
-      {activeSession && <div className="flex flex-wrap items-center justify-between gap-2 border-b border-emerald-100 bg-emerald-50 px-4 py-2 text-[11px] font-semibold text-emerald-800"><span>Buổi học đang chạy trên BigBlueButton. Bạn vẫn có thể chỉnh kịch bản tại đây.</span><button type="button" disabled={actionPending} onClick={endSession} className="rounded-lg border border-rose-200 bg-white px-2.5 py-1 font-bold text-rose-600 hover:bg-rose-50">Kết thúc phiên</button></div>}
-
-      <div className="grid min-h-0 flex-1 grid-cols-1 xl:grid-cols-[300px_minmax(0,1fr)]"><EditableLessonTree steps={plan.steps} resources={resources} selectedKey={selectedResource?.key || ''} onSelect={setSelectedResourceKey} onAddFiles={addFiles} onAddQuiz={addQuiz} onAddModel={setModelPickerStepId} onAddActivity={addActivity} onMoveActivity={moveActivity} onDeleteActivity={deleteActivity} onDeleteResource={deleteResource} onRenameActivity={renameActivity} onRenameResource={renameResource} onReorderActivity={reorderActivity} onReorderResource={reorderResource} /><div className="relative min-h-0 min-w-0"><DocumentWorkspace resource={selectedResource} /><LessonToolsRail key={selectedResource?.key || 'empty'} resource={selectedResource} step={selectedStep} onUpdateMaterial={updateSelectedMaterial} onUpdateQuiz={updateSelectedQuiz} /></div></div>
+      {uploading && <div role="status" aria-live="polite" className="border-b border-blue-100 bg-blue-50 px-4 py-2"><div className="flex items-center justify-between text-xs font-semibold text-blue-800"><span>{uploadProgress === 100 ? 'Đã gửi xong. Đang lưu và xử lý tài liệu…' : 'Đang gửi tài liệu…'}</span><span>{uploadProgress ?? 0}%</span></div><progress value={uploadProgress ?? 0} max={100} className="mt-1 h-2 w-full accent-blue-700" /></div>}
+      <div className="grid min-h-0 flex-1 grid-cols-1 xl:grid-cols-[300px_minmax(0,1fr)]"><EditableLessonTree steps={plan.steps} resources={resources} selectedKey={selectedResource?.key || ''} onSelect={setSelectedResourceKey} onAddFiles={addFiles} uploading={uploading} onAddQuiz={addQuiz} onAddModel={setModelPickerStepId} onAddActivity={addActivity} onMoveActivity={moveActivity} onDeleteActivity={deleteActivity} onDeleteResource={deleteResource} onRenameActivity={renameActivity} onRenameResource={renameResource} onReorderActivity={reorderActivity} onReorderResource={reorderResource} /><div className="relative min-h-0 min-w-0"><DocumentWorkspace resource={selectedResource} roomCode={roomCode} /><LessonToolsRail key={selectedResource?.key || 'empty'} resource={selectedResource} step={selectedStep} onUpdateMaterial={updateSelectedMaterial} onUpdateQuiz={updateSelectedQuiz} /></div></div>
 
       {modelPickerStepId && <AnatomyModelPicker sectionTitle={plan.steps.find((item) => item.id === modelPickerStepId)?.title || 'Hoạt động'} onClose={() => setModelPickerStepId(null)} onChoose={addAnatomyModel} />}
     </div>
@@ -380,5 +390,22 @@ function StudioLoadState({ title, message }: { title: string; message?: string }
 
 function MemberLobby({ classroom, roomCode, copied, actionPending, message, onCopy, onJoin }: { classroom: ClassroomDto; roomCode: string; copied: boolean; actionPending: boolean; message: string; onCopy: () => void; onJoin: () => void }) {
   const live = classroom.active_session;
-  return <div className="flex min-h-[calc(100dvh-80px)] items-center justify-center rounded-2xl border border-stone-200 bg-[#F4F7FC] p-4"><div className="w-full max-w-xl overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-xl shadow-blue-950/5"><div className="bg-[#102B5C] px-6 py-7 text-white"><span className="rounded-full bg-white/10 px-2.5 py-1 text-[9px] font-extrabold uppercase tracking-wider">Phòng học Synapse</span><h1 className="mt-4 text-2xl font-extrabold">{classroom.name}</h1><button type="button" onClick={onCopy} className="mt-2 flex items-center gap-1.5 text-xs text-blue-100">Mã phòng <strong>{roomCode}</strong>{copied ? <Check2 /> : <Clipboard />}</button></div><div className="p-6"><div className={`rounded-2xl border p-4 ${live ? 'border-emerald-100 bg-emerald-50' : 'border-amber-100 bg-amber-50'}`}><p className={`text-sm font-extrabold ${live ? 'text-emerald-800' : 'text-amber-800'}`}>{live ? 'Buổi học đã bắt đầu' : 'Giáo viên đang chuẩn bị bài dạy'}</p><p className="mt-1 text-xs leading-relaxed text-stone-600">{live ? 'Mic, camera, chat và bảng tương tác sẽ mở trong BigBlueButton.' : 'Trang này tự cập nhật. Nút vào lớp sẽ xuất hiện khi giáo viên bắt đầu.'}</p></div>{message && <p className="mt-4 rounded-xl bg-blue-50 p-3 text-xs font-semibold text-blue-800">{message}</p>}<button type="button" disabled={!live || actionPending} onClick={onJoin} className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-[#1E3F82] py-3 text-sm font-extrabold text-white hover:bg-[#163070] disabled:cursor-not-allowed disabled:bg-stone-200 disabled:text-stone-500"><PersonVideo3 className="h-4 w-4" />{live ? 'Vào lớp trên BigBlueButton' : 'Đang chờ giáo viên'}</button><div className="mt-4 flex items-center justify-between text-[10px] font-semibold text-stone-400"><span>{classroom.member_count} thành viên</span><Link href="/spaces" className="hover:text-[#1E3F82]">Quay lại Không gian</Link></div></div></div></div>;
+  return <div className="flex min-h-[calc(100dvh-80px)] items-center justify-center rounded-2xl border border-stone-200 bg-[#F4F7FC] p-4">
+    <div className="w-full max-w-xl overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-xl shadow-blue-950/5">
+      <div className="bg-[#102B5C] px-6 py-7 text-white">
+        <span className="rounded-full bg-white/10 px-2.5 py-1 text-[9px] font-extrabold uppercase tracking-wider">Phòng học Synapse</span>
+        <h1 className="mt-4 text-2xl font-extrabold">{classroom.name}</h1>
+        <button type="button" onClick={onCopy} className="mt-2 flex items-center gap-1.5 text-xs text-blue-100">Mã phòng <strong>{roomCode}</strong>{copied ? <Check2 /> : <Clipboard />}</button>
+      </div>
+      <div className="p-6">
+        <div className={`rounded-2xl border p-4 ${live ? 'border-emerald-100 bg-emerald-50' : 'border-amber-100 bg-amber-50'}`}>
+          <p className={`text-sm font-extrabold ${live ? 'text-emerald-800' : 'text-amber-800'}`}>{live ? 'Buổi học đã bắt đầu' : 'Giáo viên đang chuẩn bị bài dạy'}</p>
+          <p className="mt-1 text-xs leading-relaxed text-stone-600">{live ? 'Phòng học LiveKit đã mở. Bấm vào lớp để dùng mic, camera và chat.' : 'Trang này tự cập nhật. Nút vào lớp sẽ xuất hiện khi giáo viên bắt đầu.'}</p>
+        </div>
+        {message && <p className="mt-4 rounded-xl bg-blue-50 p-3 text-xs font-semibold text-blue-800">{message}</p>}
+        <button type="button" disabled={!live || actionPending} onClick={onJoin} className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-[#1E3F82] py-3 text-sm font-extrabold text-white hover:bg-[#163070] disabled:cursor-not-allowed disabled:bg-stone-200 disabled:text-stone-500"><PersonVideo3 className="h-4 w-4" />{live ? 'Vào lớp video' : 'Đang chờ giáo viên'}</button>
+        <div className="mt-4 flex items-center justify-between text-[10px] font-semibold text-stone-400"><span>{classroom.member_count} thành viên</span><Link href="/spaces" className="hover:text-[#1E3F82]">Quay lại Không gian</Link></div>
+      </div>
+    </div>
+  </div>;
 }

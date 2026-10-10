@@ -1,15 +1,11 @@
-from datetime import timedelta
-from urllib.parse import urlsplit
-from xml.etree import ElementTree
-
+import jwt
 import pymupdf as fitz
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import SimpleTestCase, override_settings
+from django.test import override_settings
 from django.urls import reverse
-from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 from users.models import User
 from anatomy.models import AnatomyModel, BodySystem
@@ -21,91 +17,17 @@ from .models import (
     LessonQuiz,
     LessonResource,
     LessonSection,
-    LiveQuizResponse,
     LiveSession,
     SessionAttendance,
 )
-from .bbb_documents import build_bbb_pdf_reader_url, build_bbb_presentation_documents
-from .quiz_runtime import build_bbb_quiz_runtime_url
-from .services import BigBlueButtonService
 
 
-def make_test_pdf_bytes(text='Synapse PDF'):
+def make_test_pdf_bytes(text='Synapse PDF', page_count=1):
     with fitz.open() as document:
-        page = document.new_page()
-        page.insert_text((72, 72), text)
+        for _ in range(page_count):
+            page = document.new_page()
+            page.insert_text((72, 72), text)
         return document.tobytes()
-
-
-@override_settings(
-    BBB_ENABLED=True,
-    BBB_URL='https://bbb.example.com/bigbluebutton/api',
-    BBB_SECRET='test-secret',
-    BBB_CHECKSUM_ALGORITHM='sha256',
-)
-class BigBlueButtonServiceTests(SimpleTestCase):
-    def test_join_url_is_signed_without_exposing_secret(self):
-        url = BigBlueButtonService().join_url(
-            meeting_id='meeting-1',
-            full_name='Nguyen Van A',
-            user_id='user-1',
-            moderator=True,
-        )
-
-        self.assertIn('/join?', url)
-        self.assertIn('role=MODERATOR', url)
-        self.assertIn('checksum=', url)
-        self.assertNotIn('test-secret', url)
-
-    @patch.object(BigBlueButtonService, '_request')
-    def test_create_meeting_enables_media_chat_and_multi_user_whiteboard(self, request):
-        BigBlueButtonService().create_meeting(
-            meeting_id='meeting-1',
-            name='Lop hoc tuong tac',
-        )
-
-        call_name, params = request.call_args.args
-        self.assertEqual(call_name, 'create')
-        self.assertEqual(params['lockSettingsDisableCam'], 'false')
-        self.assertEqual(params['lockSettingsDisableMic'], 'false')
-        self.assertEqual(params['lockSettingsDisablePublicChat'], 'false')
-        self.assertEqual(params['lockSettingsDisablePrivateChat'], 'false')
-        self.assertEqual(params['multiUserWhiteboardEnabled'], 'true')
-
-    @patch.object(BigBlueButtonService, '_request')
-    def test_create_meeting_preuploads_presentations_as_xml(self, request):
-        BigBlueButtonService().create_meeting(
-            meeting_id='meeting-1',
-            name='Lop hoc tuong tac',
-            presentations=[{
-                'url': 'https://api.example.com/lesson.pdf?token=a&part=b',
-                'filename': 'lesson.pdf',
-                'downloadable': True,
-                'removable': False,
-                'current': True,
-            }],
-        )
-
-        call_name, params = request.call_args.args
-        body = request.call_args.kwargs['body']
-        document = ElementTree.fromstring(body).find('./module/document')
-        self.assertEqual(call_name, 'create')
-        self.assertEqual(params['meetingID'], 'meeting-1')
-        self.assertEqual(document.attrib['url'], 'https://api.example.com/lesson.pdf?token=a&part=b')
-        self.assertEqual(document.attrib['downloadable'], 'true')
-        self.assertEqual(document.attrib['current'], 'true')
-
-    @patch('classroom.services.requests.get')
-    def test_meeting_status_reads_participant_count(self, get):
-        running = Mock(content=b'<response><returncode>SUCCESS</returncode><running>true</running></response>')
-        running.raise_for_status.return_value = None
-        info = Mock(content=b'<response><returncode>SUCCESS</returncode><participantCount>3</participantCount></response>')
-        info.raise_for_status.return_value = None
-        get.side_effect = [running, info]
-
-        result = BigBlueButtonService().meeting_status(meeting_id='meeting-1')
-
-        self.assertEqual(result, {'running': True, 'participant_count': 3})
 
 
 class ClassroomApiTests(APITestCase):
@@ -156,8 +78,9 @@ class ClassroomApiTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data[0]['member_count'], 2)
 
-    @override_settings(BBB_ENABLED=False)
-    def test_mock_session_lifecycle_and_permissions(self):
+    @override_settings(LIVEKIT_API_KEY='test-key', LIVEKIT_API_SECRET='test-secret')
+    @patch('classroom.views.delete_room')
+    def test_livekit_session_lifecycle_and_permissions(self, delete_room):
         classroom = Classroom.objects.create(name='Học nhóm', owner=self.owner)
         ClassMembership.objects.bulk_create([
             ClassMembership(classroom=classroom, user=self.owner, role=ClassMembership.Role.OWNER),
@@ -171,15 +94,24 @@ class ClassroomApiTests(APITestCase):
         self.client.force_authenticate(self.owner)
         started = self.client.post(reverse('session-start', kwargs={'code': classroom.code}), {})
         self.assertEqual(started.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(started.data['active_session']['mode'], 'mock')
+        self.assertEqual(started.data['active_session']['mode'], 'livekit')
+        session = LiveSession.objects.get()
+        self.assertTrue(session.room_name.startswith('synapse-'))
+
+        token_url = reverse('session-video-token', kwargs={'code': classroom.code})
+        self.assertEqual(self.client.get(token_url).status_code, status.HTTP_403_FORBIDDEN)
 
         self.client.force_authenticate(self.member)
         joined = self.client.post(reverse('session-join', kwargs={'code': classroom.code}), {})
         self.assertEqual(joined.status_code, status.HTTP_200_OK)
-        self.assertEqual(joined.data, {'mode': 'mock', 'join_url': None})
-        session = LiveSession.objects.get()
+        self.assertEqual(joined.data, {'mode': 'livekit'})
         self.assertEqual(session.participant_count, 1)
         self.assertTrue(SessionAttendance.objects.filter(session=session, user=self.member, left_at=None).exists())
+        token_response = self.client.get(token_url)
+        self.assertEqual(token_response.status_code, status.HTTP_200_OK)
+        claims = jwt.decode(token_response.data['token'], 'test-secret', algorithms=['HS256'], audience=None)
+        self.assertEqual(claims['video']['room'], session.room_name)
+        self.assertEqual(claims['sub'], str(self.member.id))
 
         detail = self.client.get(reverse('classroom-detail', kwargs={'code': classroom.code}))
         self.assertTrue(detail.data['active_session']['current_user_joined'])
@@ -188,208 +120,225 @@ class ClassroomApiTests(APITestCase):
         self.assertEqual(left.status_code, status.HTTP_204_NO_CONTENT)
         session.refresh_from_db()
         self.assertEqual(session.participant_count, 0)
+        self.assertEqual(self.client.get(token_url).status_code, status.HTTP_403_FORBIDDEN)
 
         self.client.force_authenticate(self.owner)
         ended = self.client.post(reverse('session-end', kwargs={'code': classroom.code}), {})
         self.assertEqual(ended.status_code, status.HTTP_204_NO_CONTENT)
+        delete_room.assert_called_once_with(session.room_name)
         self.assertEqual(LiveSession.objects.get().status, LiveSession.Status.ENDED)
 
-    @override_settings(BBB_ENABLED=False)
-    def test_bbb_status_reports_mock_mode(self):
-        self.client.force_authenticate(self.owner)
-
-        response = self.client.get(reverse('bbb-status'))
-
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data['mode'], 'mock')
-        self.assertTrue(response.data['reachable'])
-
-    @override_settings(BBB_ASSET_BASE_URL='https://api.synapse.test', BBB_RESOURCE_URL_TTL=600)
-    def test_bbb_documents_use_rendered_slides_and_signed_download_urls(self):
-        classroom = Classroom.objects.create(name='Lớp tài liệu', owner=self.owner)
-        plan = LessonPlan.objects.create(classroom=classroom, title='Bài học', subject='anatomy')
-        first_section = LessonSection.objects.create(plan=plan, title='Phần 1', position=0)
-        second_section = LessonSection.objects.create(plan=plan, title='Phần 2', position=1)
-        pdf = LessonResource.objects.create(
-            section=second_section,
-            kind=LessonResource.Kind.PDF,
-            title='Tài liệu tham khảo.pdf',
-            file=SimpleUploadedFile('reference.pdf', make_test_pdf_bytes('Reference PDF')),
-            position=0,
-            allow_download=True,
-        )
-        slide = LessonResource.objects.create(
-            section=first_section,
-            kind=LessonResource.Kind.SLIDE,
-            title='Bài giảng.pptx',
-            preview_pdf=SimpleUploadedFile('slides.pdf', make_test_pdf_bytes('Slides PDF')),
-            preview_status=LessonResource.PreviewStatus.READY,
-            position=0,
-        )
-        LessonResource.objects.create(
-            section=first_section,
-            kind=LessonResource.Kind.MODEL_3D,
-            title='Mô hình không gửi sang presentation',
-            position=1,
-        )
-
-        documents = build_bbb_presentation_documents(classroom)
-
-        self.assertEqual([item['filename'] for item in documents], ['bai-giang.pdf', 'tai-lieu-tham-khao.pdf'])
-        self.assertTrue(documents[0]['current'])
-        self.assertFalse(documents[1]['current'])
-        self.assertFalse(documents[0]['downloadable'])
-        self.assertTrue(documents[1]['downloadable'])
-
-        reader_url = urlsplit(build_bbb_pdf_reader_url(classroom))
-        reader_response = self.client.get(f'{reader_url.path}?{reader_url.query}')
-        self.assertEqual(reader_response.status_code, status.HTTP_200_OK)
-        self.assertContains(reader_response, 'synapse-pdf-reader-scroll')
-        self.assertNotEqual(reader_response.get('X-Frame-Options'), 'DENY')
-        reader_page_response = self.client.get(
-            f'{reader_url.path}?{reader_url.query}&page=1'
-        )
-        self.assertEqual(reader_page_response.status_code, status.HTTP_200_OK)
-        self.assertEqual(reader_page_response['Content-Type'], 'image/webp')
-
-        download_url = urlsplit(documents[0]['url'])
-        response = self.client.get(f'{download_url.path}?{download_url.query}')
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response['Content-Type'], 'application/pdf')
-        marked_pdf = b''.join(response.streaming_content)
-        with fitz.open(stream=marked_pdf, filetype='pdf') as document:
-            self.assertIn(f'SYNAPSE_RESOURCE:{slide.id};SYNAPSE_PAGE:1', document[0].get_text())
-
-    @override_settings(
-        BBB_ENABLED=True,
-        BBB_ASSET_BASE_URL='https://api.synapse.test',
-        BBB_RESOURCE_URL_TTL=600,
-    )
-    @patch('classroom.views.BigBlueButtonService.create_meeting')
-    def test_starting_bbb_session_preloads_ready_lesson_documents(self, create_meeting):
-        classroom = Classroom.objects.create(name='Lớp BBB có tài liệu', owner=self.owner)
-        ClassMembership.objects.create(
-            classroom=classroom,
-            user=self.owner,
-            role=ClassMembership.Role.OWNER,
-        )
-        plan = LessonPlan.objects.create(classroom=classroom, title='Bài học', subject='anatomy')
-        section = LessonSection.objects.create(plan=plan, title='Phần 1', position=0)
-        slide = LessonResource.objects.create(
-            section=section,
-            kind=LessonResource.Kind.SLIDE,
-            title='Bài giảng.pptx',
-            preview_pdf=SimpleUploadedFile('slides.pdf', b'%PDF-1.4 slides'),
-            preview_status=LessonResource.PreviewStatus.READY,
-            position=0,
-        )
-        self.client.force_authenticate(self.owner)
-
-        response = self.client.post(reverse('session-start', kwargs={'code': classroom.code}), {})
-
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        presentations = create_meeting.call_args.kwargs['presentations']
-        self.assertEqual(len(presentations), 1)
-        self.assertEqual(presentations[0]['filename'], 'bai-giang.pdf')
-        self.assertTrue(presentations[0]['current'])
-        slide.preview_pdf.delete(save=False)
-
-    @override_settings(BBB_ASSET_BASE_URL='https://api.synapse.test', BBB_RESOURCE_URL_TTL=600)
-    def test_slide_quiz_runtime_opens_once_and_records_student_answer(self):
-        classroom = Classroom.objects.create(name='Lớp quiz', owner=self.owner)
+    def test_local_presentation_shares_pdf_and_quiz_without_revealing_answer(self):
+        classroom = Classroom.objects.create(name='Lớp video', owner=self.owner)
         ClassMembership.objects.bulk_create([
             ClassMembership(classroom=classroom, user=self.owner, role=ClassMembership.Role.OWNER),
             ClassMembership(classroom=classroom, user=self.member, role=ClassMembership.Role.MEMBER),
         ])
-        plan = LessonPlan.objects.create(classroom=classroom, title='Bài học', subject='anatomy')
-        section = LessonSection.objects.create(plan=plan, title='Phần quiz')
-        slide = LessonResource.objects.create(
-            section=section,
-            kind=LessonResource.Kind.SLIDE,
-            title='Bài giảng',
-            preview_status=LessonResource.PreviewStatus.READY,
-            preview_page_count=5,
+        plan = LessonPlan.objects.create(classroom=classroom, title='Bài dạy')
+        section = LessonSection.objects.create(plan=plan, title='Phần 1')
+        pdf = LessonResource.objects.create(
+            section=section, kind=LessonResource.Kind.PDF, title='Bài đọc.pdf',
+            file=SimpleUploadedFile('lesson.pdf', make_test_pdf_bytes(page_count=2)),
+            preview_page_count=2,
+            visible_to_students=False,
         )
         quiz_resource = LessonResource.objects.create(
-            section=section,
-            kind=LessonResource.Kind.QUIZ,
-            title='Kiểm tra nhanh',
+            section=section, kind=LessonResource.Kind.QUIZ, title='Kiểm tra nhanh',
+            visible_to_students=False,
         )
-        quiz = LessonQuiz.objects.create(
-            resource=quiz_resource,
-            question='Đáp án đúng là gì?',
-            options=['Sai', 'Đúng'],
-            correct_option=1,
-            trigger_mode=LessonQuiz.TriggerMode.AT_MINUTE,
-            duration_seconds=60,
+        LessonQuiz.objects.create(
+            resource=quiz_resource, question='Chọn đáp án đúng',
+            options=['Sai', 'Đúng'], correct_option=1, duration_seconds=60,
         )
-        self.client.force_authenticate(self.owner)
-        updated_quiz = self.client.patch(reverse('lesson-resource-detail', kwargs={
-            'code': classroom.code,
-            'resource_id': quiz_resource.id,
-        }), {
-            'quiz': {
-                'question': quiz.question,
-                'options': quiz.options,
-                'correct_option': quiz.correct_option,
-                'duration_seconds': quiz.duration_seconds,
-                'trigger_mode': LessonQuiz.TriggerMode.AT_SLIDE,
-                'trigger_minute': 0,
-                'delay_seconds': 0,
-                # Older Teacher Studio drafts sent the slide title instead of its UUID.
-                'trigger_resource': slide.title,
-                'trigger_slide_number': 3,
-                'success_threshold': quiz.success_threshold,
-            },
-        }, format='json')
-        self.assertEqual(updated_quiz.status_code, status.HTTP_200_OK, updated_quiz.data)
-        quiz.refresh_from_db()
-        self.assertEqual(quiz.trigger_mode, LessonQuiz.TriggerMode.AT_SLIDE)
-        self.assertEqual(quiz.trigger_resource_id, slide.id)
-        self.assertEqual(quiz.trigger_slide_number, 3)
         session = LiveSession.objects.create(
-            classroom=classroom,
-            title='Buổi học',
-            bbb_meeting_id='quiz-meeting',
+            classroom=classroom, title='Buổi học', room_name='local-presentation-test',
             created_by=self.owner,
         )
-        SessionAttendance.objects.create(session=session, user=self.member)
-        owner_url = urlsplit(build_bbb_quiz_runtime_url(session, self.owner, moderator=True))
-        member_url = urlsplit(build_bbb_quiz_runtime_url(session, self.member, moderator=False))
-        owner_endpoint = f'{owner_url.path}?{owner_url.query}'
-        member_endpoint = f'{member_url.path}?{member_url.query}'
+        SessionAttendance.objects.bulk_create([
+            SessionAttendance(session=session, user=self.owner),
+            SessionAttendance(session=session, user=self.member),
+        ])
+        url = reverse('session-presentation', kwargs={'code': classroom.code})
 
-        runtime = self.client.get(owner_endpoint)
-        self.assertEqual(runtime.status_code, status.HTTP_200_OK, (owner_endpoint, runtime.content[:500]))
-        self.assertEqual(runtime.data['schedule'][0]['trigger_slide_number'], 3)
-
-        started = self.client.post(owner_endpoint, {'action': 'start', 'quiz_id': quiz.pk}, format='json')
-        self.assertEqual(started.status_code, status.HTTP_200_OK)
-        run_id = started.data['id']
-        started_again = self.client.post(owner_endpoint, {'action': 'start', 'quiz_id': quiz.pk}, format='json')
-        self.assertEqual(started_again.data['id'], run_id)
-
-        # Students who joined before the quiz opened can discover the active
-        # run by polling their base runtime URL, even if a BBB data-channel
-        # notification was missed during a reconnect.
-        discovered_runtime = self.client.get(member_endpoint)
-        self.assertEqual(discovered_runtime.status_code, status.HTTP_200_OK)
-        self.assertEqual(discovered_runtime.data['active_run']['id'], run_id)
-        self.assertFalse(discovered_runtime.data['is_moderator'])
-
-        student_runtime = self.client.get(f'{member_endpoint}&run_id={run_id}')
-        self.assertNotIn('correct_option', student_runtime.data['active_run'])
-        answered = self.client.post(member_endpoint, {
-            'action': 'answer',
-            'run_id': run_id,
-            'selected_option': 1,
+        self.client.force_authenticate(self.owner)
+        shown = self.client.post(url, {'action': 'show', 'resource_id': str(pdf.id)}, format='json')
+        self.assertEqual(shown.status_code, status.HTTP_200_OK)
+        self.assertEqual(shown.data['selected']['id'], str(pdf.id))
+        self.assertFalse(shown.data['on_stage'])
+        self.assertEqual(len(shown.data['resources']), 2)
+        shared_page_url = reverse('session-presentation-pdf-page', kwargs={
+            'code': classroom.code, 'resource_id': str(pdf.id), 'page': 1,
+        })
+        self.client.force_authenticate(self.member)
+        self.assertIsNone(self.client.get(url).data['selected'])
+        self.assertEqual(self.client.get(shared_page_url).status_code, status.HTTP_404_NOT_FOUND)
+        self.client.force_authenticate(self.owner)
+        presented = self.client.post(url, {'action': 'present'}, format='json')
+        self.assertEqual(presented.status_code, status.HTTP_200_OK)
+        self.assertTrue(presented.data['on_stage'])
+        page = self.client.post(url, {'action': 'page', 'page': 2}, format='json')
+        self.assertEqual(page.data['page'], 2)
+        scrolled = self.client.post(url, {
+            'action': 'scroll', 'resource_id': str(pdf.id), 'page': 2, 'position': 0.42,
         }, format='json')
-        self.assertEqual(answered.status_code, status.HTTP_200_OK)
-        self.assertEqual(LiveQuizResponse.objects.get().is_correct, True)
+        self.assertEqual(scrolled.data['stage_scroll'], 0.42)
+        annotated = self.client.post(url, {
+            'action': 'annotation_add', 'resource_id': str(pdf.id), 'page': 2,
+            'kind': 'pen', 'points': [[0.1, 0.2], [0.3, 0.4]],
+        }, format='json')
+        self.assertEqual(annotated.status_code, status.HTTP_200_OK)
+        annotation_id = annotated.data['stage_annotations'][0]['id']
 
-        results = self.client.get(f'{owner_endpoint}&run_id={run_id}')
-        self.assertEqual(results.data['active_run']['results']['option_counts'], [0, 1])
-        self.assertEqual(results.data['active_run']['results']['correct_option'], 1)
+        self.client.force_authenticate(self.member)
+        member_view = self.client.get(url)
+        self.assertEqual(member_view.data['selected']['id'], str(pdf.id))
+        self.assertTrue(member_view.data['on_stage'])
+        self.assertEqual(member_view.data['page'], 2)
+        self.assertEqual(member_view.data['stage_scroll'], 0.42)
+        self.assertEqual(member_view.data['stage_annotations'][0]['id'], annotation_id)
+        self.assertEqual(member_view.data['resources'], [])
+        self.assertEqual(self.client.get(shared_page_url).status_code, status.HTTP_200_OK)
+        self.assertEqual(self.client.post(url, {'action': 'clear'}, format='json').status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(self.client.post(url, {
+            'action': 'annotation_undo', 'resource_id': str(pdf.id), 'page': 2,
+        }, format='json').status_code, status.HTTP_403_FORBIDDEN)
+
+        self.client.force_authenticate(self.owner)
+        selected_quiz = self.client.post(url, {'action': 'show', 'resource_id': str(quiz_resource.id)}, format='json')
+        self.assertEqual(selected_quiz.data['selected']['id'], str(quiz_resource.id))
+        self.assertEqual(selected_quiz.data['stage']['id'], str(pdf.id))
+        self.assertEqual(selected_quiz.data['stage_page'], 2)
+        self.assertEqual(selected_quiz.data['stage_scroll'], 0.42)
+        self.assertEqual(selected_quiz.data['stage_annotations'][0]['id'], annotation_id)
+        self.client.force_authenticate(self.member)
+        still_presented = self.client.get(url)
+        self.assertEqual(still_presented.data['selected']['id'], str(pdf.id))
+        self.assertEqual(still_presented.data['stage']['id'], str(pdf.id))
+        self.assertEqual(self.client.get(shared_page_url).status_code, status.HTTP_200_OK)
+        self.client.force_authenticate(self.owner)
+        started_with_pdf = self.client.post(url, {'action': 'start_quiz', 'resource_id': str(quiz_resource.id)}, format='json')
+        self.assertIsNotNone(started_with_pdf.data['active_run'])
+        self.assertEqual(started_with_pdf.data['stage']['id'], str(pdf.id))
+        changed_page = self.client.post(url, {'action': 'stage_page', 'page': 1}, format='json')
+        self.assertEqual(changed_page.data['stage_page'], 1)
+        self.assertEqual(changed_page.data['stage_scroll'], 0)
+        self.assertEqual(changed_page.data['stage_annotations'], [])
+        stale_scroll = self.client.post(url, {
+            'action': 'scroll', 'resource_id': str(pdf.id), 'page': 2, 'position': 0.8,
+        }, format='json')
+        self.assertEqual(stale_scroll.status_code, status.HTTP_409_CONFLICT)
+        text_note = self.client.post(url, {
+            'action': 'annotation_add', 'resource_id': str(pdf.id), 'page': 1,
+            'kind': 'text', 'points': [[0.5, 0.5]], 'text': 'Nhớ vị trí van tim',
+        }, format='json')
+        self.assertEqual(text_note.data['stage_annotations'][0]['text'], 'Nhớ vị trí van tim')
+        removed_note = self.client.post(url, {
+            'action': 'annotation_remove', 'resource_id': str(pdf.id), 'page': 1,
+            'annotation_id': text_note.data['stage_annotations'][0]['id'],
+        }, format='json')
+        self.assertEqual(removed_note.data['stage_annotations'], [])
+        revisited = self.client.post(url, {'action': 'stage_page', 'page': 2}, format='json')
+        self.assertEqual(revisited.data['stage_annotations'][0]['id'], annotation_id)
+        undone = self.client.post(url, {
+            'action': 'annotation_undo', 'resource_id': str(pdf.id), 'page': 2,
+        }, format='json')
+        self.assertEqual(undone.data['stage_annotations'], [])
+        self.client.force_authenticate(self.member)
+        quiz_and_pdf = self.client.get(url)
+        self.assertEqual(quiz_and_pdf.data['selected']['id'], str(quiz_resource.id))
+        self.assertEqual(quiz_and_pdf.data['stage']['id'], str(pdf.id))
+        self.assertIsNotNone(quiz_and_pdf.data['active_run'])
+        self.client.force_authenticate(self.owner)
+        self.client.post(url, {'action': 'show', 'resource_id': str(pdf.id)}, format='json')
+        stopped = self.client.post(url, {'action': 'stop_present'}, format='json')
+        self.assertFalse(stopped.data['on_stage'])
+        self.client.force_authenticate(self.member)
+        self.assertIsNone(self.client.get(url).data['selected'])
+        self.assertEqual(self.client.get(shared_page_url).status_code, status.HTTP_404_NOT_FOUND)
+        self.client.force_authenticate(self.owner)
+        missing_file = self.client.post(url, {'action': 'upload'}, format='multipart')
+        self.assertEqual(missing_file.status_code, status.HTTP_400_BAD_REQUEST)
+        uploaded = self.client.post(url, {
+            'action': 'upload',
+            'file': SimpleUploadedFile('new-lesson.pdf', make_test_pdf_bytes('Page one'), content_type='application/pdf'),
+        }, format='multipart')
+        self.assertEqual(uploaded.status_code, status.HTTP_200_OK)
+        self.client.force_authenticate(self.member)
+        self.assertEqual(self.client.get(shared_page_url).status_code, status.HTTP_404_NOT_FOUND)
+        self.client.force_authenticate(self.owner)
+        uploaded_id = uploaded.data['selected']['id']
+        self.assertEqual(uploaded.data['selected']['preview_page_count'], 1)
+        pdf_page = self.client.get(reverse('session-presentation-pdf-page', kwargs={
+            'code': classroom.code, 'resource_id': uploaded_id, 'page': 1,
+        }))
+        self.assertEqual(pdf_page.status_code, status.HTTP_200_OK)
+        self.assertEqual(pdf_page['Content-Type'], 'image/webp')
+        studio_page = self.client.get(reverse('lesson-resource-pdf-page', kwargs={
+            'code': classroom.code, 'resource_id': uploaded_id, 'page': 1,
+        }))
+        self.assertEqual(studio_page.status_code, status.HTTP_200_OK)
+        chosen_quiz = self.client.post(url, {'action': 'show', 'resource_id': str(quiz_resource.id)}, format='json')
+        self.assertEqual(chosen_quiz.status_code, status.HTTP_200_OK)
+        self.assertEqual(chosen_quiz.data['selected']['id'], str(quiz_resource.id))
+        self.assertIsNone(chosen_quiz.data['active_run'])
+        self.client.force_authenticate(self.member)
+        self.assertIsNone(self.client.get(url).data['selected'])
+        self.client.force_authenticate(self.owner)
+        started = self.client.post(url, {'action': 'start_quiz', 'resource_id': str(quiz_resource.id)}, format='json')
+        self.assertEqual(started.status_code, status.HTTP_200_OK)
+        run_id = started.data['active_run']['id']
+        self.client.force_authenticate(self.member)
+        student_quiz = self.client.get(url)
+        self.assertNotIn('correct_option', student_quiz.data['selected']['quiz'])
+        self.assertNotIn('correct_option', student_quiz.data['active_run'])
+        answered = self.client.post(url, {'action': 'answer', 'run_id': run_id, 'selected_option': 1}, format='json')
+        self.assertEqual(answered.status_code, status.HTTP_200_OK)
+        self.assertEqual(answered.data['active_run']['selected_option'], 1)
+
+    def test_local_presentation_imports_and_shares_links(self):
+        classroom = Classroom.objects.create(name='Lớp liên kết', owner=self.owner)
+        ClassMembership.objects.bulk_create([
+            ClassMembership(classroom=classroom, user=self.owner, role=ClassMembership.Role.OWNER),
+            ClassMembership(classroom=classroom, user=self.member, role=ClassMembership.Role.MEMBER),
+        ])
+        session = LiveSession.objects.create(
+            classroom=classroom, title='Buổi học', room_name='local-link-test', created_by=self.owner,
+        )
+        SessionAttendance.objects.bulk_create([
+            SessionAttendance(session=session, user=self.owner),
+            SessionAttendance(session=session, user=self.member),
+        ])
+        url = reverse('session-presentation', kwargs={'code': classroom.code})
+        youtube_url = 'https://www.youtube.com/watch?v=AbCdEfGhI12'
+        self.client.force_authenticate(self.owner)
+        invalid = self.client.post(url, {'action': 'import_link', 'external_url': 'javascript:alert(1)'}, format='json')
+        self.assertEqual(invalid.status_code, status.HTTP_400_BAD_REQUEST)
+        imported_video = self.client.post(url, {
+            'action': 'import_link', 'external_url': youtube_url, 'title': 'Bài giảng tim',
+        }, format='json')
+        self.assertEqual(imported_video.status_code, status.HTTP_200_OK)
+        self.assertEqual(imported_video.data['selected']['kind'], LessonResource.Kind.VIDEO)
+        self.assertEqual(imported_video.data['selected']['external_url'], youtube_url)
+        self.assertFalse(imported_video.data['on_stage'])
+        video_id = imported_video.data['selected']['id']
+        presented_video = self.client.post(url, {'action': 'present'}, format='json')
+        self.assertEqual(presented_video.data['stage']['id'], video_id)
+        self.client.force_authenticate(self.member)
+        self.assertEqual(self.client.get(url).data['stage']['external_url'], youtube_url)
+        self.assertEqual(self.client.post(url, {
+            'action': 'import_link', 'external_url': 'https://example.org/lesson',
+        }, format='json').status_code, status.HTTP_403_FORBIDDEN)
+        self.client.force_authenticate(self.owner)
+        imported_link = self.client.post(url, {
+            'action': 'import_link', 'external_url': 'https://example.org/lesson',
+        }, format='json')
+        self.assertEqual(imported_link.data['selected']['kind'], LessonResource.Kind.LINK)
+        self.assertEqual(imported_link.data['stage']['id'], video_id)
+        self.assertEqual(len(imported_link.data['resources']), 2)
+        presented_link = self.client.post(url, {'action': 'present'}, format='json')
+        self.assertEqual(presented_link.data['stage']['id'], imported_link.data['selected']['id'])
+        self.client.force_authenticate(self.member)
+        self.assertEqual(self.client.get(url).data['stage']['external_url'], 'https://example.org/lesson')
 
     def test_owner_can_crud_anatomy_lesson_content_and_member_is_read_only(self):
         classroom = Classroom.objects.create(name='Giải phẫu người', owner=self.owner, track='med')
@@ -452,27 +401,3 @@ class ClassroomApiTests(APITestCase):
         self.assertEqual(LessonPlan.objects.filter(classroom=classroom).count(), 1)
         self.assertEqual(LessonSection.objects.filter(plan__classroom=classroom).count(), 2)
         self.assertEqual(LessonResource.objects.filter(section__plan__classroom=classroom).count(), 1)
-
-    @override_settings(BBB_ENABLED=True)
-    @patch('classroom.views.BigBlueButtonService.meeting_status', return_value={'running': False, 'participant_count': 0})
-    def test_new_empty_bbb_meeting_has_join_grace_period(self, _meeting_status):
-        classroom = Classroom.objects.create(name='Lớp BBB', owner=self.owner)
-        ClassMembership.objects.create(
-            classroom=classroom,
-            user=self.owner,
-            role=ClassMembership.Role.OWNER,
-        )
-        session = LiveSession.objects.create(
-            classroom=classroom,
-            title='Phiên BBB',
-            bbb_meeting_id='synapse-grace-period',
-            created_by=self.owner,
-        )
-        self.client.force_authenticate(self.owner)
-
-        fresh = self.client.get(reverse('classroom-detail', kwargs={'code': classroom.code}))
-        self.assertIsNotNone(fresh.data['active_session'])
-
-        LiveSession.objects.filter(pk=session.pk).update(started_at=timezone.now() - timedelta(minutes=4))
-        expired = self.client.get(reverse('classroom-detail', kwargs={'code': classroom.code}))
-        self.assertIsNone(expired.data['active_session'])

@@ -5,8 +5,8 @@ import { ArrowClockwise, CheckCircleFill, Database, HddStackFill, XCircleFill, B
 import type { ComponentType } from 'react';
 import { AdminPageHeader } from '@/components/admin/AdminPageHeader';
 
-const BACKEND = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:8000/api';
-const ALGO = process.env.NEXT_PUBLIC_ALGO_API_URL || 'http://localhost:8080/api';
+const BACKEND = process.env.NEXT_PUBLIC_BACKEND_API_URL || '/api';
+const ALGO = process.env.NEXT_PUBLIC_ALGO_API_URL || '/algo-api';
 
 type Status = 'checking' | 'ok' | 'down';
 

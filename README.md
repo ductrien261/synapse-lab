@@ -38,6 +38,7 @@ Sinh viên **CNTT** học thuật toán qua mô phỏng từng bước; sinh vi�
 
 - `be` là **cổng**: đăng nhập, hạn mức token/ngày, ghi nhật ký + chi phí mọi lần gọi AI, lưu dữ liệu.
 - `ai` là **bộ não**: các quy trình LangGraph (viết nháp, gia sư, ra đề, chấm bài...). Chỉ `be` gọi vào, `ai` không ghi CSDL.
+- Phòng học video dùng LiveKit. Backend cấp token cho thành viên đã vào phiên; trình duyệt kết nối trực tiếp đến LiveKit.
 
 | Thành phần | Công nghệ |
 |---|---|
@@ -103,6 +104,16 @@ docker compose exec be python manage.py init_data
 
 `init_data` tạo danh sách hệ cơ quan chuẩn và đồng bộ danh mục thuật toán từ algo-server. **Không tạo dữ liệu giả.** Chạy lại nhiều lần không bị trùng.
 
+### Phòng học LiveKit
+
+Chạy LiveKit Server trên máy host để thử phòng video local:
+
+```bash
+livekit-server --dev
+```
+
+Giữ server chạy, đặt `LIVEKIT_WS_URL`, `LIVEKIT_API_URL`, `LIVEKIT_API_KEY` và `LIVEKIT_API_SECRET` trong `.env` theo cấu hình LiveKit, rồi khởi động lại backend. `LIVEKIT_WS_URL` là địa chỉ trình duyệt dùng để vào phòng; `LIVEKIT_API_URL` là địa chỉ backend dùng để đóng phòng. Giá trị `ws://localhost:7880` trong mẫu chỉ hoạt động khi trình duyệt và LiveKit cùng máy. Khi cho người ở xa tham gia, dùng địa chỉ `wss://` truy cập được từ trình duyệt của họ. Sau khi cập nhật code, chạy migration `0007_rename_livekit_room` bằng lệnh ở bước 4.
+
 Muốn có mô hình 3D để học: vào trang quản trị để nhập, hoặc dùng lệnh:
 
 ```bash
@@ -123,6 +134,10 @@ Xong. Mở <http://localhost:3100> và đăng nhập bằng tài khoản vừa t
 | Django Admin (dự phòng cho dev) | <http://localhost:8000/admin/> |
 | Kiểm tra backend sống | <http://localhost:8000/api/health/> |
 | Algo server | <http://localhost:8080/api/algorithms/> |
+
+### Chia sẻ bản demo qua VS Code Ports
+
+Khi các container đang chạy, trong VS Code mở **Ports** → **Forward a Port** → nhập `3100`. Đổi **Port Visibility** thành **Public**, rồi gửi **Forwarded Address** cho người xem demo. Frontend chuyển tiếp yêu cầu backend và algo-server qua cùng cổng `3100`, nên chỉ cần chia sẻ một link. Người xem đăng nhập bằng tài khoản của họ; giữ máy, Docker và VS Code đang chạy trong lúc demo.
 
 ---
 

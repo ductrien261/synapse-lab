@@ -8,7 +8,7 @@
 
 import type { Track } from './tracks';
 
-const BASE_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:8000/api';
+const BASE_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || '/api';
 
 const ACCESS_KEY = 'access_token';
 const REFRESH_KEY = 'refresh_token';
@@ -89,16 +89,61 @@ function extractMessage(data: unknown, status: number): string {
 interface RequestOptions extends RequestInit {
   /** false = không gửi token (login, register) */
   auth?: boolean;
+  baseUrl?: string;
+}
+
+export function uploadApiBaseUrl(): string | undefined {
+  if (typeof window === 'undefined') return undefined;
+  if (window.location.protocol === 'http:' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+    return `http://${window.location.hostname}:8000/api`;
+  }
+  return undefined;
+}
+
+export async function uploadRequest<T>(path: string, data: FormData, onProgress?: (percent: number) => void): Promise<T> {
+  const baseUrl = uploadApiBaseUrl() || BASE_URL;
+  const hadToken = Boolean(getAccessToken());
+  const send = () => new Promise<{ status: number; data: unknown }>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `${baseUrl}${path}`);
+    const token = getAccessToken();
+    if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) onProgress?.(Math.min(100, Math.round(event.loaded * 100 / event.total)));
+    };
+    xhr.onerror = () => reject(new Error('Không thể kết nối máy chủ để tải tệp lên.'));
+    xhr.onload = () => {
+      let body: unknown;
+      try { body = JSON.parse(xhr.responseText); } catch { body = undefined; }
+      resolve({ status: xhr.status, data: body });
+    };
+    xhr.send(data);
+  });
+
+  let result = await send();
+  if (result.status === 401 && hadToken) {
+    if (await refreshAccessToken()) {
+      onProgress?.(0);
+      result = await send();
+    } else {
+      clearTokens();
+      throw new ApiError('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.', 401);
+    }
+  }
+  if (result.status < 200 || result.status >= 300) {
+    throw new ApiError(extractMessage(result.data, result.status), result.status, result.data);
+  }
+  return result.data as T;
 }
 
 export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { auth = true, headers, ...init } = options;
+  const { auth = true, baseUrl = BASE_URL, headers, ...init } = options;
   // Khách chưa đăng nhập gặp 401 thì chỉ báo lỗi, không chuyển trang; phiên hết hạn mới về trang đăng nhập
   const hadToken = auth && Boolean(getAccessToken());
 
   const send = () => {
     const token = auth ? getAccessToken() : null;
-    return fetch(`${BASE_URL}${path}`, {
+    return fetch(`${baseUrl}${path}`, {
       ...init,
       headers: {
         // FormData (upload file): để trình duyệt tự đặt Content-Type kèm boundary

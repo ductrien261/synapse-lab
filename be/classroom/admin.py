@@ -29,9 +29,9 @@ class ClassroomAdmin(admin.ModelAdmin):
 
 @admin.register(LiveSession)
 class LiveSessionAdmin(admin.ModelAdmin):
-    list_display = ('title', 'classroom', 'status', 'participant_count', 'record', 'started_at', 'ended_at')
-    list_filter = ('status', 'record')
-    search_fields = ('title', 'classroom__name', 'classroom__code', 'bbb_meeting_id')
+    list_display = ('title', 'classroom', 'status', 'participant_count', 'started_at', 'ended_at')
+    list_filter = ('status',)
+    search_fields = ('title', 'classroom__name', 'classroom__code', 'room_name')
 
 
 @admin.register(SessionAttendance)

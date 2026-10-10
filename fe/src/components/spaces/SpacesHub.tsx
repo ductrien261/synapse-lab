@@ -27,7 +27,6 @@ export function SpacesHub() {
   const [spaces, setSpaces] = useState<ClassroomDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [bbbStatus, setBbbStatus] = useState<{ mode: 'mock' | 'live'; reachable: boolean } | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -44,9 +43,6 @@ export function SpacesHub() {
         });
     };
     loadSpaces(true);
-    classroomApi.bbbStatus().then((result) => {
-      if (active) setBbbStatus(result);
-    }).catch(() => undefined);
     const timer = window.setInterval(() => loadSpaces(), 8000);
     return () => {
       active = false;
@@ -95,7 +91,6 @@ export function SpacesHub() {
               <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-[#E8F0FB]">
                 <LightningChargeFill className="h-3 w-3 text-amber-300" /> Học · Chia sẻ · Thực hành cùng nhau
               </span>
-              {bbbStatus && <span className={`rounded-full border px-3 py-1 text-[10px] font-extrabold uppercase tracking-wider ${bbbStatus.mode === 'mock' ? 'border-amber-200/30 bg-amber-300/15 text-amber-100' : bbbStatus.reachable ? 'border-emerald-200/30 bg-emerald-300/15 text-emerald-100' : 'border-rose-200/30 bg-rose-300/15 text-rose-100'}`}>{bbbStatus.mode === 'mock' ? 'BBB mô phỏng' : bbbStatus.reachable ? 'BBB sẵn sàng' : 'BBB mất kết nối'}</span>}
             </div>
             <h1 className="max-w-2xl text-3xl font-extrabold leading-tight tracking-tight md:text-[36px]">Một không gian cho mọi cách bạn muốn học và làm việc</h1>
             <p className="mt-3 max-w-xl text-sm leading-relaxed text-white/75">Tạo phòng để tự ôn bài, học nhóm, tập thuyết trình hoặc tổ chức một buổi hướng dẫn tương tác.</p>

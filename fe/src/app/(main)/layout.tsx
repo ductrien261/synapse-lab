@@ -17,7 +17,8 @@ export default function MainLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const closeMenu = useCallback(() => setMenuOpen(false), []);
-  const inLiveSpace = pathname.startsWith('/spaces/');
+  const inLiveSpace = /^\/spaces\/[^/]+(?:\/|$)/.test(pathname);
+  const inVideoRoom = /^\/spaces\/[^/]+\/video\/?$/.test(pathname);
   // Nhớ trạng thái thu gọn sidebar giữa các lần tải trang
   const collapsed = useStorageValue(SIDEBAR_KEY) === '1';
   const toggleSidebar = () => writeStorage(SIDEBAR_KEY, collapsed ? '0' : '1');
@@ -42,7 +43,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
               <div className={`${inLiveSpace ? 'max-w-none' : 'max-w-7xl mx-auto'} w-full flex flex-col gap-6`}>{children}</div>
             </main>
           </div>
-          <FeedbackButton />
+          {!inVideoRoom && <FeedbackButton />}
         </div>
       </RequireAuth>
     </UserProvider>

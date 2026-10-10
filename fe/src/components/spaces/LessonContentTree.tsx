@@ -16,6 +16,7 @@ interface EditableLessonTreeProps {
   selectedKey: string;
   onSelect: (key: string) => void;
   onAddFiles: (files: FileList | null, stepId?: string) => void;
+  uploading: boolean;
   onAddQuiz: (stepId: string) => void;
   onAddModel: (stepId: string) => void;
   onAddActivity: () => void;
@@ -87,7 +88,7 @@ export function EditableLessonTree(props: EditableLessonTreeProps) {
 
           {openMenu === menuKey && <div onClick={(event) => event.stopPropagation()} className="absolute right-1 top-10 z-40 w-52 rounded-xl border border-stone-200 bg-white p-1.5 shadow-xl">
             <button type="button" onClick={() => renameActivity(step)} className={menuItemClass}><Pencil />Chỉnh sửa tên phần</button>
-            <label className={`${menuItemClass} cursor-pointer`}><FileEarmarkSlidesFill className="text-blue-500" />Thêm tài liệu<input type="file" multiple accept=".ppt,.pptx,.pdf,.doc,.docx" onChange={(event) => { props.onAddFiles(event.target.files, step.id); event.target.value = ''; setOpenMenu(null); }} className="sr-only" /></label>
+            <label className={`${menuItemClass} ${props.uploading ? 'pointer-events-none opacity-50' : 'cursor-pointer'}`}><FileEarmarkSlidesFill className="text-blue-500" />{props.uploading ? 'Đang tải lên…' : 'Thêm tài liệu'}<input type="file" multiple disabled={props.uploading} accept=".ppt,.pptx,.pdf,.doc,.docx" onChange={(event) => { props.onAddFiles(event.target.files, step.id); event.target.value = ''; setOpenMenu(null); }} className="sr-only" /></label>
             <button type="button" onClick={() => { props.onAddQuiz(step.id); setOpenMenu(null); }} className={menuItemClass}><LightningChargeFill className="text-violet-500" />Thêm quiz</button>
             <button type="button" onClick={() => { props.onAddModel(step.id); setOpenMenu(null); }} className={menuItemClass}><Badge3dFill className="text-cyan-600" />Thêm mô hình</button>
             <div className="my-1 border-t border-stone-100" />

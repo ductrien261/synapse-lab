@@ -79,9 +79,9 @@ class LiveSession(TimeStampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     classroom = models.ForeignKey(Classroom, on_delete=models.CASCADE, related_name='sessions')
     title = models.CharField(max_length=200)
-    bbb_meeting_id = models.CharField(max_length=100, unique=True, editable=False)
+    room_name = models.CharField(max_length=100, unique=True, editable=False)
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.LIVE)
-    record = models.BooleanField(default=False)
+    record = models.BooleanField(default=False)  # Retain historical recording requests.
     participant_count = models.PositiveIntegerField(default=0)
     last_synced_at = models.DateTimeField(null=True, blank=True)
     started_at = models.DateTimeField(auto_now_add=True)

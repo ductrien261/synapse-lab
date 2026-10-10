@@ -5,11 +5,12 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { BoxArrowUpRight, ChevronLeft, ChevronRight, Download, FileEarmarkText, LightningChargeFill, ZoomIn, ZoomOut } from 'react-bootstrap-icons';
+import { requestBlob } from '@/lib/api';
 import { getResourceTitle, type StudioResource } from './studio-resource';
 
 const BACKEND_API_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:8000/api';
 
-export function DocumentWorkspace({ resource }: { resource?: StudioResource }) {
+export function DocumentWorkspace({ resource, roomCode }: { resource?: StudioResource; roomCode: string }) {
   if (!resource) return <main className="flex min-h-[540px] items-center justify-center bg-[#F5F7FB]"><div className="text-center text-stone-400"><FileEarmarkText className="mx-auto h-10 w-10" /><p className="mt-3 text-xs font-bold">Chọn tài liệu để bắt đầu</p></div></main>;
   const resourceKindLabel = resource.kind === 'quiz' ? '?' : resource.kind === 'model_3d' ? '3D' : resource.kind.toUpperCase();
   return <main className="min-w-0 bg-[#F3F6FA] xl:min-h-0 xl:overflow-y-auto">
@@ -21,7 +22,7 @@ export function DocumentWorkspace({ resource }: { resource?: StudioResource }) {
           : resource.kind === 'model_3d' && resource.material.anatomyModel
             ? <Model3dCanvas resource={resource} />
             : resource.kind === 'pdf'
-              ? <PdfCanvas resource={resource} />
+              ? <PdfCanvas key={resource.key} resource={resource} roomCode={roomCode} />
               : resource.kind === 'doc'
                 ? <DocCanvas key={resource.key} resource={resource} />
                 : resource.kind === 'slide'
@@ -69,14 +70,36 @@ function DocumentCanvas({ resource, page, zoom }: { resource: Exclude<StudioReso
   return <div className="w-full max-w-4xl origin-center overflow-hidden rounded-sm bg-white shadow-xl transition-transform" style={{ transform: `scale(${Math.min(zoom, 110) / 100})` }}><div className="relative aspect-[16/9] overflow-hidden bg-gradient-to-br from-emerald-50 via-white to-lime-100 p-7 sm:p-10"><div className="absolute -right-14 -top-14 h-72 w-72 rounded-full bg-gradient-to-br from-lime-300 to-emerald-600 opacity-90" /><div className="absolute right-12 top-16 h-36 w-36 rounded-full bg-white/30 blur-sm" /><div className="relative z-10 max-w-[62%]"><p className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-emerald-700">{resource.kind === 'slide' ? 'Bài giảng trực quan' : 'Tài liệu học tập'} · Trang {page}</p><h3 className="mt-4 text-2xl font-black leading-tight text-emerald-950 sm:text-4xl">{resource.material.name.replace(/\.[^.]+$/, '')}</h3><p className="mt-4 max-w-md text-[10px] leading-relaxed text-stone-600 sm:text-sm">Nội dung chính được trình bày tại đây. Giáo viên có thể điều chỉnh thông tin, mục tiêu và quyền hiển thị ở bảng cài đặt bên phải.</p></div><div className="absolute bottom-7 left-7 right-7 z-10 grid grid-cols-3 gap-3 rounded-2xl border border-emerald-100 bg-white/85 p-4 backdrop-blur sm:left-10 sm:right-10"><SlidePoint number="1" text="Giới thiệu khái niệm" /><SlidePoint number="2" text="Trình bày nội dung chính" /><SlidePoint number="3" text="Liên hệ thực tiễn" /></div></div></div>;
 }
 
-function PdfCanvas({ resource }: { resource: Exclude<StudioResource, { kind: 'quiz' }> }) {
+function PdfCanvas({ resource, roomCode }: { resource: Exclude<StudioResource, { kind: 'quiz' }>; roomCode: string }) {
+  const [page, setPage] = useState(1);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [error, setError] = useState('');
   const fileUrl = absoluteFileUrl(resource.material.fileUrl);
   if (!fileUrl) return <MissingPreview resource={resource} message="Tài liệu PDF này chưa có tệp để xem trước." />;
-  const previewUrl = mediaPreviewUrl(fileUrl);
-  return <div className="relative h-[720px] w-full overflow-hidden rounded-xl border border-stone-300 bg-white shadow-lg">
-    <iframe title={`Xem trước ${resource.material.name}`} src={`${previewUrl}#toolbar=1&navpanes=0&view=FitH`} className="h-full w-full bg-white" />
-    <a href={fileUrl} target="_blank" rel="noreferrer" className="absolute right-4 top-3 flex items-center gap-2 rounded-lg bg-stone-900/80 px-3 py-2 text-[10px] font-bold text-white shadow backdrop-blur hover:bg-stone-900"><BoxArrowUpRight />Mở PDF</a>
+  const pageCount = resource.material.previewPageCount || 1;
+  return <div className="flex h-[720px] w-full flex-col overflow-hidden rounded-xl border border-stone-300 bg-white shadow-lg">
+    <PdfPageImage roomCode={roomCode} resourceId={resource.material.id} page={page} onImage={setImageUrl} onError={setError} />
+    <div className="flex items-center justify-between gap-2 border-b border-stone-200 p-3"><div className="flex items-center gap-2"><button type="button" disabled={page <= 1} onClick={() => setPage(page - 1)} className="rounded-lg border px-2 py-1.5 disabled:opacity-40" aria-label="Trang trước"><ChevronLeft /></button><span className="text-xs font-bold">{page}/{pageCount}</span><button type="button" disabled={page >= pageCount} onClick={() => setPage(page + 1)} className="rounded-lg border px-2 py-1.5 disabled:opacity-40" aria-label="Trang sau"><ChevronRight /></button></div><a href={fileUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1 rounded-lg border px-3 py-1.5 text-xs font-semibold"><BoxArrowUpRight />Mở PDF gốc</a></div>
+    <div className="flex min-h-0 flex-1 items-start justify-center overflow-auto bg-[#E9EEF5] p-3">{imageUrl ? <img src={imageUrl} alt={`${resource.material.name}, trang ${page}`} className="max-w-full bg-white shadow" /> : <p className="mt-24 text-xs text-stone-500">{error || 'Đang mở trang PDF…'}</p>}</div>
   </div>;
+}
+
+function PdfPageImage({ roomCode, resourceId, page, onImage, onError }: { roomCode: string; resourceId: string; page: number; onImage: (url: string | null) => void; onError: (message: string) => void }) {
+  useEffect(() => {
+    let active = true;
+    let url: string | null = null;
+    const path = `/classrooms/${encodeURIComponent(roomCode)}/lesson-plan/resources/${resourceId}/pdf/pages/${page}/`;
+    requestBlob(path).then((blob) => {
+      if (!active) return;
+      url = URL.createObjectURL(blob);
+      onImage(url);
+      onError('');
+    }).catch((reason: unknown) => {
+      if (active) onError(reason instanceof Error ? reason.message : 'Không thể mở trang PDF.');
+    });
+    return () => { active = false; if (url) URL.revokeObjectURL(url); onImage(null); };
+  }, [roomCode, resourceId, page, onImage, onError]);
+  return null;
 }
 
 function DocCanvas({ resource }: { resource: Exclude<StudioResource, { kind: 'quiz' }> }) {

@@ -1,4 +1,4 @@
-import { request } from '@/lib/api';
+import { request, uploadRequest } from '@/lib/api';
 
 export type LessonSubject = 'anatomy';
 export type LessonResourceKind = 'slide' | 'pdf' | 'doc' | 'model_3d' | 'quiz' | 'video' | 'link';
@@ -86,8 +86,12 @@ export const lessonPlanApi = {
   updateSection: (code: string, id: string, data: Partial<Pick<LessonSectionDto, 'title' | 'objective' | 'teacher_notes' | 'duration_minutes' | 'position'>>) =>
     request<LessonSectionDto>(`/classrooms/${encodeURIComponent(code)}/lesson-plan/sections/${id}/`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteSection: (code: string, id: string) => request<void>(`/classrooms/${encodeURIComponent(code)}/lesson-plan/sections/${id}/`, { method: 'DELETE' }),
-  createResource: (code: string, sectionId: string, data: FormData | Record<string, unknown>) =>
-    request<LessonResourceDto>(`/classrooms/${encodeURIComponent(code)}/lesson-plan/sections/${sectionId}/resources/`, { method: 'POST', body: data instanceof FormData ? data : JSON.stringify(data) }),
+  createResource: (code: string, sectionId: string, data: FormData | Record<string, unknown>, onProgress?: (percent: number) => void) => {
+    const path = `/classrooms/${encodeURIComponent(code)}/lesson-plan/sections/${sectionId}/resources/`;
+    return data instanceof FormData
+      ? uploadRequest<LessonResourceDto>(path, data, onProgress)
+      : request<LessonResourceDto>(path, { method: 'POST', body: JSON.stringify(data) });
+  },
   updateResource: (code: string, id: string, data: Partial<LessonResourceDto>) =>
     request<LessonResourceDto>(`/classrooms/${encodeURIComponent(code)}/lesson-plan/resources/${id}/`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteResource: (code: string, id: string) => request<void>(`/classrooms/${encodeURIComponent(code)}/lesson-plan/resources/${id}/`, { method: 'DELETE' }),

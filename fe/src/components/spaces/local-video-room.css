@@ -1,0 +1,151 @@
+/* Keep LiveKit's native control bar styling; only place the added actions before Leave. */
+.synapse-video-room {
+  --participants-width: clamp(220px, 19vw, 360px);
+}
+
+.synapse-video-room .synapse-participants-toggle {
+  position: absolute;
+  top: 18px;
+  right: calc(var(--participants-width) - 18px);
+  z-index: 20;
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid #50535a;
+  border-radius: 10px;
+  color: #f3f4f6;
+  background: #292b30;
+  box-shadow: 0 4px 12px rgb(0 0 0 / 25%);
+  cursor: pointer;
+}
+
+.synapse-video-room .synapse-participants-toggle:hover {
+  background: #3b3e45;
+}
+
+.synapse-video-room .synapse-participants-toggle:focus-visible {
+  outline: 2px solid white;
+  outline-offset: 3px;
+}
+
+.synapse-video-room [data-participants-collapsed='true'] .synapse-participants-toggle {
+  right: 16px;
+}
+
+.synapse-video-room .lk-control-bar > .synapse-utility-actions {
+  order: 1;
+}
+
+.synapse-video-room .synapse-utility-actions .synapse-utility-button {
+  display: inline-flex;
+  width: auto;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1rem;
+  font-size: inherit;
+  white-space: nowrap;
+}
+
+.synapse-video-room .synapse-utility-button > span {
+  display: inline;
+  font-size: inherit;
+}
+
+.synapse-video-room .lk-control-bar > .lk-disconnect-button {
+  order: 2;
+}
+
+.synapse-video-room .lk-focus-layout {
+  grid-template-columns: minmax(0, 1fr) var(--participants-width);
+}
+
+.synapse-video-room .lk-focus-layout > .lk-carousel {
+  grid-column: 2;
+  grid-row: 1;
+  min-width: 0;
+}
+
+.synapse-video-room .lk-focus-layout > .lk-participant-tile {
+  grid-column: 1;
+  grid-row: 1;
+  min-width: 0;
+}
+
+.synapse-video-room [data-participants-collapsed='true'] .lk-focus-layout {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.synapse-video-room [data-participants-collapsed='true'] .lk-focus-layout > .lk-carousel {
+  display: none;
+}
+
+.synapse-video-room .synapse-presentation-stage {
+  position: absolute;
+  top: 8px;
+  right: calc(var(--participants-width) + 8px);
+  bottom: 80px;
+  left: 8px;
+  z-index: 12;
+}
+
+.synapse-video-room [data-presentation-active='true'] .lk-grid-layout-wrapper {
+  width: var(--participants-width);
+  margin-left: auto;
+}
+
+.synapse-video-room [data-presentation-active='true'] .lk-grid-layout {
+  grid-template-columns: minmax(0, 1fr) !important;
+  overflow-y: auto;
+}
+
+.synapse-video-room [data-presentation-active='true'][data-participants-collapsed='true'] .synapse-presentation-stage {
+  right: 8px;
+}
+
+@media (max-width: 700px) {
+  .synapse-video-room .synapse-presentation-stage {
+    right: 8px;
+    bottom: 212px;
+  }
+
+  .synapse-video-room [data-presentation-active='true'] .lk-grid-layout-wrapper {
+    width: 100%;
+    height: 132px;
+    margin-top: auto;
+  }
+
+  .synapse-video-room [data-presentation-active='true'] .lk-grid-layout {
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(120px, 1fr);
+    overflow-x: auto;
+  }
+
+  .synapse-video-room [data-presentation-active='true'][data-participants-collapsed='true'] .synapse-presentation-stage {
+    bottom: 80px;
+  }
+  .synapse-video-room .synapse-participants-toggle {
+    right: 16px;
+  }
+
+  .synapse-video-room .lk-focus-layout {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) 128px;
+  }
+
+  .synapse-video-room .lk-focus-layout > .lk-carousel {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .synapse-video-room .lk-focus-layout > .lk-participant-tile {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .synapse-video-room [data-participants-collapsed='true'] .lk-focus-layout {
+    grid-template-rows: minmax(0, 1fr);
+  }
+}

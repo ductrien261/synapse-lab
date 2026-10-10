@@ -45,13 +45,13 @@ class LiveSessionSerializer(serializers.ModelSerializer):
     class Meta:
         model = LiveSession
         fields = [
-            'id', 'title', 'status', 'record', 'participant_count', 'started_at', 'ended_at',
+            'id', 'title', 'status', 'participant_count', 'started_at', 'ended_at',
             'last_synced_at', 'mode', 'current_user_joined',
         ]
 
-    @extend_schema_field(serializers.ChoiceField(choices=['mock', 'live']))
+    @extend_schema_field(serializers.ChoiceField(choices=['livekit']))
     def get_mode(self, _obj):
-        return 'live' if self.context.get('bbb_enabled') else 'mock'
+        return 'livekit'
 
     @extend_schema_field(serializers.BooleanField)
     def get_current_user_joined(self, obj):
@@ -91,7 +91,6 @@ class ClassroomSerializer(serializers.ModelSerializer):
         return LiveSessionSerializer(
             session,
             context={
-                'bbb_enabled': self.context.get('bbb_enabled', False),
                 'request': self.context.get('request'),
             },
         ).data
@@ -106,7 +105,6 @@ class JoinClassroomSerializer(serializers.Serializer):
 
 class StartSessionSerializer(serializers.Serializer):
     title = serializers.CharField(max_length=200, required=False, allow_blank=True)
-    record = serializers.BooleanField(default=False)
 
 
 class LessonQuizSerializer(serializers.ModelSerializer):
@@ -213,6 +211,8 @@ class LessonResourceSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         kind = attrs.get('kind', getattr(self.instance, 'kind', None))
         uploaded_file = attrs.get('file')
+        if self.instance is None and kind in {LessonResource.Kind.PDF, LessonResource.Kind.SLIDE, LessonResource.Kind.DOC} and not uploaded_file:
+            raise serializers.ValidationError({'file': 'Hãy chọn tệp tài liệu để tải lên.'})
         anatomy_model = attrs.get('anatomy_model', getattr(self.instance, 'anatomy_model', None))
         quiz_data = attrs.get('quiz')
         if kind == LessonResource.Kind.MODEL_3D and not anatomy_model:

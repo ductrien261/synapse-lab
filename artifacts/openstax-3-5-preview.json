@@ -1,0 +1,23 @@
+{
+  "status": "parsed_without_ai",
+  "source_url": "https://openstax.org/books/introduction-computer-science/pages/3-5-sample-algorithms-by-problem",
+  "page_title": "3.5 Sample Algorithms by Problem - Introduction to Computer Science | OpenStax",
+  "content_characters": 22824,
+  "heading_count": 23,
+  "topic_count": 11,
+  "detected_algorithm_topics": [
+    "Sequential Search",
+    "Binary Search",
+    "Merge Sort",
+    "Quicksort",
+    "Heapsort",
+    "Hashing",
+    "Depth-First Search",
+    "Breadth-First Search",
+    "Kruskal",
+    "Prim",
+    "Dijkstra"
+  ],
+  "ai_draft": null,
+  "ai_draft_note": "OpenStax requires prior written permission before this textbook is ingested into generative AI."
+}

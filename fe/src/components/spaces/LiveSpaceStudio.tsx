@@ -40,7 +40,7 @@ export function LiveSpaceStudio({ roomCode: rawRoomCode, roomName: rawRoomName }
         ? 'Bước 1: Bấm “Bắt đầu” để mở phiên học. Sau đó cả hai tài khoản bấm “Vào phòng”.'
         : 'Đang chờ chủ phòng bắt đầu phiên học. Trạng thái được cập nhật tự động sau tối đa 5 giây.'
       : activeSession.current_user_joined
-        ? `Bạn đang tham gia phiên ${activeSession.mode === 'mock' ? 'mô phỏng' : 'BigBlueButton'}.`
+        ? 'Bạn đang tham gia phòng LiveKit.'
         : 'Phiên học đã bắt đầu. Bấm “Vào phòng” để được tính là đang tham gia.';
 
   useEffect(() => {
@@ -65,6 +65,12 @@ export function LiveSpaceStudio({ roomCode: rawRoomCode, roomName: rawRoomName }
     };
   }, [roomCode]);
 
+  useEffect(() => {
+    if (activeSession?.current_user_joined) {
+      router.replace(`/spaces/${encodeURIComponent(roomCode)}/video`);
+    }
+  }, [activeSession?.current_user_joined, roomCode, router]);
+
   const copyCode = async () => {
     await navigator.clipboard?.writeText(roomCode);
     setCopied(true);
@@ -77,7 +83,7 @@ export function LiveSpaceStudio({ roomCode: rawRoomCode, roomName: rawRoomName }
     try {
       const updated = await classroomApi.startSession(roomCode);
       setClassroom(updated);
-      setMessage(updated.active_session?.mode === 'mock' ? 'Phòng mô phỏng đã bắt đầu trên máy Windows.' : 'Buổi học đã bắt đầu.');
+      setMessage('Buổi học đã bắt đầu.');
     } catch (reason) {
       setMessage(reason instanceof Error ? reason.message : 'Không thể bắt đầu buổi học.');
     } finally {
@@ -89,13 +95,8 @@ export function LiveSpaceStudio({ roomCode: rawRoomCode, roomName: rawRoomName }
     setActionPending(true);
     setMessage('');
     try {
-      const result = await classroomApi.joinSession(roomCode);
-      if (result.join_url) {
-        window.location.assign(result.join_url);
-        return;
-      }
-      setClassroom(await classroomApi.get(roomCode));
-      setMessage('Bạn đang ở trong phòng mô phỏng. Khi cấu hình BBB thật, nút này sẽ mở phòng video.');
+      await classroomApi.joinSession(roomCode);
+      router.push(`/spaces/${encodeURIComponent(roomCode)}/video`);
     } catch (reason) {
       setMessage(reason instanceof Error ? reason.message : 'Không thể tham gia buổi học.');
     } finally {
@@ -137,7 +138,7 @@ export function LiveSpaceStudio({ roomCode: rawRoomCode, roomName: rawRoomName }
             <div className="flex items-center gap-2">
               <h1 className="truncate text-sm font-extrabold text-stone-900">{roomName}</h1>
               {classroom && <span className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-extrabold ${classroom.is_owner ? 'bg-violet-50 text-violet-700' : 'bg-sky-50 text-sky-700'}`}>{roleLabel}</span>}
-              {activeSession && <span className="hidden rounded-full bg-rose-50 px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wider text-rose-600 sm:inline"><span className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-rose-500" />Trực tiếp</span>}
+              {activeSession && <span className="hidden rounded-full bg-rose-50 px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wider text-rose-600 sm:inline"><span className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-rose-500" />Video LiveKit</span>}
             </div>
             <button type="button" onClick={copyCode} className="mt-0.5 flex items-center gap-1.5 text-[11px] font-semibold text-stone-400 hover:text-[#1E3F82]">
               Mã phòng: <span className="font-extrabold tracking-wider text-[#1E3F82]">{roomCode}</span> {copied ? <Check2 className="h-3 w-3 text-emerald-600" /> : <Clipboard className="h-3 w-3" />}
@@ -174,7 +175,7 @@ export function LiveSpaceStudio({ roomCode: rawRoomCode, roomName: rawRoomName }
       </div>
 
       <footer className="flex min-h-12 flex-wrap items-center justify-between gap-2 border-t border-stone-200 bg-white px-4 py-2 text-[11px]">
-        <div className="flex items-center gap-2 text-stone-500"><Broadcast className={`h-3 w-3 ${activeSession ? 'text-rose-500' : 'text-stone-400'}`} /><span className={activeSession ? 'font-bold text-rose-600' : 'font-bold text-stone-500'}>{activeSession ? (activeSession.mode === 'mock' ? 'Mô phỏng đang chạy' : 'Đang trực tiếp') : 'Chưa bắt đầu'}</span></div>
+        <div className="flex items-center gap-2 text-stone-500"><Broadcast className={`h-3 w-3 ${activeSession ? 'text-rose-500' : 'text-stone-400'}`} /><span className={activeSession ? 'font-bold text-rose-600' : 'font-bold text-stone-500'}>{activeSession ? 'Phòng LiveKit đang chạy' : 'Chưa bắt đầu'}</span></div>
         <div className="flex items-center gap-4 text-stone-500"><span className="flex items-center gap-1.5"><PeopleFill className="h-3 w-3" /> {activeSession ? activeSession.participant_count : classroom?.member_count ?? 0} {activeSession ? 'đang tham gia' : 'thành viên'}</span><span className="flex items-center gap-1.5"><ChatDots className="h-3 w-3" /> Không gian cộng tác</span></div>
         {classroom?.is_owner && activeSession ? (
           <button type="button" disabled={actionPending} onClick={endSession} className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 font-bold text-rose-600 hover:bg-rose-100 disabled:opacity-50">Kết thúc</button>

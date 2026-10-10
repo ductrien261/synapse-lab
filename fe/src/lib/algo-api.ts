@@ -1,7 +1,7 @@
 import type { AlgorithmViewDetail } from './algorithm-api';
 import type { SimulationTrace } from './simulation';
 
-const ALGO_API = process.env.NEXT_PUBLIC_ALGO_API_URL || 'http://localhost:8080/api';
+const ALGO_API = process.env.NEXT_PUBLIC_ALGO_API_URL || '/algo-api';
 
 async function algoRequest<T>(path: string): Promise<T> {
   const res = await fetch(`${ALGO_API}${path}`);
