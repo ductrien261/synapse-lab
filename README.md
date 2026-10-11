@@ -112,7 +112,7 @@ Chạy LiveKit Server trên máy host để thử phòng video local:
 livekit-server --dev
 ```
 
-Giữ server chạy, đặt `LIVEKIT_WS_URL`, `LIVEKIT_API_URL`, `LIVEKIT_API_KEY` và `LIVEKIT_API_SECRET` trong `.env` theo cấu hình LiveKit, rồi khởi động lại backend. `LIVEKIT_WS_URL` là địa chỉ trình duyệt dùng để vào phòng; `LIVEKIT_API_URL` là địa chỉ backend dùng để đóng phòng. Giá trị `ws://localhost:7880` trong mẫu chỉ hoạt động khi trình duyệt và LiveKit cùng máy. Khi cho người ở xa tham gia, dùng địa chỉ `wss://` truy cập được từ trình duyệt của họ. Sau khi cập nhật code, chạy migration `0007_rename_livekit_room` bằng lệnh ở bước 4.
+Giữ server chạy, đặt `LIVEKIT_WS_URL`, `LIVEKIT_API_URL`, `LIVEKIT_API_KEY` và `LIVEKIT_API_SECRET` trong `.env` theo cấu hình LiveKit, rồi khởi động lại backend. `LIVEKIT_WS_URL` là địa chỉ trình duyệt dùng để vào phòng; `LIVEKIT_API_URL` là địa chỉ backend dùng để đóng phòng. Giá trị `ws://localhost:7880` trong mẫu chỉ hoạt động khi trình duyệt và LiveKit cùng máy. Khi cho người ở xa tham gia, dùng địa chỉ `wss://` truy cập được từ trình duyệt của họ. Sau khi cập nhật code, chạy migration bằng lệnh ở bước 4.
 
 Muốn có mô hình 3D để học: vào trang quản trị để nhập, hoặc dùng lệnh:
 

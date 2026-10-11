@@ -32,7 +32,7 @@ class Migration(migrations.Migration):
                 ('updated_at', models.DateTimeField(auto_now=True)),
                 ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
                 ('title', models.CharField(max_length=200)),
-                ('bbb_meeting_id', models.CharField(editable=False, max_length=100, unique=True)),
+                ('room_name', models.CharField(editable=False, max_length=100, unique=True)),
                 ('status', models.CharField(choices=[('live', 'Đang diễn ra'), ('ended', 'Đã kết thúc')], default='live', max_length=10)),
                 ('record', models.BooleanField(default=False)),
                 ('started_at', models.DateTimeField(auto_now_add=True)),
