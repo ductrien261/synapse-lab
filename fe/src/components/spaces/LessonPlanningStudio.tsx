@@ -3,12 +3,14 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
-import { BoxArrowLeft, Broadcast, Check2, Clipboard, PeopleFill, PersonPlusFill, PersonVideo3, StopCircle } from 'react-bootstrap-icons';
+import { BarChartFill, BoxArrowLeft, Broadcast, Check2, Clipboard, PeopleFill, PersonPlusFill, PersonVideo3, StopCircle } from 'react-bootstrap-icons';
 import { classroomApi, type ClassroomDto } from './classroom-api';
 import { AnatomyModelPicker } from './AnatomyModelPicker';
 import { DocumentWorkspace } from './DocumentWorkspace';
 import { EditableLessonTree } from './LessonContentTree';
 import { LessonToolsRail } from './LessonToolsRail';
+import { QuizReportPanel } from './QuizReportPanel';
+import { SessionResourcePicker } from './SessionResourcePicker';
 import { type LessonMaterial, type LessonQuiz, type MaterialKind } from './lesson-plan';
 import { lessonPlanApi, type LessonPlanDto, type LessonResourceDto } from './lesson-plan-api';
 import { mapLessonPlan } from './lesson-plan-mapper';
@@ -30,6 +32,8 @@ export function LessonPlanningStudio({ roomCode: rawRoomCode }: { roomCode: stri
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const uploadingRef = useRef(false);
   const [modelPickerStepId, setModelPickerStepId] = useState<string | null>(null);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [sessionPickerOpen, setSessionPickerOpen] = useState(false);
   const quizSaveTimerRef = useRef<number | null>(null);
   const plan = planDto ? mapLessonPlan(planDto) : null;
   const [selectedResourceKey, setSelectedResourceKey] = useState('');
@@ -97,12 +101,13 @@ export function LessonPlanningStudio({ roomCode: rawRoomCode }: { roomCode: stri
     }
   };
 
-  const startSession = async () => {
+  const startSession = async (resourceIds?: string[]) => {
     setActionPending(true);
     setMessage('');
     try {
-      const updated = await classroomApi.startSession(roomCode);
+      const updated = await classroomApi.startSession(roomCode, resourceIds);
       setClassroom(updated);
+      setSessionPickerOpen(false);
       await classroomApi.joinSession(roomCode);
       router.push(`/spaces/${encodeURIComponent(roomCode)}/video`);
     } catch (reason) {
@@ -209,10 +214,10 @@ export function LessonPlanningStudio({ roomCode: rawRoomCode }: { roomCode: stri
     }, 450);
   };
 
-  const addActivity = async () => {
+  const addActivity = async (requestedTitle?: string) => {
     if (!planDto) return;
     try {
-      await lessonPlanApi.createSection(roomCode, { title: `Chủ đề Giải phẫu ${planDto.sections.length + 1}`, duration_minutes: 10 });
+      await lessonPlanApi.createSection(roomCode, { title: requestedTitle?.trim() || `Chủ đề Giải phẫu ${planDto.sections.length + 1}`, duration_minutes: 10 });
       await reloadPlan();
     } catch (reason) {
       setMessage(reason instanceof Error ? reason.message : 'Không thể thêm hoạt động.');
@@ -359,17 +364,20 @@ export function LessonPlanningStudio({ roomCode: rawRoomCode }: { roomCode: stri
         </div>
         <div className="flex items-center justify-center gap-2 rounded-xl bg-stone-50 px-2.5 py-2 text-[11px] font-bold text-stone-600 sm:px-3"><PeopleFill className="h-3.5 w-3.5 text-[#397BF6]" /><span className="hidden sm:inline">{classroom.member_count} người trong lớp</span><span className="sm:hidden">{classroom.member_count}</span></div>
         <div className="flex items-center justify-end gap-2">
+          <button type="button" onClick={() => setReportOpen(true)} className="flex h-9 items-center gap-2 rounded-xl border border-violet-200 bg-violet-50 px-3 text-xs font-bold text-violet-700 hover:bg-violet-100"><BarChartFill className="h-3.5 w-3.5" /><span className="hidden lg:inline">Báo cáo</span></button>
           <button type="button" onClick={copyCode} className="flex h-9 items-center gap-2 rounded-xl bg-[#E8F0FB] px-3 text-xs font-bold text-[#1E3F82] hover:bg-[#D5E4F7]"><PersonPlusFill className="h-3.5 w-3.5" /><span className="hidden sm:inline">Mời học viên</span></button>
-          {activeSession ? <button type="button" disabled={actionPending} onClick={joinSession} className="flex h-9 items-center gap-2 rounded-xl bg-[#1E3F82] px-3 text-xs font-bold text-white hover:bg-[#163070] disabled:opacity-50"><PersonVideo3 className="h-3.5 w-3.5" /><span className="hidden lg:inline">Vào phòng</span></button> : <button type="button" disabled={actionPending || loading} onClick={startSession} className="flex h-9 items-center gap-2 rounded-xl bg-emerald-600 px-3 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50"><Broadcast className="h-3.5 w-3.5" /><span className="hidden lg:inline">Bắt đầu buổi dạy</span></button>}
+          {activeSession ? <button type="button" disabled={actionPending} onClick={joinSession} className="flex h-9 items-center gap-2 rounded-xl bg-[#1E3F82] px-3 text-xs font-bold text-white hover:bg-[#163070] disabled:opacity-50"><PersonVideo3 className="h-3.5 w-3.5" /><span className="hidden lg:inline">Vào phòng</span></button> : <button type="button" disabled={actionPending || loading || planLoading} onClick={() => setSessionPickerOpen(true)} className="flex h-9 items-center gap-2 rounded-xl bg-emerald-600 px-3 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50"><Broadcast className="h-3.5 w-3.5" /><span className="hidden lg:inline">Bắt đầu buổi dạy</span></button>}
           {activeSession && <button type="button" disabled={actionPending} onClick={endSession} aria-label="Kết thúc phiên" title="Kết thúc phiên" className="flex h-9 items-center gap-2 rounded-xl border border-rose-200 px-3 text-xs font-bold text-rose-600 hover:bg-rose-50 disabled:opacity-50"><StopCircle className="h-3.5 w-3.5" /><span className="hidden lg:inline">Kết thúc phiên</span></button>}
         </div>
       </header>
 
       {message && <div className="border-b border-[#D9E6FA] bg-[#EEF4FF] px-4 py-2 text-xs font-semibold text-[#1E3F82]">{message}</div>}
       {uploading && <div role="status" aria-live="polite" className="border-b border-blue-100 bg-blue-50 px-4 py-2"><div className="flex items-center justify-between text-xs font-semibold text-blue-800"><span>{uploadProgress === 100 ? 'Đã gửi xong. Đang lưu và xử lý tài liệu…' : 'Đang gửi tài liệu…'}</span><span>{uploadProgress ?? 0}%</span></div><progress value={uploadProgress ?? 0} max={100} className="mt-1 h-2 w-full accent-blue-700" /></div>}
-      <div className="grid min-h-0 flex-1 grid-cols-1 xl:grid-cols-[300px_minmax(0,1fr)]"><EditableLessonTree steps={plan.steps} resources={resources} selectedKey={selectedResource?.key || ''} onSelect={setSelectedResourceKey} onAddFiles={addFiles} uploading={uploading} onAddQuiz={addQuiz} onAddModel={setModelPickerStepId} onAddActivity={addActivity} onMoveActivity={moveActivity} onDeleteActivity={deleteActivity} onDeleteResource={deleteResource} onRenameActivity={renameActivity} onRenameResource={renameResource} onReorderActivity={reorderActivity} onReorderResource={reorderResource} /><div className="relative min-h-0 min-w-0"><DocumentWorkspace resource={selectedResource} roomCode={roomCode} /><LessonToolsRail key={selectedResource?.key || 'empty'} resource={selectedResource} step={selectedStep} onUpdateMaterial={updateSelectedMaterial} onUpdateQuiz={updateSelectedQuiz} /></div></div>
+      <div className="grid min-h-0 flex-1 grid-cols-1 xl:grid-cols-[300px_minmax(0,1fr)]"><EditableLessonTree steps={plan.steps} resources={resources} selectedKey={selectedResource?.key || ''} onSelect={setSelectedResourceKey} onAddFiles={addFiles} uploading={uploading} onAddQuiz={addQuiz} onAddModel={setModelPickerStepId} onAddActivity={addActivity} onMoveActivity={moveActivity} onDeleteActivity={deleteActivity} onDeleteResource={deleteResource} onRenameActivity={renameActivity} onRenameResource={renameResource} onReorderActivity={reorderActivity} onReorderResource={reorderResource} /><div className="relative min-h-0 min-w-0"><DocumentWorkspace resource={selectedResource} roomCode={roomCode} onUpdateQuiz={updateSelectedQuiz} />{selectedResource?.kind !== 'model_3d' && <LessonToolsRail key={selectedResource?.key || 'empty'} resource={selectedResource} step={selectedStep} onUpdateMaterial={updateSelectedMaterial} onUpdateQuiz={updateSelectedQuiz} />}</div></div>
 
       {modelPickerStepId && <AnatomyModelPicker sectionTitle={plan.steps.find((item) => item.id === modelPickerStepId)?.title || 'Hoạt động'} onClose={() => setModelPickerStepId(null)} onChoose={addAnatomyModel} />}
+      <QuizReportPanel roomCode={roomCode} open={reportOpen} onClose={() => setReportOpen(false)} />
+      {sessionPickerOpen && <SessionResourcePicker plan={planDto} pending={actionPending} onClose={() => setSessionPickerOpen(false)} onStart={(resourceIds) => void startSession(resourceIds)} />}
     </div>
   );
 }

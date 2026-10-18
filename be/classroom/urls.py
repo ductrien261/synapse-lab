@@ -14,6 +14,7 @@ from .views import (
     SessionVideoTokenView,
     SessionPresentationView,
     SessionPresentationPdfPageView,
+    SessionQuizReportView,
     LessonResourcePdfPageView,
     SessionLeaveView,
     SessionStartView,
@@ -34,6 +35,7 @@ urlpatterns = [
     path('<str:code>/sessions/video-token/', SessionVideoTokenView.as_view(), name='session-video-token'),
     path('<str:code>/sessions/presentation/', SessionPresentationView.as_view(), name='session-presentation'),
     path('<str:code>/sessions/presentation/pdf/<uuid:resource_id>/pages/<int:page>/', SessionPresentationPdfPageView.as_view(), name='session-presentation-pdf-page'),
+    path('<str:code>/sessions/quiz-report/', SessionQuizReportView.as_view(), name='session-quiz-report'),
     path('<str:code>/sessions/leave/', SessionLeaveView.as_view(), name='session-leave'),
     path('<str:code>/sessions/end/', SessionEndView.as_view(), name='session-end'),
 ]

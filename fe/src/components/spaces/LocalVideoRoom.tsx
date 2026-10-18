@@ -12,7 +12,6 @@ import { ClassroomAiPanel } from './ClassroomAiPanel';
 import { LocalPresentationPanel } from './LocalPresentationPanel';
 import { LocalPresentationStage } from './LocalPresentationStage';
 import { InteractionToolbar } from './InteractionToolbar';
-import { LiveQuestionOverlay } from './InteractiveQuestionDemo';
 
 type VideoConnection = { url: string; token: string };
 
@@ -80,7 +79,7 @@ export function LocalVideoRoom({ roomCode }: { roomCode: string }) {
   return <main className="synapse-video-room flex h-[calc(100dvh-4rem)] min-h-[520px] flex-col bg-[#0F172A] text-white">
     <header className="flex flex-wrap items-center justify-between gap-3 border-b border-white/15 px-5 py-3">
       <div><h1 className="text-sm font-bold">Phòng video Synapse</h1><p className="text-xs text-white/60">Mã lớp: {roomCode} · Bật mic/camera ở thanh điều khiển khi cần</p></div>
-      <div className="flex flex-wrap gap-2"><button type="button" aria-expanded={aiOpen} aria-controls="classroom-ai-panel" onClick={() => { setPanelOpen(false); setAiOpen((value) => !value); }} className="rounded-lg border border-violet-300/50 bg-violet-500/15 px-3 py-2 text-xs font-semibold text-violet-100 hover:bg-violet-500/25 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">✦ Công cụ AI</button><button type="button" onClick={() => { setAiOpen(false); setPanelOpen((value) => !value); }} className="rounded-lg bg-white px-3 py-2 text-xs font-semibold text-[#1E3F82]">Tài liệu & quiz</button><Link href={classroomUrl} onClick={() => { void classroomApi.leaveSession(roomCode); }} className="rounded-lg border border-white/20 px-3 py-2 text-xs font-semibold hover:bg-white/10">Về bài dạy</Link></div>
+      <div className="flex flex-wrap gap-2"><button type="button" aria-expanded={aiOpen} aria-controls="classroom-ai-panel" onClick={() => { setPanelOpen(false); setAiOpen((value) => !value); }} className="rounded-lg border border-violet-300/50 bg-violet-500/15 px-3 py-2 text-xs font-semibold text-violet-100 hover:bg-violet-500/25 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">⚡ Kịch bản lớp học</button><button type="button" onClick={() => { setAiOpen(false); setPanelOpen((value) => !value); }} className="rounded-lg bg-white px-3 py-2 text-xs font-semibold text-[#1E3F82]">Nội dung đã soạn</button><Link href={classroomUrl} onClick={() => { void classroomApi.leaveSession(roomCode); }} className="rounded-lg border border-white/20 px-3 py-2 text-xs font-semibold hover:bg-white/10">Về bài dạy</Link></div>
     </header>
     {deviceWarning && <p role="alert" className="bg-amber-50 px-5 py-2 text-sm text-amber-900">{deviceWarning}</p>}
     <LiveKitRoom
@@ -116,7 +115,6 @@ export function LocalVideoRoom({ roomCode }: { roomCode: string }) {
           {participantsCollapsed ? <ChevronLeft size={19} aria-hidden="true" /> : <ChevronRight size={19} aria-hidden="true" />}
         </button>}
         {isModerator !== null && <InteractionToolbar isModerator={isModerator} roomCode={roomCode} presentation={presentation} onPresentationChange={updatePresentation} annotationTool={annotationTool} onAnnotationToolChange={setAnnotationTool} />}
-        {isModerator !== null && <LiveQuestionOverlay isModerator={isModerator} />}
         <LocalPresentationPanel roomCode={roomCode} open={panelOpen} onClose={closePanel} onStateChange={updatePresentation} />
         {aiOpen && <ClassroomAiPanel roomCode={roomCode} open onClose={() => setAiOpen(false)} />}
       </div>

@@ -32,3 +32,23 @@ export function StudentQuizDialog({ run, pending, error, onSubmit }: Props) {
     </form>
   </div>;
 }
+
+export function StudentQuizResultDialog({ run, onClose }: { run: PresentationQuizRun; onClose: () => void }) {
+  if (run.selected_option === null || run.correct_option === undefined) return null;
+  const correct = run.is_correct ?? run.selected_option === run.correct_option;
+  return <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/40 p-4">
+    <section role="dialog" aria-modal="true" aria-labelledby="student-quiz-result" className="w-full max-w-[480px] rounded-2xl border border-stone-200 bg-white p-6 text-stone-900 shadow-2xl">
+      <div className={`rounded-2xl p-4 text-center ${correct ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-900'}`}>
+        <p className="text-3xl" aria-hidden="true">{correct ? '✓' : '!'}</p>
+        <h2 id="student-quiz-result" className="mt-1 text-lg font-extrabold">{correct ? 'Chính xác!' : 'Chưa chính xác'}</h2>
+        <p className="mt-1 text-xs">Kết quả đã được lưu vào báo cáo buổi học.</p>
+      </div>
+      <p className="mt-5 text-sm font-bold leading-6">{run.quiz.question}</p>
+      <div className="mt-3 space-y-2 text-sm">
+        <p className="rounded-xl border border-stone-200 p-3"><span className="text-stone-500">Bạn chọn:</span> <strong>{run.quiz.options[run.selected_option]}</strong></p>
+        {!correct && <p className="rounded-xl border border-emerald-200 bg-emerald-50 p-3"><span className="text-emerald-700">Đáp án đúng:</span> <strong>{run.quiz.options[run.correct_option]}</strong></p>}
+      </div>
+      <button type="button" onClick={onClose} className="mt-5 w-full rounded-xl bg-[#243F88] px-4 py-3 text-sm font-bold text-white hover:bg-[#1B326D]">Đã hiểu</button>
+    </section>
+  </div>;
+}

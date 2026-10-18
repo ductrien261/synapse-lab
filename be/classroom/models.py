@@ -91,6 +91,12 @@ class LiveSession(TimeStampedModel):
         on_delete=models.PROTECT,
         related_name='created_live_sessions',
     )
+    selected_resources = models.ManyToManyField(
+        'LessonResource',
+        blank=True,
+        related_name='selected_for_sessions',
+    )
+    uses_resource_selection = models.BooleanField(default=False)
 
     class Meta:
         ordering = ['-started_at']

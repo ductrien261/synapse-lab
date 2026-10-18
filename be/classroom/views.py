@@ -48,8 +48,19 @@ from .serializers import (
 )
 from .quiz_runtime import (
     close_expired_quiz_runs,
+    serialize_quiz_report_run,
     serialize_quiz_run,
 )
+
+
+PRESENTABLE_RESOURCE_KINDS = [
+    LessonResource.Kind.PDF,
+    LessonResource.Kind.DOC,
+    LessonResource.Kind.SLIDE,
+    LessonResource.Kind.MODEL_3D,
+    LessonResource.Kind.VIDEO,
+    LessonResource.Kind.LINK,
+]
 
 
 def classroom_queryset(user):
@@ -84,6 +95,14 @@ def lesson_plan_queryset():
     )
 
 
+def session_resource_queryset(classroom, session):
+    """Resources enabled for this live session; legacy sessions keep the full lesson plan."""
+    queryset = LessonResource.objects.filter(section__plan__classroom=classroom)
+    if session.uses_resource_selection:
+        queryset = queryset.filter(selected_for_sessions=session)
+    return queryset
+
+
 def serialize_classroom(classroom, request):
     return ClassroomSerializer(
         classroom,
@@ -93,6 +112,10 @@ def serialize_classroom(classroom, request):
 
 def finish_session(session):
     now = timezone.now()
+    session.quiz_runs.filter(status=LiveQuizRun.Status.OPEN).update(
+        status=LiveQuizRun.Status.CLOSED,
+        closed_at=now,
+    )
     session.status = LiveSession.Status.ENDED
     session.ended_at = now
     session.participant_count = 0
@@ -221,6 +244,19 @@ class SessionStartView(APIView):
             return Response(serialize_classroom(classroom, request))
 
         title = serializer.validated_data.get('title', '').strip() or classroom.name
+        requested_resource_ids = serializer.validated_data.get('resource_ids')
+        selected_resources = None
+        if requested_resource_ids is not None:
+            selected_resources = list(LessonResource.objects.filter(
+                section__plan__classroom=classroom,
+                kind__in=[*PRESENTABLE_RESOURCE_KINDS, LessonResource.Kind.QUIZ],
+                pk__in=requested_resource_ids,
+            ))
+            if len(selected_resources) != len(requested_resource_ids):
+                return Response(
+                    {'resource_ids': ['Có nội dung không tồn tại hoặc không thuộc lớp học này.']},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
         try:
             with transaction.atomic():
                 Classroom.objects.select_for_update().get(pk=classroom.pk)
@@ -230,9 +266,12 @@ class SessionStartView(APIView):
                     classroom=classroom,
                     title=title,
                     created_by=request.user,
+                    uses_resource_selection=requested_resource_ids is not None,
                 )
                 session.room_name = f'synapse-{session.id.hex}'
                 session.save()
+                if selected_resources is not None:
+                    session.selected_resources.set(selected_resources)
         except IntegrityError:
             return Response({'detail': 'Phòng đã có một buổi học đang diễn ra.'}, status=status.HTTP_409_CONFLICT)
         return Response(serialize_classroom(classroom, request), status=status.HTTP_201_CREATED)
@@ -305,20 +344,78 @@ class SessionPresentationView(APIView):
             raise PermissionDenied('Bạn cần vào phiên học trước.')
         return classroom, session, classroom.owner_id == request.user.id
 
+    def _start_scheduled_quiz(self, presentation, session, quiz):
+        if session.quiz_runs.filter(status=LiveQuizRun.Status.OPEN).exists():
+            return False
+        _, created = LiveQuizRun.objects.get_or_create(
+            session=session,
+            quiz=quiz,
+            defaults={
+                'closes_at': timezone.now() + timedelta(seconds=quiz.duration_seconds),
+                'started_by': None,
+            },
+        )
+        if not created:
+            return False
+        presentation.update(resource_id=str(quiz.resource_id), page=1, quiz_started=True)
+        return True
+
+    def _apply_quiz_automation(self, classroom, session, presentation):
+        if session.quiz_runs.filter(status=LiveQuizRun.Status.OPEN).exists():
+            return
+
+        now = timezone.now()
+        elapsed_minutes = max(0, int((now - session.started_at).total_seconds() // 60))
+        completed_quiz_ids = set(session.quiz_runs.values_list('quiz_id', flat=True))
+        after_resource_due = presentation.get('after_resource_due', {})
+        quizzes = LessonQuiz.objects.filter(
+            resource__in=session_resource_queryset(classroom, session),
+        ).exclude(
+            trigger_mode=LessonQuiz.TriggerMode.MANUAL,
+        ).select_related('resource', 'trigger_resource').order_by(
+            'resource__section__position', 'resource__position', 'resource__created_at',
+        )
+
+        for quiz in quizzes:
+            if quiz.pk in completed_quiz_ids:
+                continue
+            due = False
+            if quiz.trigger_mode == LessonQuiz.TriggerMode.AT_MINUTE:
+                due = elapsed_minutes >= quiz.trigger_minute
+            elif quiz.trigger_mode == LessonQuiz.TriggerMode.AT_SLIDE:
+                due = (
+                    presentation.get('on_stage')
+                    and presentation.get('stage_resource_id') == str(quiz.trigger_resource_id)
+                    and presentation.get('stage_page', 1) >= quiz.trigger_slide_number
+                )
+            elif quiz.trigger_mode == LessonQuiz.TriggerMode.AFTER_RESOURCE:
+                due_at = after_resource_due.get(str(quiz.pk))
+                due = isinstance(due_at, (int, float)) and now.timestamp() >= due_at
+
+            if due and self._start_scheduled_quiz(presentation, session, quiz):
+                after_resource_due.pop(str(quiz.pk), None)
+                presentation['last_automation'] = {
+                    'quiz_id': str(quiz.resource_id),
+                    'trigger_mode': quiz.trigger_mode,
+                    'triggered_at': now.isoformat(),
+                }
+                cache.set(self._key(session), presentation, timeout=60 * 60 * 8)
+                return
+
     def _response(self, request, classroom, session, is_moderator):
         close_expired_quiz_runs(session)
         presentation = self._state(session)
+        self._apply_quiz_automation(classroom, session, presentation)
         resource = None
         if presentation['resource_id']:
-            resource = LessonResource.objects.select_related('quiz', 'anatomy_model__system').filter(
+            resource = session_resource_queryset(classroom, session).select_related('quiz', 'anatomy_model__system').filter(
                 pk=presentation['resource_id'],
-                section__plan__classroom=classroom,
             ).first()
         staged_resource = None
         if presentation.get('on_stage') and presentation.get('stage_resource_id'):
-            staged_resource = LessonResource.objects.filter(
-                pk=presentation['stage_resource_id'], section__plan__classroom=classroom,
-                kind__in=[LessonResource.Kind.PDF, LessonResource.Kind.DOC, LessonResource.Kind.SLIDE, LessonResource.Kind.VIDEO, LessonResource.Kind.LINK],
+            staged_resource = session_resource_queryset(classroom, session).select_related('anatomy_model__system').filter(
+                pk=presentation['stage_resource_id'],
+                kind__in=PRESENTABLE_RESOURCE_KINDS,
             ).first()
         run = None
         if resource and resource.kind == LessonResource.Kind.QUIZ:
@@ -338,12 +435,25 @@ class SessionPresentationView(APIView):
         resources = []
         if is_moderator:
             resources = [
-                {'id': str(item.id), 'title': item.title, 'kind': item.kind, 'section_title': item.section.title}
-                for item in LessonResource.objects.filter(section__plan__classroom=classroom)
-                .filter(kind__in=[LessonResource.Kind.PDF, LessonResource.Kind.DOC, LessonResource.Kind.SLIDE, LessonResource.Kind.VIDEO, LessonResource.Kind.LINK, LessonResource.Kind.QUIZ])
-                .select_related('section').order_by('section__position', 'position', 'created_at')
+                {
+                    'id': str(item.id),
+                    'title': item.title,
+                    'kind': item.kind,
+                    'section_title': item.section.title,
+                    'trigger_mode': item.quiz.trigger_mode if item.kind == LessonResource.Kind.QUIZ else None,
+                    'trigger_minute': item.quiz.trigger_minute if item.kind == LessonResource.Kind.QUIZ else None,
+                    'delay_seconds': item.quiz.delay_seconds if item.kind == LessonResource.Kind.QUIZ else None,
+                    'trigger_resource_id': str(item.quiz.trigger_resource_id) if item.kind == LessonResource.Kind.QUIZ and item.quiz.trigger_resource_id else None,
+                    'trigger_resource_title': item.quiz.trigger_resource.title if item.kind == LessonResource.Kind.QUIZ and item.quiz.trigger_resource else None,
+                    'trigger_slide_number': item.quiz.trigger_slide_number if item.kind == LessonResource.Kind.QUIZ else None,
+                }
+                for item in session_resource_queryset(classroom, session)
+                .filter(kind__in=[*PRESENTABLE_RESOURCE_KINDS, LessonResource.Kind.QUIZ])
+                .select_related('section', 'quiz__trigger_resource').order_by('section__position', 'position', 'created_at')
                 if item.kind == LessonResource.Kind.QUIZ or (
                     item.kind in {LessonResource.Kind.VIDEO, LessonResource.Kind.LINK} and item.external_url
+                ) or (
+                    item.kind == LessonResource.Kind.MODEL_3D and item.anatomy_model_id
                 ) or (
                     item.file and (item.kind != LessonResource.Kind.DOC or item.file.name.lower().endswith('.docx'))
                 )
@@ -364,6 +474,7 @@ class SessionPresentationView(APIView):
                 [],
             ) if staged_resource and staged_resource.kind == LessonResource.Kind.PDF else [],
             'active_run': serialize_quiz_run(run, request.user, moderator=is_moderator) if run else None,
+            'last_automation': presentation.get('last_automation'),
         })
 
     def get(self, request, code):
@@ -434,6 +545,8 @@ class SessionPresentationView(APIView):
             }, context={'request': request})
             serializer.is_valid(raise_exception=True)
             resource = serializer.save(section=section)
+            if session.uses_resource_selection:
+                session.selected_resources.add(resource)
             presentation.update(resource_id=str(resource.id), page=1, quiz_started=False)
         elif action == 'upload':
             uploaded_file = request.FILES.get('file')
@@ -457,6 +570,8 @@ class SessionPresentationView(APIView):
             }, context={'request': request})
             serializer.is_valid(raise_exception=True)
             resource = serializer.save(section=section)
+            if session.uses_resource_selection:
+                session.selected_resources.add(resource)
             if resource.kind == LessonResource.Kind.PDF and prepare_pdf_resource(resource) is None:
                 return Response({'detail': 'Không đọc được tệp PDF.'}, status=status.HTTP_400_BAD_REQUEST)
             presentation.update(resource_id=str(resource.id), page=1, quiz_started=False)
@@ -464,8 +579,8 @@ class SessionPresentationView(APIView):
             presentation.update(resource_id=None, page=1, quiz_started=False)
         elif action in {'show', 'start_quiz'}:
             resource = get_object_or_404(
-                LessonResource.objects.select_related('quiz'),
-                pk=request.data.get('resource_id'), section__plan__classroom=classroom,
+                session_resource_queryset(classroom, session).select_related('quiz'),
+                pk=request.data.get('resource_id'),
             )
             # Selecting content only prepares it; the teacher starts the presentation separately.
             if action == 'start_quiz' and resource.kind != LessonResource.Kind.QUIZ:
@@ -473,8 +588,9 @@ class SessionPresentationView(APIView):
             if action == 'show' and resource.kind != LessonResource.Kind.QUIZ:
                 is_file = resource.kind in {LessonResource.Kind.PDF, LessonResource.Kind.DOC, LessonResource.Kind.SLIDE} and resource.file
                 is_link = resource.kind in {LessonResource.Kind.VIDEO, LessonResource.Kind.LINK} and resource.external_url
-                if not (is_file or is_link):
-                    return Response({'detail': 'Nội dung này chưa có tệp hoặc liên kết hợp lệ.'}, status=status.HTTP_400_BAD_REQUEST)
+                is_model = resource.kind == LessonResource.Kind.MODEL_3D and resource.anatomy_model_id
+                if not (is_file or is_link or is_model):
+                    return Response({'detail': 'Nội dung này chưa có tệp, liên kết hoặc mô hình hợp lệ.'}, status=status.HTTP_400_BAD_REQUEST)
             presentation.update(resource_id=str(resource.id), page=1, quiz_started=action == 'start_quiz')
             if action == 'start_quiz':
                 quiz = get_object_or_404(LessonQuiz, resource=resource)
@@ -500,21 +616,31 @@ class SessionPresentationView(APIView):
                     run.save(update_fields=['status', 'opened_at', 'closes_at', 'closed_at', 'started_by'])
         elif action in {'present', 'stop_present'}:
             resource_id = presentation['resource_id'] if action == 'present' else presentation.get('stage_resource_id')
-            resource = LessonResource.objects.filter(
-                pk=resource_id, section__plan__classroom=classroom,
-                kind__in=[LessonResource.Kind.PDF, LessonResource.Kind.DOC, LessonResource.Kind.SLIDE, LessonResource.Kind.VIDEO, LessonResource.Kind.LINK],
+            resource = session_resource_queryset(classroom, session).filter(
+                pk=resource_id,
+                kind__in=PRESENTABLE_RESOURCE_KINDS,
             ).first() if resource_id else None
-            if not resource or not (resource.file or resource.external_url):
-                return Response({'detail': 'Hãy chọn tài liệu trước khi trình chiếu.'}, status=status.HTTP_400_BAD_REQUEST)
+            if not resource or not (resource.file or resource.external_url or resource.anatomy_model_id):
+                return Response({'detail': 'Hãy chọn tài liệu hoặc mô hình trước khi trình chiếu.'}, status=status.HTTP_400_BAD_REQUEST)
             presentation['on_stage'] = action == 'present'
             if action == 'present':
                 presentation['stage_resource_id'] = str(resource.id)
                 presentation['stage_page'] = presentation['page']
                 cache.set(self._scroll_key(session, str(resource.id), presentation['page']), 0, timeout=60 * 60 * 8)
+            else:
+                now_timestamp = timezone.now().timestamp()
+                due = presentation.setdefault('after_resource_due', {})
+                for quiz in LessonQuiz.objects.filter(
+                    resource__in=session_resource_queryset(classroom, session),
+                    trigger_mode=LessonQuiz.TriggerMode.AFTER_RESOURCE,
+                    trigger_resource_id=resource.id,
+                ):
+                    if not session.quiz_runs.filter(quiz=quiz).exists():
+                        due[str(quiz.pk)] = now_timestamp + quiz.delay_seconds
         elif action in {'page', 'stage_page'}:
             resource_id = presentation.get('stage_resource_id') if action == 'stage_page' else presentation['resource_id']
-            resource = LessonResource.objects.filter(
-                pk=resource_id, section__plan__classroom=classroom,
+            resource = session_resource_queryset(classroom, session).filter(
+                pk=resource_id,
             ).first() if resource_id else None
             if not resource or resource.kind not in {
                 LessonResource.Kind.PDF, LessonResource.Kind.SLIDE,
@@ -556,8 +682,8 @@ class SessionPresentationView(APIView):
         elif action in {'annotation_add', 'annotation_remove', 'annotation_undo'}:
             resource_id = presentation.get('stage_resource_id')
             page = presentation.get('stage_page')
-            if not presentation.get('on_stage') or not LessonResource.objects.filter(
-                pk=resource_id, kind=LessonResource.Kind.PDF, section__plan__classroom=classroom,
+            if not presentation.get('on_stage') or not session_resource_queryset(classroom, session).filter(
+                pk=resource_id, kind=LessonResource.Kind.PDF,
             ).exists():
                 return Response({'detail': 'Chưa chiếu PDF để ghi chú.'}, status=status.HTTP_400_BAD_REQUEST)
             if request.data.get('resource_id') != resource_id or request.data.get('page') != page:
@@ -628,12 +754,73 @@ class SessionPresentationPdfPageView(APIView):
         if not is_staged and not is_selected_by_owner:
             raise Http404('Tài liệu chưa được chiếu.')
         resource = get_object_or_404(
-            LessonResource, pk=resource_id, kind=LessonResource.Kind.PDF,
-            section__plan__classroom=classroom,
+            session_resource_queryset(classroom, session), pk=resource_id, kind=LessonResource.Kind.PDF,
         )
         if not resource.file:
             raise Http404('Tài liệu chưa có tệp PDF.')
         return render_pdf_resource_page(resource, page)
+
+
+class SessionQuizReportView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, code):
+        classroom = get_member_classroom(request.user, code)
+        require_classroom_owner(classroom, request.user)
+        now = timezone.now()
+        LiveQuizRun.objects.filter(
+            session__classroom=classroom,
+            status=LiveQuizRun.Status.OPEN,
+            closes_at__lte=now,
+        ).update(status=LiveQuizRun.Status.CLOSED, closed_at=now)
+
+        sessions = list(
+            classroom.sessions.prefetch_related(
+                Prefetch(
+                    'quiz_runs',
+                    queryset=LiveQuizRun.objects.select_related(
+                        'quiz__resource', 'session__classroom',
+                    ).prefetch_related('responses__user'),
+                ),
+                'attendances',
+            ).order_by('-started_at')
+        )
+        session_rows = []
+        total_responses = 0
+        total_correct = 0
+        total_runs = 0
+        for session in sessions:
+            runs = [serialize_quiz_report_run(run) for run in session.quiz_runs.all()]
+            response_count = sum(run['response_count'] for run in runs)
+            correct_count = sum(run['correct_count'] for run in runs)
+            total_runs += len(runs)
+            total_responses += response_count
+            total_correct += correct_count
+            session_rows.append({
+                'id': str(session.id),
+                'title': session.title,
+                'status': session.status,
+                'started_at': session.started_at.isoformat(),
+                'ended_at': session.ended_at.isoformat() if session.ended_at else None,
+                'participant_count': session.attendances.exclude(
+                    user_id=classroom.owner_id,
+                ).count(),
+                'quiz_count': len(runs),
+                'response_count': response_count,
+                'correct_count': correct_count,
+                'accuracy_percent': round(correct_count * 100 / response_count) if response_count else 0,
+                'runs': runs,
+            })
+        return Response({
+            'summary': {
+                'session_count': len(sessions),
+                'quiz_run_count': total_runs,
+                'response_count': total_responses,
+                'correct_count': total_correct,
+                'accuracy_percent': round(total_correct * 100 / total_responses) if total_responses else 0,
+            },
+            'sessions': session_rows,
+        })
 
 
 class LessonResourcePdfPageView(APIView):

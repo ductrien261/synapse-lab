@@ -11,6 +11,7 @@ import { classroomApi, type AnnotationTool, type PresentationState } from './cla
 import { DocxPreview, mediaUrl, PRESENTATION_UPDATE_TOPIC } from './LocalPresentationPanel';
 import { PdfAnnotationLayer } from './PdfAnnotationLayer';
 import { PresentationLinkPreview } from './PresentationLinkPreview';
+import { AnatomyModelPresentation } from './AnatomyModelPresentation';
 
 interface Props {
   roomCode: string;
@@ -139,6 +140,7 @@ export function LocalPresentationStage({ roomCode, state, onStateChange, onOpenP
       {selected.kind === 'pdf' && (currentPdfImage ? <div className="relative w-full max-w-[1400px] bg-white shadow-md"><img src={currentPdfImage} onLoad={applyScroll} alt={`${selected.title}, trang ${state.stage_page}`} className="block h-auto w-full" /><PdfAnnotationLayer key={`${selected.id}:${state.stage_page}`} annotations={state.stage_annotations} tool={annotationTool} isModerator={state.is_moderator} onAdd={(kind, points, text) => annotate('annotation_add', { kind, points, text })} onRemove={(annotationId) => annotate('annotation_remove', { annotation_id: annotationId })} /></div> : <p role="status" className="m-auto text-sm text-slate-500">Đang mở trang PDF…</p>)}
       {selected.kind === 'slide' && (slideUrl ? <img src={slideUrl} alt={`${selected.title}, trang ${state.stage_page}`} className="m-auto max-h-full max-w-full bg-white object-contain shadow-md" /> : <p className="m-auto text-sm text-slate-500">Slide đang được xử lý hoặc chưa có bản xem trước.</p>)}
       {selected.kind === 'doc' && <DocxPreview key={selected.id} fileUrl={mediaUrl(selected.file)} scrollRef={docScrollRef} onScroll={handleScroll} onReady={applyScroll} />}
+      {selected.kind === 'model_3d' && <AnatomyModelPresentation key={selected.anatomy_model_detail?.sketchfab_uid} model={selected.anatomy_model_detail} fitStage />}
       {(selected.kind === 'video' || selected.kind === 'link') && <PresentationLinkPreview title={selected.title} url={selected.external_url} fitStage />}
     </div>
     {state.is_moderator && hasPages && <footer className="flex shrink-0 items-center justify-center gap-3 border-t border-slate-200 bg-white px-4 py-2">
