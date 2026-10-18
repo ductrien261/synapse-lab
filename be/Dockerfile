@@ -14,13 +14,34 @@ COPY pyproject.toml uv.lock ./
 RUN --mount=type=cache,id=synapse-backend-uv,target=/root/.cache/uv \
     uv sync
 
-# LibreOffice provides a deterministic server-side PowerPoint renderer.
-# Common Microsoft-compatible fonts reduce layout differences in uploaded decks.
+COPY docker/fontconfig/60-synapse-presentation-fonts.conf /etc/fonts/conf.d/
+
+# LibreOffice converts PowerPoint to PDF. Keep the font set broad because missing
+# presentation fonts change text metrics and can make text boxes overlap.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        curl \
+        fontconfig \
         libreoffice-impress \
+        fonts-cabin \
         fonts-dejavu-core \
         fonts-liberation \
+        fonts-noto-core \
+    && install -d /usr/local/share/fonts/synapse /usr/local/share/doc/synapse-fonts \
+    && curl --fail --location --retry 3 \
+        https://raw.githubusercontent.com/google/fonts/main/ofl/anton/Anton-Regular.ttf \
+        --output /usr/local/share/fonts/synapse/Anton-Regular.ttf \
+    && curl --fail --location --retry 3 \
+        https://raw.githubusercontent.com/google/fonts/main/ofl/bevietnampro/BeVietnamPro-Bold.ttf \
+        --output /usr/local/share/fonts/synapse/BeVietnamPro-Bold.ttf \
+    && curl --fail --location --retry 3 \
+        https://raw.githubusercontent.com/google/fonts/main/ofl/anton/OFL.txt \
+        --output /usr/local/share/doc/synapse-fonts/Anton-OFL.txt \
+    && curl --fail --location --retry 3 \
+        https://raw.githubusercontent.com/google/fonts/main/ofl/bevietnampro/OFL.txt \
+        --output /usr/local/share/doc/synapse-fonts/BeVietnamPro-OFL.txt \
+    && fc-cache --force \
     && rm -rf /var/lib/apt/lists/*
 
 COPY . .

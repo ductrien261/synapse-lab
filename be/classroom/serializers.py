@@ -105,6 +105,16 @@ class JoinClassroomSerializer(serializers.Serializer):
 
 class StartSessionSerializer(serializers.Serializer):
     title = serializers.CharField(max_length=200, required=False, allow_blank=True)
+    resource_ids = serializers.ListField(
+        child=serializers.UUIDField(),
+        required=False,
+        allow_empty=False,
+    )
+
+    def validate_resource_ids(self, value):
+        if len(value) != len(set(value)):
+            raise serializers.ValidationError('Danh sách nội dung không được trùng lặp.')
+        return value
 
 
 class LessonQuizSerializer(serializers.ModelSerializer):

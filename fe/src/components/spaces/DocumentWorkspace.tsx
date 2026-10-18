@@ -4,21 +4,25 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { useEffect, useRef, useState } from 'react';
-import { BoxArrowUpRight, ChevronLeft, ChevronRight, Download, FileEarmarkText, LightningChargeFill, ZoomIn, ZoomOut } from 'react-bootstrap-icons';
+import { BoxArrowUpRight, Check2Circle, ChevronLeft, ChevronRight, Download, FileEarmarkText, LightningChargeFill, PlusLg, X, ZoomIn, ZoomOut } from 'react-bootstrap-icons';
 import { requestBlob } from '@/lib/api';
+import { AnatomyModelPresentation } from './AnatomyModelPresentation';
+import type { LessonQuiz } from './lesson-plan';
 import { getResourceTitle, type StudioResource } from './studio-resource';
 
 const BACKEND_API_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:8000/api';
 
-export function DocumentWorkspace({ resource, roomCode }: { resource?: StudioResource; roomCode: string }) {
+export function DocumentWorkspace({ resource, roomCode, onUpdateQuiz }: { resource?: StudioResource; roomCode: string; onUpdateQuiz: (patch: Partial<LessonQuiz>) => void }) {
   if (!resource) return <main className="flex min-h-[540px] items-center justify-center bg-[#F5F7FB]"><div className="text-center text-stone-400"><FileEarmarkText className="mx-auto h-10 w-10" /><p className="mt-3 text-xs font-bold">Chọn tài liệu để bắt đầu</p></div></main>;
   const resourceKindLabel = resource.kind === 'quiz' ? '?' : resource.kind === 'model_3d' ? '3D' : resource.kind.toUpperCase();
-  return <main className="min-w-0 bg-[#F3F6FA] xl:min-h-0 xl:overflow-y-auto">
-    <div className="flex items-center justify-between gap-3 border-b border-stone-200 bg-white px-5 py-3"><div className="flex min-w-0 items-center gap-2.5"><span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[8px] font-extrabold text-white ${resource.kind === 'quiz' ? 'bg-violet-500' : 'bg-[#397BF6]'}`}>{resourceKindLabel}</span><h2 className="truncate text-sm font-extrabold text-stone-900">{getResourceTitle(resource)}</h2><span className="hidden rounded-full bg-[#EEF3FB] px-2 py-1 text-[8px] font-bold text-stone-500 sm:inline">{resource.kind === 'quiz' ? 'Tương tác' : resource.kind === 'model_3d' ? 'Mô hình 3D' : `Tài liệu (${resourceKindLabel})`}</span></div></div>
-    <div className="m-3 overflow-hidden rounded-[20px] border border-stone-200/90 bg-white shadow-[0_4px_18px_rgba(15,23,42,0.05)] sm:m-4">
-      <div className={`flex items-center justify-center overflow-hidden bg-[#E9EEF5] ${resource.kind === 'model_3d' ? 'min-h-[630px] p-5 lg:p-7' : resource.kind === 'pdf' || resource.kind === 'doc' ? 'min-h-[690px] p-4' : resource.kind === 'slide' ? 'min-h-[690px] p-0' : 'min-h-[500px] p-4 sm:p-6'}`}>
+  const isSlide = resource.kind === 'slide';
+  const isFullCanvas = isSlide || resource.kind === 'model_3d';
+  return <main className={`min-w-0 bg-[#F3F6FA] xl:min-h-0 ${isFullCanvas ? 'flex h-full flex-col overflow-hidden' : 'overflow-y-auto'}`}>
+    <div className="flex shrink-0 items-center justify-between gap-3 border-b border-stone-200 bg-white px-5 py-3"><div className="flex min-w-0 items-center gap-2.5"><span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[8px] font-extrabold text-white ${resource.kind === 'quiz' ? 'bg-violet-500' : 'bg-[#397BF6]'}`}>{resourceKindLabel}</span><h2 className="truncate text-sm font-extrabold text-stone-900">{getResourceTitle(resource)}</h2><span className="hidden rounded-full bg-[#EEF3FB] px-2 py-1 text-[8px] font-bold text-stone-500 sm:inline">{resource.kind === 'quiz' ? 'Tương tác' : resource.kind === 'model_3d' ? 'Mô hình 3D' : `Tài liệu (${resourceKindLabel})`}</span></div></div>
+    <div className={`${isFullCanvas ? 'flex min-h-0 flex-1 flex-col overflow-hidden bg-white' : 'm-3 overflow-hidden rounded-[20px] border border-stone-200/90 bg-white shadow-[0_4px_18px_rgba(15,23,42,0.05)] sm:m-4'}`}>
+      <div className={`flex items-center justify-center overflow-hidden bg-[#E9EEF5] ${resource.kind === 'model_3d' ? 'min-h-0 flex-1 p-0' : resource.kind === 'pdf' || resource.kind === 'doc' ? 'min-h-[690px] p-4' : isSlide ? 'min-h-0 flex-1 p-0' : 'min-h-[500px] p-4 sm:p-6'}`}>
         {resource.kind === 'quiz'
-          ? <QuizCanvas resource={resource} />
+          ? <QuizCanvas resource={resource} onChange={onUpdateQuiz} />
           : resource.kind === 'model_3d' && resource.material.anatomyModel
             ? <Model3dCanvas resource={resource} />
             : resource.kind === 'pdf'
@@ -48,19 +52,19 @@ function PptxCanvas({ resource }: { resource: Exclude<StudioResource, { kind: 'q
 
   const pageCount = slideUrls.length;
   const currentPage = Math.min(page, pageCount);
-  return <div className="flex min-h-[720px] min-w-0 flex-1 flex-col bg-white">
-    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-stone-200 bg-[#FBFCFE] px-3 py-2.5">
+  return <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-white">
+    <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-stone-200 bg-[#FBFCFE] px-3 py-2.5">
       <div className="flex items-center gap-1"><ToolbarButton label="Trang trước" onClick={() => setPage(Math.max(1, currentPage - 1))}><ChevronLeft /></ToolbarButton><span className="min-w-12 rounded-lg border border-stone-200 bg-white px-3 py-2 text-center text-[10px] font-bold text-stone-700">{currentPage}</span><span className="px-1 text-[10px] font-bold text-stone-400">/ {pageCount}</span><ToolbarButton label="Trang sau" onClick={() => setPage(Math.min(pageCount, currentPage + 1))}><ChevronRight /></ToolbarButton></div>
       <div className="flex items-center gap-1"><ToolbarButton label="Thu nhỏ" onClick={() => setZoom(Math.max(50, zoom - 10))}><ZoomOut /></ToolbarButton><span className="min-w-14 rounded-lg bg-white px-2 py-2 text-center text-[10px] font-bold text-stone-700">{zoom}%</span><ToolbarButton label="Phóng to" onClick={() => setZoom(Math.min(160, zoom + 10))}><ZoomIn /></ToolbarButton></div>
       <a href={fileUrl} download className="flex h-8 w-8 items-center justify-center rounded-lg text-stone-500 hover:bg-white hover:text-[#1E3F82]" aria-label="Tải PowerPoint"><Download className="h-3.5 w-3.5" /></a>
     </div>
-    <div className="flex h-[610px] items-center justify-center overflow-auto bg-[#EDF1F6] p-3">
-      <div className="relative shrink-0 origin-center transition-transform" style={{ transform: `scale(${zoom / 100})` }}>
-        <img src={slideUrls[currentPage - 1]} alt={`Slide ${currentPage}`} className="block max-h-[580px] max-w-[min(1400px,calc(100vw-2rem))] bg-white object-contain shadow-xl" />
+    <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto bg-[#EDF1F6] p-3">
+      <div className="relative flex h-full w-full shrink-0 origin-center items-center justify-center transition-transform" style={{ transform: `scale(${zoom / 100})` }}>
+        <img src={slideUrls[currentPage - 1]} alt={`Slide ${currentPage}`} className="block max-h-full max-w-full bg-white object-contain shadow-xl" />
         <div data-interactive-layer data-slide={currentPage} className="pointer-events-none absolute inset-0 z-10" aria-label="Lớp tương tác của slide" />
       </div>
     </div>
-    <div className="flex items-center gap-3 overflow-x-auto border-t border-stone-200 bg-white p-3">
+    <div className="flex shrink-0 items-center gap-3 overflow-x-auto border-t border-stone-200 bg-white p-3">
       {slideUrls.map((slideUrl, index) => <button key={slideUrl} type="button" onClick={() => setPage(index + 1)} className={`w-28 shrink-0 overflow-hidden rounded-lg border-2 bg-white p-1 transition ${currentPage === index + 1 ? 'border-[#397BF6] shadow-sm' : 'border-stone-200 hover:border-stone-300'}`}><div className="flex h-[58px] items-center justify-center overflow-hidden rounded bg-stone-100"><img src={slideUrl} alt={`Thumbnail slide ${index + 1}`} className="h-full w-full object-contain" /></div><span className={`block py-1 text-[8px] font-bold ${currentPage === index + 1 ? 'text-[#397BF6]' : 'text-stone-400'}`}>{index + 1}</span></button>)}
     </div>
   </div>;
@@ -172,7 +176,61 @@ function mediaPreviewUrl(fileUrl: string): string {
   return fileUrl;
 }
 
-function QuizCanvas({ resource }: { resource: Extract<StudioResource, { kind: 'quiz' }> }) { return <div className="w-full max-w-2xl rounded-2xl border border-violet-100 bg-white p-6 shadow-xl"><div className="flex items-center gap-2 text-xs font-extrabold text-violet-700"><span className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-100"><LightningChargeFill /></span>Quiz tương tác · {resource.quiz.durationSeconds} giây</div><h3 className="mt-6 text-lg font-extrabold text-stone-900">{resource.quiz.question}</h3><div className="mt-5 grid gap-3 sm:grid-cols-2">{resource.quiz.options.map((option, index) => <div key={index} className={`flex items-center gap-3 rounded-xl border p-3 text-xs font-semibold ${index === resource.quiz.correctOption ? 'border-lime-300 bg-lime-50' : 'border-stone-200'}`}><span className="flex h-6 w-6 items-center justify-center rounded-full border text-[9px] font-extrabold">{String.fromCharCode(65 + index)}</span>{option}</div>)}</div></div>; }
-function Model3dCanvas({ resource }: { resource: Exclude<StudioResource, { kind: 'quiz' }> }) { const model = resource.material.anatomyModel; if (!model) return null; return <div className="relative h-[clamp(500px,58dvh,590px)] w-full max-w-[1180px] overflow-hidden rounded-2xl bg-[#0B1224] shadow-[0_16px_40px_rgba(15,23,42,0.18)] ring-1 ring-black/5"><iframe title={model.title} src={model.embedUrl} className="absolute inset-0 h-full w-full" allow="autoplay; fullscreen; xr-spatial-tracking" allowFullScreen /><span className="absolute left-3 top-3 rounded-lg bg-black/55 px-3 py-2 text-[10px] font-bold text-white backdrop-blur">Mô hình 3D · {model.title}</span></div>; }
+function QuizCanvas({ resource, onChange }: { resource: Extract<StudioResource, { kind: 'quiz' }>; onChange: (patch: Partial<LessonQuiz>) => void }) {
+  const quiz = resource.quiz;
+  const updateOption = (index: number, value: string) => {
+    const options = [...quiz.options];
+    options[index] = value;
+    onChange({ options });
+  };
+  const addOption = () => {
+    if (quiz.options.length >= 6) return;
+    onChange({ options: [...quiz.options, `Đáp án ${String.fromCharCode(65 + quiz.options.length)}`] });
+  };
+  const removeOption = (index: number) => {
+    if (quiz.options.length <= 2) return;
+    const options = quiz.options.filter((_, optionIndex) => optionIndex !== index);
+    const correctOption = quiz.correctOption === index ? 0 : quiz.correctOption > index ? quiz.correctOption - 1 : quiz.correctOption;
+    onChange({ options, correctOption });
+  };
+
+  return <div className="w-full max-w-3xl rounded-2xl border border-violet-100 bg-white p-5 shadow-xl sm:p-6">
+    <div className="flex flex-wrap items-center gap-3">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-700"><LightningChargeFill /></span>
+      <div className="min-w-[220px] flex-1">
+        <label htmlFor="inline-quiz-title" className="block text-[9px] font-extrabold uppercase tracking-wider text-violet-500">Quiz tương tác</label>
+        <input id="inline-quiz-title" value={quiz.title} onChange={(event) => onChange({ title: event.target.value })} className="mt-0.5 w-full rounded-md border border-transparent bg-transparent px-1 py-1 text-sm font-extrabold text-violet-800 outline-none transition hover:border-violet-100 hover:bg-violet-50/60 focus:border-violet-300 focus:bg-white focus:ring-2 focus:ring-violet-100" placeholder="Tên quiz" />
+      </div>
+      <label className="flex items-center gap-1.5 rounded-xl bg-stone-100 px-3 py-2 text-[10px] font-bold text-stone-500">Thời gian<input type="number" min={10} max={600} value={quiz.durationSeconds} onChange={(event) => onChange({ durationSeconds: Math.max(10, Number(event.target.value) || 10) })} className="w-12 border-0 bg-transparent text-right font-extrabold tabular-nums text-stone-800 outline-none" aria-label="Thời gian trả lời" />giây</label>
+    </div>
+
+    <label htmlFor="inline-quiz-question" className="mt-5 block text-[9px] font-extrabold uppercase tracking-wider text-stone-400">Câu hỏi</label>
+    <textarea id="inline-quiz-question" rows={2} value={quiz.question} onChange={(event) => onChange({ question: event.target.value })} className="mt-1.5 w-full resize-y rounded-xl border border-transparent bg-transparent px-3 py-2 text-lg font-extrabold leading-relaxed text-stone-900 outline-none transition hover:border-stone-200 hover:bg-stone-50/60 focus:border-violet-300 focus:bg-white focus:ring-2 focus:ring-violet-100" placeholder="Nhập câu hỏi dành cho học viên…" />
+
+    <div className="mt-4 flex items-center justify-between gap-3"><span className="text-[9px] font-extrabold uppercase tracking-wider text-stone-400">Các phương án</span><span className="flex items-center gap-1 text-[9px] font-bold text-emerald-600"><Check2Circle />Chọn đáp án đúng</span></div>
+    <div className="mt-2 grid gap-3 sm:grid-cols-2">
+      {quiz.options.map((option, index) => {
+        const correct = index === quiz.correctOption;
+        const letter = String.fromCharCode(65 + index);
+        return <div key={index} className={`group flex min-w-0 items-center gap-2 rounded-xl border px-3 py-2.5 transition ${correct ? 'border-emerald-300 bg-emerald-50 ring-1 ring-emerald-100' : 'border-stone-200 bg-white hover:border-violet-200'}`}>
+          <label className="flex shrink-0 cursor-pointer items-center" title={`Đặt ${letter} làm đáp án đúng`}><input type="radio" name={`correct-${quiz.resourceId || resource.key}`} checked={correct} onChange={() => onChange({ correctOption: index })} className="sr-only" /><span className={`flex h-7 w-7 items-center justify-center rounded-full border text-[10px] font-extrabold transition ${correct ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-[#1E3F82] text-[#1E3F82] group-hover:bg-violet-50'}`}>{letter}</span></label>
+          <input value={option} onChange={(event) => updateOption(index, event.target.value)} className="min-w-0 flex-1 bg-transparent px-1 py-1 text-xs font-semibold text-stone-800 outline-none" aria-label={`Đáp án ${letter}`} placeholder={`Nhập đáp án ${letter}`} />
+          <button type="button" onClick={() => removeOption(index)} disabled={quiz.options.length <= 2} aria-label={`Xóa đáp án ${letter}`} className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-stone-300 opacity-100 transition hover:bg-rose-50 hover:text-rose-500 focus:opacity-100 disabled:pointer-events-none disabled:opacity-0 sm:opacity-0 sm:group-hover:opacity-100"><X /></button>
+        </div>;
+      })}
+    </div>
+    <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+      <button type="button" onClick={addOption} disabled={quiz.options.length >= 6} className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-violet-200 px-3 py-2 text-[10px] font-bold text-violet-700 transition hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-40"><PlusLg />Thêm phương án</button>
+      <span className="text-[9px] font-semibold text-emerald-600">● Tự động lưu thay đổi</span>
+    </div>
+  </div>;
+}
+function Model3dCanvas({ resource }: { resource: Exclude<StudioResource, { kind: 'quiz' }> }) {
+  const model = resource.material.anatomyModel;
+  if (!model) return null;
+  return <div className="h-full min-h-[520px] w-full min-w-0">
+    <AnatomyModelPresentation model={{ sketchfab_uid: model.sketchfabUid, title: model.title }} fitStage />
+  </div>;
+}
 function SlidePoint({ number, text }: { number: string; text: string }) { return <div className="flex items-center gap-2"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-[9px] font-extrabold text-white">{number}</span><span className="text-[8px] font-bold text-emerald-950 sm:text-[10px]">{text}</span></div>; }
 function ToolbarButton({ label, onClick, children }: { label: string; onClick?: () => void; children: React.ReactNode }) { return <button type="button" aria-label={label} onClick={onClick} className="flex h-8 w-8 items-center justify-center rounded-lg text-stone-500 hover:bg-white hover:text-[#1E3F82] [&>svg]:h-3.5 [&>svg]:w-3.5">{children}</button>; }

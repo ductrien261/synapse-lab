@@ -1,8 +1,12 @@
+from datetime import timedelta
+
 import jwt
 import pymupdf as fitz
+from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import override_settings
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 from unittest.mock import patch
@@ -17,6 +21,8 @@ from .models import (
     LessonQuiz,
     LessonResource,
     LessonSection,
+    LiveQuizResponse,
+    LiveQuizRun,
     LiveSession,
     SessionAttendance,
 )
@@ -128,6 +134,123 @@ class ClassroomApiTests(APITestCase):
         self.assertEqual(ended.status_code, status.HTTP_204_NO_CONTENT)
         delete_room.assert_called_once_with(session.room_name)
         self.assertEqual(LiveSession.objects.get().status, LiveSession.Status.ENDED)
+
+    def test_quiz_automatically_starts_at_configured_session_minute(self):
+        classroom = Classroom.objects.create(name='Lớp tự động', owner=self.owner)
+        ClassMembership.objects.create(classroom=classroom, user=self.owner, role=ClassMembership.Role.OWNER)
+        plan = LessonPlan.objects.create(classroom=classroom, title='Kịch bản tự động')
+        section = LessonSection.objects.create(plan=plan, title='Kiểm tra giữa giờ')
+        resource = LessonResource.objects.create(section=section, kind=LessonResource.Kind.QUIZ, title='Quiz phút 5')
+        quiz = LessonQuiz.objects.create(
+            resource=resource,
+            question='Câu hỏi tự động?',
+            options=['Đúng', 'Sai'],
+            correct_option=0,
+            trigger_mode=LessonQuiz.TriggerMode.AT_MINUTE,
+            trigger_minute=5,
+        )
+        session = LiveSession.objects.create(
+            classroom=classroom, title='Buổi học', room_name='auto-minute-room', created_by=self.owner,
+        )
+        LiveSession.objects.filter(pk=session.pk).update(started_at=timezone.now() - timedelta(minutes=6))
+        SessionAttendance.objects.create(session=session, user=self.owner)
+        self.client.force_authenticate(self.owner)
+
+        response = self.client.get(reverse('session-presentation', kwargs={'code': classroom.code}))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['selected']['id'], str(resource.id))
+        self.assertEqual(response.data['active_run']['quiz']['id'], str(resource.id))
+        run = LiveQuizRun.objects.get(session=session, quiz=quiz)
+        self.assertIsNone(run.started_by)
+        self.assertEqual(response.data['last_automation']['trigger_mode'], LessonQuiz.TriggerMode.AT_MINUTE)
+
+    def test_session_uses_only_resources_selected_at_start(self):
+        classroom = Classroom.objects.create(name='Lớp chọn tài liệu', owner=self.owner)
+        ClassMembership.objects.create(classroom=classroom, user=self.owner, role=ClassMembership.Role.OWNER)
+        plan = LessonPlan.objects.create(classroom=classroom, title='Kho nội dung')
+        section = LessonSection.objects.create(plan=plan, title='Chủ đề 1')
+        selected_pdf = LessonResource.objects.create(
+            section=section,
+            kind=LessonResource.Kind.PDF,
+            title='Tài liệu hôm nay',
+            file=SimpleUploadedFile('today.pdf', make_test_pdf_bytes()),
+        )
+        excluded_quiz_resource = LessonResource.objects.create(
+            section=section,
+            kind=LessonResource.Kind.QUIZ,
+            title='Quiz buổi sau',
+        )
+        LessonQuiz.objects.create(
+            resource=excluded_quiz_resource,
+            question='Không được tự bật?',
+            options=['Có', 'Không'],
+            correct_option=1,
+            trigger_mode=LessonQuiz.TriggerMode.AT_MINUTE,
+            trigger_minute=0,
+        )
+        self.client.force_authenticate(self.owner)
+
+        started = self.client.post(
+            reverse('session-start', kwargs={'code': classroom.code}),
+            {'resource_ids': [str(selected_pdf.id)]},
+            format='json',
+        )
+        self.assertEqual(started.status_code, status.HTTP_201_CREATED)
+        session = LiveSession.objects.get(classroom=classroom, status=LiveSession.Status.LIVE)
+        self.assertTrue(session.uses_resource_selection)
+        self.assertEqual(list(session.selected_resources.values_list('id', flat=True)), [selected_pdf.id])
+
+        self.client.post(reverse('session-join', kwargs={'code': classroom.code}), {}, format='json')
+        presentation_url = reverse('session-presentation', kwargs={'code': classroom.code})
+        presentation = self.client.get(presentation_url)
+        self.assertEqual([item['id'] for item in presentation.data['resources']], [str(selected_pdf.id)])
+        self.assertIsNone(presentation.data['active_run'])
+        excluded = self.client.post(
+            presentation_url,
+            {'action': 'show', 'resource_id': str(excluded_quiz_resource.id)},
+            format='json',
+        )
+        self.assertEqual(excluded.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_quiz_automatically_starts_when_teacher_reaches_slide(self):
+        classroom = Classroom.objects.create(name='Lớp theo slide', owner=self.owner)
+        ClassMembership.objects.create(classroom=classroom, user=self.owner, role=ClassMembership.Role.OWNER)
+        plan = LessonPlan.objects.create(classroom=classroom, title='Kịch bản slide')
+        section = LessonSection.objects.create(plan=plan, title='Bài giảng')
+        slide = LessonResource.objects.create(
+            section=section,
+            kind=LessonResource.Kind.SLIDE,
+            title='Bài giảng chính',
+            file='lesson-resources/test.pptx',
+            preview_page_count=5,
+        )
+        quiz_resource = LessonResource.objects.create(section=section, kind=LessonResource.Kind.QUIZ, title='Quiz trang 3')
+        quiz = LessonQuiz.objects.create(
+            resource=quiz_resource,
+            question='Đã tới trang ba?',
+            options=['Rồi', 'Chưa'],
+            correct_option=0,
+            trigger_mode=LessonQuiz.TriggerMode.AT_SLIDE,
+            trigger_resource=slide,
+            trigger_slide_number=3,
+        )
+        session = LiveSession.objects.create(
+            classroom=classroom, title='Buổi học', room_name='auto-slide-room', created_by=self.owner,
+        )
+        SessionAttendance.objects.create(session=session, user=self.owner)
+        cache.delete(f'local-presentation:{session.id}')
+        url = reverse('session-presentation', kwargs={'code': classroom.code})
+        self.client.force_authenticate(self.owner)
+
+        self.assertEqual(self.client.post(url, {'action': 'show', 'resource_id': str(slide.id)}, format='json').status_code, status.HTTP_200_OK)
+        self.assertEqual(self.client.post(url, {'action': 'present'}, format='json').status_code, status.HTTP_200_OK)
+        response = self.client.post(url, {'action': 'stage_page', 'page': 3}, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['active_run']['quiz']['id'], str(quiz_resource.id))
+        self.assertTrue(LiveQuizRun.objects.filter(session=session, quiz=quiz).exists())
+        self.assertEqual(response.data['last_automation']['trigger_mode'], LessonQuiz.TriggerMode.AT_SLIDE)
 
     def test_local_presentation_shares_pdf_and_quiz_without_revealing_answer(self):
         classroom = Classroom.objects.create(name='Lớp video', owner=self.owner)
@@ -341,6 +464,47 @@ class ClassroomApiTests(APITestCase):
         self.client.force_authenticate(self.member)
         self.assertEqual(self.client.get(url).data['stage']['external_url'], 'https://example.org/lesson')
 
+    def test_owner_can_present_anatomy_model_to_members(self):
+        classroom = Classroom.objects.create(name='Lớp mô hình 3D', owner=self.owner, track='med')
+        ClassMembership.objects.bulk_create([
+            ClassMembership(classroom=classroom, user=self.owner, role=ClassMembership.Role.OWNER),
+            ClassMembership(classroom=classroom, user=self.member, role=ClassMembership.Role.MEMBER),
+        ])
+        system = BodySystem.objects.create(slug='cardiovascular', name_vi='Hệ tim mạch', name_en='Cardiovascular')
+        model = AnatomyModel.objects.create(
+            sketchfab_uid='heart3d123', system=system, title='Human heart', title_vi='Tim người', is_published=True,
+        )
+        plan = LessonPlan.objects.create(classroom=classroom, title='Giải phẫu tim')
+        section = LessonSection.objects.create(plan=plan, title='Cấu tạo tim')
+        resource = LessonResource.objects.create(
+            section=section, kind=LessonResource.Kind.MODEL_3D, title='Mô hình tim người', anatomy_model=model,
+        )
+        session = LiveSession.objects.create(
+            classroom=classroom, title='Buổi học 3D', room_name='anatomy-model-presentation', created_by=self.owner,
+        )
+        SessionAttendance.objects.bulk_create([
+            SessionAttendance(session=session, user=self.owner),
+            SessionAttendance(session=session, user=self.member),
+        ])
+        url = reverse('session-presentation', kwargs={'code': classroom.code})
+
+        self.client.force_authenticate(self.owner)
+        library = self.client.get(url)
+        self.assertEqual([item['id'] for item in library.data['resources']], [str(resource.id)])
+        self.assertEqual(library.data['resources'][0]['kind'], LessonResource.Kind.MODEL_3D)
+        selected = self.client.post(url, {'action': 'show', 'resource_id': str(resource.id)}, format='json')
+        self.assertEqual(selected.status_code, status.HTTP_200_OK)
+        self.assertEqual(selected.data['selected']['anatomy_model_detail']['sketchfab_uid'], model.sketchfab_uid)
+        presented = self.client.post(url, {'action': 'present'}, format='json')
+        self.assertEqual(presented.status_code, status.HTTP_200_OK)
+        self.assertEqual(presented.data['stage']['kind'], LessonResource.Kind.MODEL_3D)
+
+        self.client.force_authenticate(self.member)
+        member_view = self.client.get(url)
+        self.assertEqual(member_view.data['stage']['id'], str(resource.id))
+        self.assertEqual(member_view.data['stage']['anatomy_model_detail']['embed_url'], model.embed_url)
+        self.assertEqual(member_view.data['resources'], [])
+
     def test_owner_can_crud_anatomy_lesson_content_and_member_is_read_only(self):
         classroom = Classroom.objects.create(name='Giải phẫu người', owner=self.owner, track='med')
         ClassMembership.objects.bulk_create([
@@ -402,3 +566,52 @@ class ClassroomApiTests(APITestCase):
         self.assertEqual(LessonPlan.objects.filter(classroom=classroom).count(), 1)
         self.assertEqual(LessonSection.objects.filter(plan__classroom=classroom).count(), 2)
         self.assertEqual(LessonResource.objects.filter(section__plan__classroom=classroom).count(), 1)
+
+    def test_owner_can_view_quiz_report_and_ending_session_closes_open_run(self):
+        classroom = Classroom.objects.create(name='Lớp báo cáo', owner=self.owner)
+        ClassMembership.objects.bulk_create([
+            ClassMembership(classroom=classroom, user=self.owner, role=ClassMembership.Role.OWNER),
+            ClassMembership(classroom=classroom, user=self.member, role=ClassMembership.Role.MEMBER),
+        ])
+        session = LiveSession.objects.create(
+            classroom=classroom, title='Buổi kiểm tra', room_name='quiz-report-room', created_by=self.owner,
+        )
+        SessionAttendance.objects.bulk_create([
+            SessionAttendance(session=session, user=self.owner),
+            SessionAttendance(session=session, user=self.member),
+        ])
+        plan = LessonPlan.objects.create(classroom=classroom, title='Bài kiểm tra')
+        section = LessonSection.objects.create(plan=plan, title='Ôn tập')
+        resource = LessonResource.objects.create(section=section, kind=LessonResource.Kind.QUIZ, title='Quiz tim')
+        quiz = LessonQuiz.objects.create(
+            resource=resource,
+            question='Đáp án nào đúng?',
+            options=['Sai', 'Đúng'],
+            correct_option=1,
+            success_threshold=70,
+        )
+        run = LiveQuizRun.objects.create(
+            session=session,
+            quiz=quiz,
+            closes_at=timezone.now() + timedelta(minutes=1),
+            started_by=self.owner,
+        )
+        LiveQuizResponse.objects.create(run=run, user=self.member, selected_option=1, is_correct=True)
+
+        report_url = reverse('session-quiz-report', kwargs={'code': classroom.code})
+        self.client.force_authenticate(self.member)
+        self.assertEqual(self.client.get(report_url).status_code, status.HTTP_403_FORBIDDEN)
+
+        self.client.force_authenticate(self.owner)
+        report = self.client.get(report_url)
+        self.assertEqual(report.status_code, status.HTTP_200_OK)
+        self.assertEqual(report.data['summary']['accuracy_percent'], 100)
+        self.assertEqual(report.data['sessions'][0]['runs'][0]['response_rate_percent'], 100)
+        self.assertEqual(report.data['sessions'][0]['runs'][0]['responses'][0]['email'], self.member.email)
+
+        with patch('classroom.views.delete_room'):
+            ended = self.client.post(reverse('session-end', kwargs={'code': classroom.code}))
+        self.assertEqual(ended.status_code, status.HTTP_204_NO_CONTENT)
+        run.refresh_from_db()
+        self.assertEqual(run.status, LiveQuizRun.Status.CLOSED)
+        self.assertIsNotNone(run.closed_at)

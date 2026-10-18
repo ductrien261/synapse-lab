@@ -149,6 +149,11 @@ export function useSketchfabViewer(uid: string) {
     });
   }, []);
 
+  /** Bỏ trạng thái đang chọn ở giao diện Synapse mà không điều khiển camera. */
+  const clearSelection = useCallback(() => {
+    setSelected(null);
+  }, []);
+
   /** Về góc nhìn ban đầu của mô hình. */
   const recenter = useCallback(() => {
     apiRef.current?.recenterCamera();
@@ -170,7 +175,7 @@ export function useSketchfabViewer(uid: string) {
     };
   }, []);
 
-  return { iframeRef, status, annotations, selected, select, recenter, onPick, setLabelsVisible };
+  return { iframeRef, status, annotations, selected, select, clearSelection, recenter, onPick, setLabelsVisible };
 }
 
 /**
