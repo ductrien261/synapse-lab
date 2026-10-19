@@ -1,3 +1,6 @@
+import math
+import re
+
 from drf_spectacular.utils import extend_schema_field
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.files.storage import default_storage
@@ -96,6 +99,23 @@ class ClassroomSerializer(serializers.ModelSerializer):
         ).data
 
 
+class ClassroomUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Classroom
+        fields = ['name', 'description', 'is_archived']
+        extra_kwargs = {
+            'name': {'required': False, 'allow_blank': False},
+            'description': {'required': False, 'allow_blank': True},
+            'is_archived': {'required': False},
+        }
+
+    def validate_name(self, value):
+        name = value.strip()
+        if not name:
+            raise serializers.ValidationError('Tên lớp không được để trống.')
+        return name
+
+
 class JoinClassroomSerializer(serializers.Serializer):
     code = serializers.CharField(max_length=8, trim_whitespace=True)
 
@@ -115,6 +135,86 @@ class StartSessionSerializer(serializers.Serializer):
         if len(value) != len(set(value)):
             raise serializers.ValidationError('Danh sách nội dung không được trùng lặp.')
         return value
+
+
+class StartPollSerializer(serializers.Serializer):
+    question = serializers.CharField(max_length=500, trim_whitespace=True)
+    options = serializers.ListField(
+        child=serializers.CharField(max_length=200, trim_whitespace=True),
+        min_length=2,
+        max_length=6,
+    )
+    duration_seconds = serializers.IntegerField(min_value=15, max_value=300, default=60)
+    is_anonymous = serializers.BooleanField(default=True)
+
+    def validate_options(self, value):
+        options = [option.strip() for option in value]
+        if any(not option for option in options):
+            raise serializers.ValidationError('Lựa chọn không được để trống.')
+        if len({option.casefold() for option in options}) != len(options):
+            raise serializers.ValidationError('Các lựa chọn không được trùng nhau.')
+        return options
+
+
+class PollAnswerSerializer(serializers.Serializer):
+    selected_option = serializers.IntegerField(min_value=0)
+
+
+class WhiteboardSnapshotSerializer(serializers.Serializer):
+    resource_id = serializers.UUIDField(required=False, allow_null=True)
+    page = serializers.IntegerField(min_value=1, max_value=10000, default=1)
+    strokes = serializers.JSONField(default=list)
+    locked = serializers.BooleanField(default=True)
+
+    def validate_strokes(self, value):
+        if not isinstance(value, list):
+            raise serializers.ValidationError('Danh sách nét vẽ không hợp lệ.')
+        if len(value) > 300:
+            raise serializers.ValidationError('Bảng chỉ hỗ trợ tối đa 300 nét vẽ.')
+        normalized = []
+        seen_ids = set()
+        for item in value:
+            if not isinstance(item, dict):
+                raise serializers.ValidationError('Nét vẽ không hợp lệ.')
+            stroke_id = item.get('id')
+            author_id = item.get('authorId')
+            author_name = item.get('authorName')
+            tool = item.get('tool')
+            color = item.get('color')
+            points = item.get('points')
+            created_at = item.get('createdAt')
+            if not isinstance(stroke_id, str) or not stroke_id or len(stroke_id) > 100 or stroke_id in seen_ids:
+                raise serializers.ValidationError('Mã nét vẽ không hợp lệ hoặc bị trùng.')
+            if not isinstance(author_id, str) or not author_id or len(author_id) > 255:
+                raise serializers.ValidationError('Người tạo nét vẽ không hợp lệ.')
+            if not isinstance(author_name, str) or not author_name.strip() or len(author_name) > 200:
+                raise serializers.ValidationError('Tên người tạo nét vẽ không hợp lệ.')
+            if tool not in {'pen', 'highlighter'}:
+                raise serializers.ValidationError('Công cụ vẽ không hợp lệ.')
+            if not isinstance(color, str) or not re.fullmatch(r'#[0-9A-Fa-f]{6}', color):
+                raise serializers.ValidationError('Màu nét vẽ không hợp lệ.')
+            if not isinstance(created_at, (int, float)) or isinstance(created_at, bool) or not math.isfinite(created_at):
+                raise serializers.ValidationError('Thời gian tạo nét vẽ không hợp lệ.')
+            if not isinstance(points, list) or not 2 <= len(points) <= 180:
+                raise serializers.ValidationError('Số điểm của nét vẽ không hợp lệ.')
+            normalized_points = []
+            for point in points:
+                if not isinstance(point, list) or len(point) != 2:
+                    raise serializers.ValidationError('Tọa độ nét vẽ không hợp lệ.')
+                if any(not isinstance(axis, (int, float)) or isinstance(axis, bool) or not math.isfinite(axis) or axis < 0 or axis > 1 for axis in point):
+                    raise serializers.ValidationError('Tọa độ nét vẽ phải nằm trong khoảng 0–1.')
+                normalized_points.append([float(point[0]), float(point[1])])
+            seen_ids.add(stroke_id)
+            normalized.append({
+                'id': stroke_id,
+                'authorId': author_id,
+                'authorName': author_name.strip(),
+                'tool': tool,
+                'color': color.upper(),
+                'points': normalized_points,
+                'createdAt': created_at,
+            })
+        return normalized
 
 
 class LessonQuizSerializer(serializers.ModelSerializer):

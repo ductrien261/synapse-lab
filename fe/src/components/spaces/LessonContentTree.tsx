@@ -39,6 +39,7 @@ const menuItemClass = 'flex w-full items-center gap-2.5 rounded-lg px-3 py-2 tex
 export function EditableLessonTree(props: EditableLessonTreeProps) {
   const [rootExpanded, setRootExpanded] = useState(true);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [expandedResources, setExpandedResources] = useState<Record<string, boolean>>({});
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [dragItem, setDragItem] = useState<DragItem>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
@@ -112,6 +113,9 @@ export function EditableLessonTree(props: EditableLessonTreeProps) {
       {rootExpanded && props.steps.map((step, stepIndex) => {
         const allChildren = props.resources.filter((item) => item.stepId === step.id);
         const children = visibleResources.filter((item) => item.stepId === step.id);
+        const materialIds = new Set(children.filter((item) => item.kind !== 'quiz').map((item) => item.material.id));
+        const groupedQuizKeys = new Set(children.filter((item) => item.kind === 'quiz' && item.quiz.triggerResourceId && materialIds.has(item.quiz.triggerResourceId)).map((item) => item.key));
+        const topLevelChildren = children.filter((item) => !groupedQuizKeys.has(item.key));
         const open = isExpanded(step.id);
         const menuKey = `activity:${step.id}`;
         const folderDropKey = `folder:${step.id}`;
@@ -143,20 +147,26 @@ export function EditableLessonTree(props: EditableLessonTreeProps) {
           </div>}
 
           {open && <div className="ml-[18px] space-y-0.5 border-l border-stone-200 pb-2 pl-3">
-            {children.map((resource) => {
-              const active = resource.key === props.selectedKey;
-              const resourceMenuKey = `resource:${resource.key}`;
-              return <div key={resource.key} onDragOver={(event) => { if (dragItem?.type === 'resource') { event.preventDefault(); event.stopPropagation(); setDropTarget(resourceMenuKey); } }} onDrop={(event) => { event.preventDefault(); event.stopPropagation(); if (dragItem?.type === 'resource' && dragItem.id !== resource.key) props.onReorderResource(dragItem.id, step.id, resource.key); setDragItem(null); setDropTarget(null); }} className={`group/item relative flex items-center rounded-lg transition ${active ? 'bg-[#E8F0FB] text-[#1E3F82]' : 'text-stone-600 hover:bg-stone-50 hover:text-stone-900'} ${dropTarget === resourceMenuKey ? 'ring-1 ring-[#397BF6]/40' : ''}`}>
-                <span draggable onDragStart={(event) => { event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', `resource:${resource.key}`); setDragItem({ type: 'resource', id: resource.key }); }} onDragEnd={() => { setDragItem(null); setDropTarget(null); }} title="Kéo để sắp xếp hoặc chuyển phần" className="ml-0.5 flex h-8 w-4 cursor-grab items-center justify-center text-stone-300 active:cursor-grabbing"><GripVertical className="h-3 w-3" /></span>
-                {editItem?.type === 'resource' && editItem.id === resource.key
+            {topLevelChildren.map((resource) => {
+              const attachedQuizzes = resource.kind === 'quiz' ? [] : children.filter((item) => item.kind === 'quiz' && item.quiz.triggerResourceId === resource.material.id);
+              const resourceExpanded = expandedResources[resource.key] ?? attachedQuizzes.some((quiz) => quiz.key === props.selectedKey);
+              const renderRow = (item: StudioResource, nested = false) => {
+                const itemActive = item.key === props.selectedKey;
+                const itemMenuKey = `resource:${item.key}`;
+                return <div key={item.key} onDragOver={(event) => { if (dragItem?.type === 'resource') { event.preventDefault(); event.stopPropagation(); setDropTarget(itemMenuKey); } }} onDrop={(event) => { event.preventDefault(); event.stopPropagation(); if (dragItem?.type === 'resource' && dragItem.id !== item.key) props.onReorderResource(dragItem.id, step.id, item.key); setDragItem(null); setDropTarget(null); }} className={`group/item relative flex items-center rounded-lg transition ${nested ? 'ml-2' : ''} ${itemActive ? 'bg-[#E8F0FB] text-[#1E3F82]' : 'text-stone-600 hover:bg-stone-50 hover:text-stone-900'} ${dropTarget === itemMenuKey ? 'ring-1 ring-[#397BF6]/40' : ''}`}>
+                <span draggable onDragStart={(event) => { event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', `resource:${item.key}`); setDragItem({ type: 'resource', id: item.key }); }} onDragEnd={() => { setDragItem(null); setDropTarget(null); }} title="Kéo để sắp xếp hoặc chuyển phần" className="ml-0.5 flex h-8 w-4 cursor-grab items-center justify-center text-stone-300 active:cursor-grabbing"><GripVertical className="h-3 w-3" /></span>
+                {editItem?.type === 'resource' && editItem.id === item.key
                   ? <div className="flex min-w-0 flex-1 items-center gap-1 py-1"><input autoFocus value={editItem.value} onChange={(event) => setEditItem({ ...editItem, value: event.target.value })} onKeyDown={(event) => { if (event.key === 'Enter') saveEdit(); if (event.key === 'Escape') setEditItem(null); }} className="h-8 min-w-0 flex-1 rounded-md border border-[#397BF6] bg-white px-2 text-[10px] font-bold outline-none" /><button type="button" onClick={saveEdit} aria-label="Lưu tên" className={`${iconButtonClass} h-7 w-7 text-emerald-600`}><Check2 /></button></div>
-                  : <button type="button" onClick={() => props.onSelect(resource.key)} onDoubleClick={() => renameResource(resource)} className="flex min-w-0 flex-1 items-center gap-2 px-1 py-2 text-left"><ResourceIcon resource={resource} /><span className="min-w-0 flex-1"><span className="block truncate text-[10px] font-bold">{getResourceTitle(resource)}</span>{resource.kind === 'quiz' && <span className="block text-[8px] font-medium text-violet-500">Tương tác tự động</span>}</span></button>}
-                <button type="button" aria-label={`Thao tác với ${getResourceTitle(resource)}`} onClick={(event) => { event.stopPropagation(); setConfirmDelete(null); setOpenMenu((current) => current === resourceMenuKey ? null : resourceMenuKey); }} className={`${iconButtonClass} mr-0.5 h-7 w-7 ${openMenu === resourceMenuKey ? 'bg-white text-[#31599E]' : ''}`}><ThreeDotsVertical /></button>
-                {openMenu === resourceMenuKey && <div onClick={(event) => event.stopPropagation()} className="absolute right-1 top-8 z-50 w-44 rounded-xl border border-stone-200 bg-white p-1.5 shadow-xl">
-                  <button type="button" onClick={() => renameResource(resource)} className={menuItemClass}><Pencil />Chỉnh sửa tên</button>
-                  {confirmDelete === resourceMenuKey ? <div className="rounded-lg bg-rose-50 p-2"><p className="text-[9px] text-rose-700">Xóa nội dung này?</p><div className="mt-2 flex gap-1.5"><button type="button" onClick={() => { props.onDeleteResource(resource.key); setOpenMenu(null); setConfirmDelete(null); }} className="flex-1 rounded-md bg-rose-600 py-1.5 text-[9px] font-bold text-white">Xóa</button><button type="button" onClick={() => setConfirmDelete(null)} className="flex-1 rounded-md bg-white py-1.5 text-[9px] font-bold text-stone-600">Hủy</button></div></div> : <button type="button" onClick={() => setConfirmDelete(resourceMenuKey)} className={`${menuItemClass} text-rose-600 hover:bg-rose-50 hover:text-rose-700`}><Trash />Xóa nội dung</button>}
+                  : <button type="button" onClick={() => props.onSelect(item.key)} onDoubleClick={() => renameResource(item)} className="flex min-w-0 flex-1 items-center gap-2 px-1 py-2 text-left"><ResourceIcon resource={item} /><span className="min-w-0 flex-1"><span className="block truncate text-[10px] font-bold">{getResourceTitle(item)}</span>{item.kind === 'quiz' && <span className="block text-[8px] font-medium text-violet-500">{quizLocationLabel(item)}</span>}</span></button>}
+                {!nested && attachedQuizzes.length > 0 && <button type="button" aria-expanded={resourceExpanded} aria-label={`${attachedQuizzes.length} quiz gắn với ${getResourceTitle(item)}`} onClick={(event) => { event.stopPropagation(); setExpandedResources((current) => ({ ...current, [item.key]: !resourceExpanded })); }} className="mr-0.5 flex shrink-0 items-center gap-1 rounded-full bg-violet-50 px-1.5 py-1 text-[8px] font-bold text-violet-600 hover:bg-violet-100">{resourceExpanded ? <ChevronDown className="h-2.5 w-2.5" /> : <ChevronRight className="h-2.5 w-2.5" />}{attachedQuizzes.length} quiz</button>}
+                <button type="button" aria-label={`Thao tác với ${getResourceTitle(item)}`} onClick={(event) => { event.stopPropagation(); setConfirmDelete(null); setOpenMenu((current) => current === itemMenuKey ? null : itemMenuKey); }} className={`${iconButtonClass} mr-0.5 h-7 w-7 ${openMenu === itemMenuKey ? 'bg-white text-[#31599E]' : ''}`}><ThreeDotsVertical /></button>
+                {openMenu === itemMenuKey && <div onClick={(event) => event.stopPropagation()} className="absolute right-1 top-8 z-50 w-44 rounded-xl border border-stone-200 bg-white p-1.5 shadow-xl">
+                  <button type="button" onClick={() => renameResource(item)} className={menuItemClass}><Pencil />Chỉnh sửa tên</button>
+                  {confirmDelete === itemMenuKey ? <div className="rounded-lg bg-rose-50 p-2"><p className="text-[9px] text-rose-700">Xóa nội dung này?</p><div className="mt-2 flex gap-1.5"><button type="button" onClick={() => { props.onDeleteResource(item.key); setOpenMenu(null); setConfirmDelete(null); }} className="flex-1 rounded-md bg-rose-600 py-1.5 text-[9px] font-bold text-white">Xóa</button><button type="button" onClick={() => setConfirmDelete(null)} className="flex-1 rounded-md bg-white py-1.5 text-[9px] font-bold text-stone-600">Hủy</button></div></div> : <button type="button" onClick={() => setConfirmDelete(itemMenuKey)} className={`${menuItemClass} text-rose-600 hover:bg-rose-50 hover:text-rose-700`}><Trash />Xóa nội dung</button>}
                 </div>}
               </div>;
+              };
+              return <div key={resource.key}>{renderRow(resource)}{resourceExpanded && attachedQuizzes.length > 0 && <div className="ml-6 border-l border-violet-100 pl-1.5">{attachedQuizzes.map((quiz) => renderRow(quiz, true))}</div>}</div>;
             })}
             {children.length === 0 && (normalizedQuery ? <p className="px-7 py-2 text-[9px] italic text-stone-400">Không có kết quả phù hợp</p> : <button type="button" onClick={() => setOpenMenu(`add:${step.id}`)} className="mx-1 my-1 flex w-[calc(100%-0.5rem)] items-center justify-center gap-1.5 rounded-lg border border-dashed border-stone-200 py-2 text-[9px] font-semibold text-stone-400 hover:border-[#397BF6]/40 hover:bg-blue-50 hover:text-[#31599E]"><PlusLg />Thêm nội dung đầu tiên</button>)}
           </div>}
@@ -170,4 +180,11 @@ function ResourceIcon({ resource }: { resource: StudioResource }) {
   const styles = { slide: 'bg-blue-50 text-blue-600', pdf: 'bg-rose-50 text-rose-500', doc: 'bg-sky-50 text-sky-600', model_3d: 'bg-indigo-50 text-indigo-600', video: 'bg-violet-50 text-violet-600', link: 'bg-emerald-50 text-emerald-600', quiz: 'bg-fuchsia-50 text-fuchsia-600' }[resource.kind];
   const icon = { slide: <FileEarmarkSlidesFill />, pdf: <FileEarmarkPdfFill />, doc: <FileEarmarkWordFill />, model_3d: <BoxSeam />, video: <PlayCircleFill />, link: <Link45deg />, quiz: <LightningChargeFill /> }[resource.kind];
   return <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md ${styles} [&>svg]:h-3.5 [&>svg]:w-3.5`}>{icon}</span>;
+}
+
+function quizLocationLabel(resource: Extract<StudioResource, { kind: 'quiz' }>): string {
+  if (resource.quiz.triggerMode === 'at_slide') return `Tự bật ở slide ${resource.quiz.triggerSlideNumber}`;
+  if (resource.quiz.triggerMode === 'after_activity') return `Sau tài liệu · trễ ${resource.quiz.delaySeconds}s`;
+  if (resource.quiz.triggerMode === 'at_minute') return `Tự bật phút ${resource.quiz.triggerMinute}`;
+  return 'Giáo viên kích hoạt';
 }

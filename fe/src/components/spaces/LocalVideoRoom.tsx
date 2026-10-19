@@ -12,6 +12,9 @@ import { ClassroomAiPanel } from './ClassroomAiPanel';
 import { LocalPresentationPanel } from './LocalPresentationPanel';
 import { LocalPresentationStage } from './LocalPresentationStage';
 import { InteractionToolbar } from './InteractionToolbar';
+import { RealtimeClassroomInteractions } from './RealtimeClassroomInteractions';
+import { CollaborativeWhiteboard } from './CollaborativeWhiteboard';
+import { RealtimePoll } from './RealtimePoll';
 
 type VideoConnection = { url: string; token: string };
 
@@ -23,6 +26,7 @@ export function LocalVideoRoom({ roomCode }: { roomCode: string }) {
   const [aiOpen, setAiOpen] = useState(false);
   const [hasFocusLayout, setHasFocusLayout] = useState(false);
   const [participantsCollapsed, setParticipantsCollapsed] = useState(false);
+  const [whiteboardVisible, setWhiteboardVisible] = useState(false);
   const [isModerator, setIsModerator] = useState<boolean | null>(null);
   const [presentation, setPresentation] = useState<PresentationState | null>(null);
   const [annotationTool, setAnnotationTool] = useState<AnnotationTool>('none');
@@ -101,7 +105,7 @@ export function LocalVideoRoom({ roomCode }: { roomCode: string }) {
         setError((current) => current || 'Bạn đã rời phòng video.');
       }}
     >
-      <div className="relative h-full min-h-0 w-full flex-1 overflow-hidden" data-participants-collapsed={participantsCollapsed} data-presentation-active={Boolean(presentation?.on_stage && presentation.stage)}>
+      <div className="relative h-full min-h-0 w-full flex-1 overflow-hidden" data-participants-collapsed={participantsCollapsed} data-presentation-active={Boolean(presentation?.on_stage && presentation.stage)} data-whiteboard-active={whiteboardVisible}>
         <VideoConference />
         {presentation?.on_stage && presentation.stage && <LocalPresentationStage roomCode={roomCode} state={presentation} onStateChange={updatePresentation} onOpenPanel={openPanel} annotationTool={annotationTool} />}
         {hasFocusLayout && <button
@@ -115,6 +119,9 @@ export function LocalVideoRoom({ roomCode }: { roomCode: string }) {
           {participantsCollapsed ? <ChevronLeft size={19} aria-hidden="true" /> : <ChevronRight size={19} aria-hidden="true" />}
         </button>}
         {isModerator !== null && <InteractionToolbar isModerator={isModerator} roomCode={roomCode} presentation={presentation} onPresentationChange={updatePresentation} annotationTool={annotationTool} onAnnotationToolChange={setAnnotationTool} />}
+        {isModerator !== null && <RealtimeClassroomInteractions isModerator={isModerator} />}
+        {isModerator !== null && <CollaborativeWhiteboard roomCode={roomCode} isModerator={isModerator} presentation={presentation} onVisibilityChange={setWhiteboardVisible} />}
+        {isModerator !== null && <RealtimePoll roomCode={roomCode} isModerator={isModerator} />}
         <LocalPresentationPanel roomCode={roomCode} open={panelOpen} onClose={closePanel} onStateChange={updatePresentation} />
         {aiOpen && <ClassroomAiPanel roomCode={roomCode} open onClose={() => setAiOpen(false)} />}
       </div>

@@ -14,9 +14,15 @@ export function StudentQuizDialog({ run, pending, error, onSubmit }: Props) {
   const [choice, setChoice] = useState<number | null>(null);
   const [remaining, setRemaining] = useState(run.remaining_seconds);
   useEffect(() => {
-    const update = () => setRemaining(Math.max(0, Math.ceil((new Date(run.closes_at).getTime() - Date.now()) / 1000)));
-    const timer = window.setInterval(update, 1000);
-    return () => window.clearInterval(timer);
+    let timer: number;
+    const deadline = new Date(run.closes_at).getTime();
+    const update = () => {
+      const milliseconds = Math.max(0, deadline - Date.now());
+      setRemaining(Math.ceil(milliseconds / 1000));
+      if (milliseconds > 0) timer = window.setTimeout(update, Math.min(1000, (milliseconds % 1000) + 20));
+    };
+    update();
+    return () => window.clearTimeout(timer);
   }, [run.closes_at]);
 
   return <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-slate-950/35 p-4">

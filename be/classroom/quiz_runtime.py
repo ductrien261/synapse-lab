@@ -28,6 +28,7 @@ def serialize_quiz_run(run: LiveQuizRun, user, *, moderator: bool) -> dict:
         'opened_at': run.opened_at.isoformat(),
         'closes_at': run.closes_at.isoformat(),
         'remaining_seconds': max(0, int((run.closes_at - now).total_seconds())),
+        'remaining_ms': max(0, round((run.closes_at - now).total_seconds() * 1000)),
         'response_count': response_count,
         'participant_count': participant_count,
         'selected_option': own_response.selected_option if own_response else None,

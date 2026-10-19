@@ -21,10 +21,13 @@ from .models import (
     LessonQuiz,
     LessonResource,
     LessonSection,
+    LivePoll,
+    LivePollResponse,
     LiveQuizResponse,
     LiveQuizRun,
     LiveSession,
     SessionAttendance,
+    SessionWhiteboardSnapshot,
 )
 
 
@@ -84,6 +87,155 @@ class ClassroomApiTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data[0]['member_count'], 2)
 
+    def test_only_owner_can_rename_and_archive_classroom(self):
+        classroom = Classroom.objects.create(name='Tên lớp cũ', owner=self.owner)
+        ClassMembership.objects.bulk_create([
+            ClassMembership(classroom=classroom, user=self.owner, role=ClassMembership.Role.OWNER),
+            ClassMembership(classroom=classroom, user=self.member, role=ClassMembership.Role.MEMBER),
+        ])
+        url = reverse('classroom-detail', kwargs={'code': classroom.code})
+
+        self.client.force_authenticate(self.member)
+        forbidden = self.client.patch(url, {'name': 'Không được đổi'}, format='json')
+        self.assertEqual(forbidden.status_code, status.HTTP_403_FORBIDDEN)
+
+        self.client.force_authenticate(self.owner)
+        renamed = self.client.patch(url, {'name': '  Lớp giải phẫu mới  '}, format='json')
+        self.assertEqual(renamed.status_code, status.HTTP_200_OK)
+        self.assertEqual(renamed.data['name'], 'Lớp giải phẫu mới')
+        self.assertEqual(renamed.data['member_count'], 2)
+
+        archived = self.client.patch(url, {'is_archived': True}, format='json')
+        self.assertEqual(archived.status_code, status.HTTP_200_OK)
+        self.assertTrue(archived.data['is_archived'])
+        classroom.refresh_from_db()
+        self.assertEqual(classroom.name, 'Lớp giải phẫu mới')
+        self.assertTrue(classroom.is_archived)
+        self.assertEqual(self.client.get(reverse('classroom-list-create')).data, [])
+
+    def test_whiteboard_snapshot_is_saved_per_resource_page_by_owner(self):
+        classroom = Classroom.objects.create(name='Lớp bảng cộng tác', owner=self.owner)
+        ClassMembership.objects.bulk_create([
+            ClassMembership(classroom=classroom, user=self.owner, role=ClassMembership.Role.OWNER),
+            ClassMembership(classroom=classroom, user=self.member, role=ClassMembership.Role.MEMBER),
+        ])
+        plan = LessonPlan.objects.create(classroom=classroom, title='Bài học')
+        section = LessonSection.objects.create(plan=plan, title='Chủ đề')
+        slide = LessonResource.objects.create(
+            section=section,
+            kind=LessonResource.Kind.SLIDE,
+            title='Slide chính',
+            preview_page_count=3,
+        )
+        session = LiveSession.objects.create(
+            classroom=classroom,
+            title='Buổi học',
+            room_name='whiteboard-room',
+            created_by=self.owner,
+        )
+        SessionAttendance.objects.bulk_create([
+            SessionAttendance(session=session, user=self.owner),
+            SessionAttendance(session=session, user=self.member),
+        ])
+        url = reverse('session-whiteboard', kwargs={'code': classroom.code})
+        stroke = {
+            'id': 'stroke-1',
+            'authorId': str(self.member.id),
+            'authorName': 'Học viên',
+            'tool': 'pen',
+            'color': '#2563EB',
+            'points': [[0.1, 0.2], [0.4, 0.5]],
+            'createdAt': 123456,
+        }
+
+        self.client.force_authenticate(self.member)
+        forbidden = self.client.put(url, {
+            'resource_id': str(slide.id), 'page': 2, 'strokes': [stroke], 'locked': False,
+        }, format='json')
+        self.assertEqual(forbidden.status_code, status.HTTP_403_FORBIDDEN)
+
+        self.client.force_authenticate(self.owner)
+        saved = self.client.put(url, {
+            'resource_id': str(slide.id), 'page': 2, 'strokes': [stroke], 'locked': False,
+        }, format='json')
+        self.assertEqual(saved.status_code, status.HTTP_200_OK)
+        self.assertEqual(saved.data['page'], 2)
+        self.assertEqual(saved.data['strokes'][0]['id'], 'stroke-1')
+        self.assertFalse(saved.data['locked'])
+        self.assertEqual(SessionWhiteboardSnapshot.objects.count(), 1)
+
+        restored = self.client.get(url, {'resource_id': str(slide.id), 'page': 2})
+        self.assertEqual(restored.status_code, status.HTTP_200_OK)
+        self.assertEqual(restored.data['strokes'], saved.data['strokes'])
+
+        other_page = self.client.get(url, {'resource_id': str(slide.id), 'page': 1})
+        self.assertEqual(other_page.status_code, status.HTTP_200_OK)
+        self.assertEqual(other_page.data['strokes'], [])
+        self.assertTrue(other_page.data['locked'])
+
+    def test_realtime_poll_is_persisted_and_updates_results(self):
+        classroom = Classroom.objects.create(name='Lớp poll', owner=self.owner)
+        ClassMembership.objects.bulk_create([
+            ClassMembership(classroom=classroom, user=self.owner, role=ClassMembership.Role.OWNER),
+            ClassMembership(classroom=classroom, user=self.member, role=ClassMembership.Role.MEMBER),
+        ])
+        session = LiveSession.objects.create(
+            classroom=classroom,
+            title='Buổi học poll',
+            room_name='poll-room',
+            created_by=self.owner,
+        )
+        SessionAttendance.objects.bulk_create([
+            SessionAttendance(session=session, user=self.owner),
+            SessionAttendance(session=session, user=self.member),
+        ])
+        url = reverse('session-poll', kwargs={'code': classroom.code})
+
+        self.client.force_authenticate(self.member)
+        forbidden = self.client.post(url, {
+            'action': 'start',
+            'question': 'Bạn muốn ôn phần nào?',
+            'options': ['Tim', 'Phổi'],
+        }, format='json')
+        self.assertEqual(forbidden.status_code, status.HTTP_403_FORBIDDEN)
+
+        self.client.force_authenticate(self.owner)
+        started = self.client.post(url, {
+            'action': 'start',
+            'question': 'Bạn muốn ôn phần nào?',
+            'options': ['Tim', 'Phổi'],
+            'duration_seconds': 60,
+            'is_anonymous': True,
+        }, format='json')
+        self.assertEqual(started.status_code, status.HTTP_201_CREATED)
+        poll_id = started.data['poll']['id']
+        self.assertEqual(started.data['poll']['option_counts'], [0, 0])
+
+        self.client.force_authenticate(self.member)
+        before_answer = self.client.get(url)
+        self.assertIsNone(before_answer.data['poll']['option_counts'])
+        answered = self.client.post(url, {
+            'action': 'answer', 'poll_id': poll_id, 'selected_option': 1,
+        }, format='json')
+        self.assertEqual(answered.status_code, status.HTTP_200_OK)
+        self.assertEqual(answered.data['poll']['selected_option'], 1)
+        duplicate = self.client.post(url, {
+            'action': 'answer', 'poll_id': poll_id, 'selected_option': 0,
+        }, format='json')
+        self.assertEqual(duplicate.status_code, status.HTTP_409_CONFLICT)
+
+        self.client.force_authenticate(self.owner)
+        live_results = self.client.get(url)
+        self.assertEqual(live_results.data['poll']['option_counts'], [0, 1])
+        self.assertEqual(live_results.data['poll']['response_count'], 1)
+        closed = self.client.post(url, {'action': 'close', 'poll_id': poll_id}, format='json')
+        self.assertEqual(closed.data['poll']['status'], LivePoll.Status.CLOSED)
+
+        self.client.force_authenticate(self.member)
+        published = self.client.get(url)
+        self.assertEqual(published.data['poll']['option_counts'], [0, 1])
+        self.assertEqual(LivePollResponse.objects.filter(poll_id=poll_id).count(), 1)
+
     @override_settings(LIVEKIT_API_KEY='test-key', LIVEKIT_API_SECRET='test-secret')
     @patch('classroom.views.delete_room')
     def test_livekit_session_lifecycle_and_permissions(self, delete_room):
@@ -119,6 +271,7 @@ class ClassroomApiTests(APITestCase):
         claims = jwt.decode(token_response.data['token'], 'test-secret', algorithms=['HS256'], audience=None)
         self.assertEqual(claims['video']['room'], session.room_name)
         self.assertEqual(claims['sub'], str(self.member.id))
+        self.assertJSONEqual(claims['metadata'], {'role': 'member'})
 
         detail = self.client.get(reverse('classroom-detail', kwargs={'code': classroom.code}))
         self.assertTrue(detail.data['active_session']['current_user_joined'])
@@ -248,6 +401,15 @@ class ClassroomApiTests(APITestCase):
         response = self.client.post(url, {'action': 'stage_page', 'page': 3}, format='json')
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIsNone(response.data['active_run'])
+        self.assertEqual(response.data['upcoming_quiz']['quiz_id'], str(quiz_resource.id))
+        self.assertGreater(response.data['upcoming_quiz']['remaining_ms'], 0)
+        presentation = cache.get(f'local-presentation:{session.id}')
+        presentation['pending_quiz']['starts_at_timestamp'] = timezone.now().timestamp() - 1
+        cache.set(f'local-presentation:{session.id}', presentation)
+
+        response = self.client.get(url)
+
         self.assertEqual(response.data['active_run']['quiz']['id'], str(quiz_resource.id))
         self.assertTrue(LiveQuizRun.objects.filter(session=session, quiz=quiz).exists())
         self.assertEqual(response.data['last_automation']['trigger_mode'], LessonQuiz.TriggerMode.AT_SLIDE)

@@ -7,10 +7,12 @@ import { useCallback, useEffect, useRef, useState, type RefObject, type UIEventH
 import { requestBlob } from '@/lib/api';
 import { useRoomContext } from '@livekit/components-react';
 import { RoomEvent } from 'livekit-client';
+import { BoxSeam, ChevronDown, ChevronRight, FileEarmarkPdfFill, FileEarmarkSlidesFill, FileEarmarkWordFill, LightningChargeFill, Link45deg, PlayCircleFill } from 'react-bootstrap-icons';
 import { classroomApi, type PresentationResource, type PresentationState } from './classroom-api';
 import { PresentationLinkPreview } from './PresentationLinkPreview';
 import { LiveQuizResults } from './LiveQuizResults';
 import { StudentQuizDialog, StudentQuizResultDialog } from './StudentQuizDialog';
+import { QuizStartingCountdown, StudentQuizWaiting, TeacherQuizStatus } from './QuizStartingCountdown';
 
 export function mediaUrl(value: string | null | undefined): string | null {
   if (!value) return null;
@@ -47,6 +49,7 @@ export function LocalPresentationPanel({ roomCode, open, onClose, onStateChange 
   const [pdfImage, setPdfImage] = useState<string | null>(null);
   const [submittedQuizId, setSubmittedQuizId] = useState<string | null>(null);
   const [dismissedResultId, setDismissedResultId] = useState<string | null>(null);
+  const [expandedResources, setExpandedResources] = useState<Record<string, boolean>>({});
   const lastSelectedRef = useRef<string | null>(null);
   const lastOnStageRef = useRef(false);
 
@@ -68,8 +71,10 @@ export function LocalPresentationPanel({ roomCode, open, onClose, onStateChange 
       const next = await classroomApi.presentation(roomCode);
       applyState(next);
       setError('');
+      return next;
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Không thể tải nội dung bài dạy.');
+      return null;
     }
   }, [roomCode, applyState]);
 
@@ -92,12 +97,38 @@ export function LocalPresentationPanel({ roomCode, open, onClose, onStateChange 
     return () => { cancelled = true; window.clearTimeout(timer); };
   }, [refresh]);
 
+  useEffect(() => {
+    const upcomingQuiz = state?.upcoming_quiz;
+    if (!upcomingQuiz) return;
+    const delay = Math.max(0, upcomingQuiz.remaining_ms) + 120;
+    const timer = window.setTimeout(() => {
+      void refresh().then((next) => {
+        if (next?.active_run && next.is_moderator) notifyRoom();
+      });
+    }, delay);
+    return () => window.clearTimeout(timer);
+  }, [notifyRoom, refresh, state?.upcoming_quiz]);
+
+  useEffect(() => {
+    const run = state?.active_run;
+    if (!run || run.status !== 'open') return;
+    const timer = window.setTimeout(() => {
+      void refresh().then((next) => {
+        if (next?.active_run?.status === 'closed' && next.is_moderator) notifyRoom();
+      });
+    }, Math.max(0, run.remaining_ms) + 120);
+    return () => window.clearTimeout(timer);
+  }, [notifyRoom, refresh, state?.active_run]);
+
   const selected = state?.selected;
   const selectedIsStaged = Boolean(selected && state?.on_stage && state.stage?.id === selected.id);
   const page = state?.page || 1;
   const run = state?.active_run;
   const showPreview = Boolean(selected && (!state?.is_moderator || (selected.kind === 'quiz' && run)));
   const expandedLibrary = Boolean(state?.is_moderator && !run);
+  const resourceIds = new Set(state?.resources.map((item) => item.id) || []);
+  const groupedQuizIds = new Set((state?.resources || []).filter((item) => item.kind === 'quiz' && item.trigger_resource_id && resourceIds.has(item.trigger_resource_id)).map((item) => item.id));
+  const topLevelResources = (state?.resources || []).filter((item) => !groupedQuizIds.has(item.id));
   useEffect(() => {
     if (!open || !showPreview || selected?.kind !== 'pdf') return;
     let cancelled = false;
@@ -139,6 +170,7 @@ export function LocalPresentationPanel({ roomCode, open, onClose, onStateChange 
       const next = await classroomApi.presentationAction(roomCode, { action: 'answer', run_id: runId, selected_option: option });
       applyState(next);
       if (typeof next.active_run?.selected_option === 'number') setSubmittedQuizId(runId);
+      notifyRoom();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Không thể gửi câu trả lời.');
     } finally {
@@ -160,15 +192,19 @@ export function LocalPresentationPanel({ roomCode, open, onClose, onStateChange 
       {state?.is_moderator && <div className={`${expandedLibrary ? 'flex min-h-0 flex-1 flex-col' : 'shrink-0'} border-b border-stone-200 bg-white px-3 pb-3 pt-2.5`}>
         <div className="flex items-center justify-between rounded-xl bg-slate-100 px-3 py-2.5"><span className="text-xs font-bold text-[#1E3F82]">Nội dung đã chuẩn bị</span><span className="text-[11px] font-semibold text-slate-500">{state.resources.length} mục</span></div>
         <div className={`mt-3 space-y-2 overflow-y-auto pr-1 ${expandedLibrary ? 'min-h-0 flex-1' : 'max-h-[min(230px,30dvh)]'}`}>
-          {state.resources.length === 0 ? <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-center text-xs text-slate-500">Chưa có nội dung. Hãy chuẩn bị slide, tài liệu và quiz trong Xưởng thiết kế trước khi vào lớp.</div> : state.resources.map((item) => {
-            const active = selected?.id === item.id;
-            const kindLabel = item.kind === 'quiz' ? 'QUIZ' : item.kind === 'slide' ? 'SLIDE' : item.kind === 'doc' ? 'DOCX' : item.kind === 'model_3d' ? '3D' : item.kind === 'video' ? 'VIDEO' : item.kind === 'link' ? 'LINK' : 'PDF';
-            const trigger = item.kind === 'quiz' ? quizTriggerLabel(item) : null;
-            return <button key={item.id} type="button" disabled={pending} onClick={() => void act({ action: 'show', resource_id: item.id })} className={`flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left disabled:opacity-50 ${active ? 'border-blue-400 bg-blue-50' : 'border-slate-200 bg-white hover:border-blue-300 hover:bg-slate-50'}`}>
-              <span className={`shrink-0 rounded-md px-2 py-1 text-[10px] font-bold tracking-wide ${item.kind === 'quiz' ? 'bg-violet-50 text-violet-700' : 'bg-blue-50 text-blue-700'}`}>{kindLabel}</span>
-              <span className="min-w-0 flex-1"><span className={`block truncate text-xs font-semibold ${active ? 'text-[#1E3F82]' : 'text-slate-800'}`}>{item.title}</span><span className="block truncate text-[11px] text-slate-500">{item.section_title}{trigger ? ` · ${trigger}` : ''}</span></span>
-              <span className="shrink-0 text-[11px] font-semibold text-[#1E3F82]">{item.kind !== 'quiz' && state.stage?.id === item.id ? 'Đang chiếu' : active ? item.kind === 'quiz' && run ? 'Đang phát' : 'Đã chọn' : 'Chọn'}</span>
-            </button>;
+          {state.resources.length === 0 ? <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-center text-xs text-slate-500">Chưa có nội dung. Hãy chuẩn bị slide, tài liệu và quiz trong Xưởng thiết kế trước khi vào lớp.</div> : topLevelResources.map((item) => {
+            const attachedQuizzes = item.kind === 'quiz' ? [] : state.resources.filter((resource) => resource.kind === 'quiz' && resource.trigger_resource_id === item.id);
+            const groupOpen = expandedResources[item.id] ?? attachedQuizzes.some((quiz) => quiz.id === selected?.id);
+            const renderResource = (resource: PresentationResource, nested = false) => {
+              const resourceActive = selected?.id === resource.id;
+              const resourceTrigger = resource.kind === 'quiz' ? quizTriggerLabel(resource) : null;
+              return <div key={resource.id} className={`${nested ? 'ml-7 border-l border-violet-100 pl-2' : ''}`}><button type="button" disabled={pending} onClick={() => void act({ action: 'show', resource_id: resource.id })} className={`flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left disabled:opacity-50 ${!nested && attachedQuizzes.length > 0 ? 'pr-36' : ''} ${resourceActive ? 'border-blue-400 bg-blue-50' : 'border-slate-200 bg-white hover:border-blue-300 hover:bg-slate-50'}`}>
+                <ResourceKindIcon kind={resource.kind} />
+                <span className="min-w-0 flex-1"><span className={`block truncate text-xs font-semibold ${resourceActive ? 'text-[#1E3F82]' : 'text-slate-800'}`}>{resource.title}</span><span className="block truncate text-[11px] text-slate-500">{resource.section_title}{resourceTrigger ? ` · ${resourceTrigger}` : ''}</span></span>
+                <span className="shrink-0 text-[11px] font-semibold text-[#1E3F82]">{resource.kind !== 'quiz' && state.stage?.id === resource.id ? 'Đang chiếu' : resourceActive ? resource.kind === 'quiz' && run ? 'Đang phát' : 'Đã chọn' : 'Chọn'}</span>
+              </button></div>;
+            };
+            return <div key={item.id} className="space-y-1.5"><div className="relative">{renderResource(item)}{attachedQuizzes.length > 0 && <button type="button" aria-expanded={groupOpen} aria-label={`${attachedQuizzes.length} quiz gắn với ${item.title}`} onClick={() => setExpandedResources((current) => ({ ...current, [item.id]: !groupOpen }))} className="absolute right-20 top-1/2 flex -translate-y-1/2 items-center gap-1 rounded-full bg-violet-50 px-2 py-1 text-[9px] font-bold text-violet-700 hover:bg-violet-100">{groupOpen ? <ChevronDown size={10} /> : <ChevronRight size={10} />}<LightningChargeFill size={10} />{attachedQuizzes.length}</button>}</div>{groupOpen && attachedQuizzes.map((quiz) => renderResource(quiz, true))}</div>;
           })}
         </div>
         <a href={`/spaces/${encodeURIComponent(roomCode)}`} target="_blank" rel="noreferrer" className="mt-3 inline-flex justify-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-[#1E3F82] hover:bg-slate-50">Mở Xưởng thiết kế để chỉnh sửa</a>
@@ -193,7 +229,24 @@ export function LocalPresentationPanel({ roomCode, open, onClose, onStateChange 
     </aside>
     {studentQuiz?.status === 'open' && studentQuiz.selected_option === null && submittedQuizId !== studentQuiz.id && <StudentQuizDialog key={studentQuiz.id} run={studentQuiz} pending={pending} error={error} onSubmit={(option) => void submitQuiz(studentQuiz.id, option)} />}
     {studentQuiz?.status === 'closed' && studentQuiz.selected_option !== null && dismissedResultId !== studentQuiz.id && <StudentQuizResultDialog run={studentQuiz} onClose={() => setDismissedResultId(studentQuiz.id)} />}
+    {state?.upcoming_quiz && !state.active_run && <QuizStartingCountdown key={state.upcoming_quiz.quiz_id} title={state.upcoming_quiz.title} remainingMs={state.upcoming_quiz.remaining_ms} compact={state.is_moderator} />}
+    {state?.is_moderator && run?.status === 'open' && <TeacherQuizStatus run={run} />}
+    {!state?.is_moderator && studentQuiz?.status === 'open' && studentQuiz.selected_option !== null && <StudentQuizWaiting key={studentQuiz.id} run={studentQuiz} />}
   </>;
+}
+
+function ResourceKindIcon({ kind }: { kind: PresentationResource['kind'] }) {
+  const config = {
+    slide: { Icon: FileEarmarkSlidesFill, label: 'Slide', tone: 'bg-blue-50 text-blue-700' },
+    pdf: { Icon: FileEarmarkPdfFill, label: 'PDF', tone: 'bg-rose-50 text-rose-600' },
+    doc: { Icon: FileEarmarkWordFill, label: 'Tài liệu Word', tone: 'bg-sky-50 text-sky-700' },
+    model_3d: { Icon: BoxSeam, label: 'Mô hình 3D', tone: 'bg-indigo-50 text-indigo-700' },
+    video: { Icon: PlayCircleFill, label: 'Video', tone: 'bg-red-50 text-red-600' },
+    link: { Icon: Link45deg, label: 'Liên kết', tone: 'bg-emerald-50 text-emerald-700' },
+    quiz: { Icon: LightningChargeFill, label: 'Quiz', tone: 'bg-violet-50 text-violet-700' },
+  } as const;
+  const { Icon, label, tone } = config[kind];
+  return <span title={label} aria-label={label} className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${tone}`}><Icon size={15} aria-hidden="true" /></span>;
 }
 
 export function DocxPreview({ fileUrl, scrollRef, onScroll, onReady }: {
