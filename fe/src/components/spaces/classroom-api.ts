@@ -49,6 +49,7 @@ export interface PresentationQuizRun {
   status: 'open' | 'closed';
   closes_at: string;
   remaining_seconds: number;
+  remaining_ms: number;
   response_count: number;
   participant_count: number;
   selected_option: number | null;
@@ -130,6 +131,52 @@ export interface PresentationAnnotation {
   text: string;
 }
 
+export interface WhiteboardStrokeDto {
+  id: string;
+  authorId: string;
+  authorName: string;
+  tool: 'pen' | 'highlighter';
+  color: string;
+  points: [number, number][];
+  createdAt: number;
+}
+
+export interface WhiteboardSnapshotDto {
+  context_key: string;
+  resource_id: string | null;
+  page: number;
+  strokes: WhiteboardStrokeDto[];
+  locked: boolean;
+  updated_at: string | null;
+}
+
+export interface LivePollDto {
+  id: string;
+  question: string;
+  options: string[];
+  duration_seconds: number;
+  is_anonymous: boolean;
+  status: 'open' | 'closed';
+  opened_at: string;
+  closes_at: string;
+  closed_at: string | null;
+  remaining_ms: number;
+  response_count: number;
+  participant_count: number;
+  selected_option: number | null;
+  option_counts: number[] | null;
+  responses?: Array<{
+    user_id: string;
+    name: string;
+    selected_option: number;
+    submitted_at: string;
+  }>;
+}
+
+export interface LivePollState {
+  poll: LivePollDto | null;
+}
+
 export interface PresentationState {
   is_moderator: boolean;
   resources: PresentationResource[];
@@ -141,6 +188,13 @@ export interface PresentationState {
   stage_scroll: number;
   stage_annotations: PresentationAnnotation[];
   active_run: PresentationQuizRun | null;
+  upcoming_quiz?: {
+    quiz_id: string;
+    title: string;
+    trigger_mode: 'at_slide';
+    starts_at: string;
+    remaining_ms: number;
+  } | null;
   last_automation?: {
     quiz_id: string;
     trigger_mode: 'after_resource' | 'at_minute' | 'at_slide';
@@ -152,6 +206,12 @@ export const classroomApi = {
   list: () => request<ClassroomDto[]>('/classrooms/'),
 
   get: (code: string) => request<ClassroomDto>(`/classrooms/${encodeURIComponent(code)}/`),
+
+  update: (code: string, data: { name?: string; description?: string; is_archived?: boolean }) =>
+    request<ClassroomDto>(`/classrooms/${encodeURIComponent(code)}/`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
 
   create: (data: { name: string; purpose: SpacePurpose }) =>
     request<ClassroomDto>('/classrooms/', {
@@ -182,6 +242,50 @@ export const classroomApi = {
 
   presentation: (code: string) =>
     request<PresentationState>(`/classrooms/${encodeURIComponent(code)}/sessions/presentation/`),
+
+  whiteboardSnapshot: (code: string, context: { resourceId: string | null; page: number }) => {
+    const query = new URLSearchParams({ page: String(context.page) });
+    if (context.resourceId) query.set('resource_id', context.resourceId);
+    return request<WhiteboardSnapshotDto>(`/classrooms/${encodeURIComponent(code)}/sessions/whiteboard/?${query}`);
+  },
+
+  saveWhiteboardSnapshot: (code: string, snapshot: { resourceId: string | null; page: number; strokes: WhiteboardStrokeDto[]; locked: boolean }) =>
+    request<WhiteboardSnapshotDto>(`/classrooms/${encodeURIComponent(code)}/sessions/whiteboard/`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        resource_id: snapshot.resourceId,
+        page: snapshot.page,
+        strokes: snapshot.strokes,
+        locked: snapshot.locked,
+      }),
+    }),
+
+  poll: (code: string) =>
+    request<LivePollState>(`/classrooms/${encodeURIComponent(code)}/sessions/poll/`),
+
+  startPoll: (code: string, data: { question: string; options: string[]; duration_seconds: number; is_anonymous: boolean }) =>
+    request<LivePollState>(`/classrooms/${encodeURIComponent(code)}/sessions/poll/`, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'start', ...data }),
+    }),
+
+  answerPoll: (code: string, pollId: string, selectedOption: number) =>
+    request<LivePollState>(`/classrooms/${encodeURIComponent(code)}/sessions/poll/`, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'answer', poll_id: pollId, selected_option: selectedOption }),
+    }),
+
+  closePoll: (code: string, pollId: string) =>
+    request<LivePollState>(`/classrooms/${encodeURIComponent(code)}/sessions/poll/`, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'close', poll_id: pollId }),
+    }),
+
+  dismissPoll: (code: string, pollId: string) =>
+    request<LivePollState>(`/classrooms/${encodeURIComponent(code)}/sessions/poll/`, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'dismiss', poll_id: pollId }),
+    }),
 
   quizReport: (code: string) =>
     request<QuizReport>(`/classrooms/${encodeURIComponent(code)}/sessions/quiz-report/`),

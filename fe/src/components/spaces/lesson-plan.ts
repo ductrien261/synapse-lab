@@ -48,6 +48,7 @@ export interface LessonQuiz {
   delaySeconds: number;
   triggerResourceId?: string;
   triggerSlideNumber: number;
+  successThreshold: number;
 }
 
 export interface LessonStep {
@@ -59,6 +60,7 @@ export interface LessonStep {
   teacherInstructions: string;
   resource: string;
   materials: LessonMaterial[];
+  quizzes?: LessonQuiz[];
   quiz: LessonQuiz;
   transitionCondition: string;
   feedbackMode: FeedbackMode;
@@ -110,6 +112,7 @@ export function createDefaultQuiz(enabled = false): LessonQuiz {
     delaySeconds: 5,
     triggerResourceId: undefined,
     triggerSlideNumber: 1,
+    successThreshold: 70,
   };
 }
 

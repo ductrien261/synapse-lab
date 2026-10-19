@@ -20,6 +20,7 @@ export type StudioResource = StudioMaterialResource | StudioQuizResource;
 
 export function getStudioResources(plan: LessonPlanDraft): StudioResource[] {
   return plan.steps.flatMap((step) => {
+    const quizzes = step.quizzes?.length ? step.quizzes : step.quiz.enabled ? [step.quiz] : [];
     const resources: StudioResource[] = [
       ...step.materials.map((material) => ({
       key: `material:${step.id}:${material.id}`,
@@ -28,13 +29,13 @@ export function getStudioResources(plan: LessonPlanDraft): StudioResource[] {
       stepTitle: step.title,
       material,
       }) as StudioMaterialResource),
-    ...(step.quiz.enabled ? [{
-      key: `quiz:${step.id}`,
+    ...quizzes.map((quiz, index) => ({
+      key: `quiz:${step.id}:${quiz.resourceId || index}`,
       kind: 'quiz' as const,
       stepId: step.id,
       stepTitle: step.title,
-      quiz: step.quiz,
-    }] : []),
+      quiz,
+    })),
     ];
     return resources.sort((left, right) => getResourcePosition(left) - getResourcePosition(right));
   });

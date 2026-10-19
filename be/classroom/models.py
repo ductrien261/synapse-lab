@@ -131,6 +131,83 @@ class SessionAttendance(models.Model):
         verbose_name_plural = 'Lượt tham gia phiên học'
 
 
+class SessionWhiteboardSnapshot(TimeStampedModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    session = models.ForeignKey(LiveSession, on_delete=models.CASCADE, related_name='whiteboard_snapshots')
+    resource = models.ForeignKey(
+        'LessonResource', null=True, blank=True, on_delete=models.SET_NULL, related_name='whiteboard_snapshots',
+    )
+    context_key = models.CharField(max_length=100)
+    page = models.PositiveIntegerField(default=1)
+    strokes = models.JSONField(default=list, blank=True)
+    locked = models.BooleanField(default=True)
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='updated_whiteboard_snapshots',
+    )
+
+    class Meta:
+        ordering = ['session', 'context_key']
+        constraints = [
+            models.UniqueConstraint(fields=['session', 'context_key'], name='uniq_whiteboard_context_per_session'),
+        ]
+        verbose_name = 'Bản lưu bảng cộng tác'
+        verbose_name_plural = 'Bản lưu bảng cộng tác'
+
+
+class LivePoll(TimeStampedModel):
+    class Status(models.TextChoices):
+        OPEN = 'open', 'Đang nhận phản hồi'
+        CLOSED = 'closed', 'Đã công bố kết quả'
+        DISMISSED = 'dismissed', 'Đã đóng'
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    session = models.ForeignKey(LiveSession, on_delete=models.CASCADE, related_name='polls')
+    question = models.CharField(max_length=500)
+    options = models.JSONField(default=list)
+    duration_seconds = models.PositiveSmallIntegerField(default=60)
+    is_anonymous = models.BooleanField(default=True)
+    status = models.CharField(max_length=12, choices=Status.choices, default=Status.OPEN)
+    opened_at = models.DateTimeField(auto_now_add=True)
+    closes_at = models.DateTimeField()
+    closed_at = models.DateTimeField(null=True, blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name='created_live_polls',
+    )
+
+    class Meta:
+        ordering = ['-opened_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['session'],
+                condition=models.Q(status='open'),
+                name='uniq_open_poll_per_session',
+            ),
+        ]
+        verbose_name = 'Khảo sát trực tiếp'
+        verbose_name_plural = 'Khảo sát trực tiếp'
+
+
+class LivePollResponse(models.Model):
+    poll = models.ForeignKey(LivePoll, on_delete=models.CASCADE, related_name='responses')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='poll_responses')
+    selected_option = models.PositiveSmallIntegerField()
+    submitted_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['submitted_at']
+        constraints = [
+            models.UniqueConstraint(fields=['poll', 'user'], name='uniq_poll_response_per_user'),
+        ]
+        verbose_name = 'Phản hồi khảo sát'
+        verbose_name_plural = 'Phản hồi khảo sát'
+
+
 class LessonPlan(TimeStampedModel):
     class Subject(models.TextChoices):
         ANATOMY = 'anatomy', 'Giải phẫu'

@@ -12,7 +12,7 @@ import { getResourceTitle, type StudioResource } from './studio-resource';
 
 const BACKEND_API_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:8000/api';
 
-export function DocumentWorkspace({ resource, roomCode, onUpdateQuiz }: { resource?: StudioResource; roomCode: string; onUpdateQuiz: (patch: Partial<LessonQuiz>) => void }) {
+export function DocumentWorkspace({ resource, roomCode, onUpdateQuiz, relatedQuizzes = [], onSelectQuiz }: { resource?: StudioResource; roomCode: string; onUpdateQuiz: (patch: Partial<LessonQuiz>) => void; relatedQuizzes?: LessonQuiz[]; onSelectQuiz?: (quiz: LessonQuiz) => void }) {
   if (!resource) return <main className="flex min-h-[540px] items-center justify-center bg-[#F5F7FB]"><div className="text-center text-stone-400"><FileEarmarkText className="mx-auto h-10 w-10" /><p className="mt-3 text-xs font-bold">Chọn tài liệu để bắt đầu</p></div></main>;
   const resourceKindLabel = resource.kind === 'quiz' ? '?' : resource.kind === 'model_3d' ? '3D' : resource.kind.toUpperCase();
   const isSlide = resource.kind === 'slide';
@@ -30,14 +30,14 @@ export function DocumentWorkspace({ resource, roomCode, onUpdateQuiz }: { resour
               : resource.kind === 'doc'
                 ? <DocCanvas key={resource.key} resource={resource} />
                 : resource.kind === 'slide'
-                  ? <PptxCanvas key={resource.key} resource={resource} />
+                  ? <PptxCanvas key={resource.key} resource={resource} relatedQuizzes={relatedQuizzes} onSelectQuiz={onSelectQuiz} />
                   : <DocumentCanvas resource={resource} page={1} zoom={100} />}
       </div>
     </div>
   </main>;
 }
 
-function PptxCanvas({ resource }: { resource: Exclude<StudioResource, { kind: 'quiz' }> }) {
+function PptxCanvas({ resource, relatedQuizzes, onSelectQuiz }: { resource: Exclude<StudioResource, { kind: 'quiz' }>; relatedQuizzes: LessonQuiz[]; onSelectQuiz?: (quiz: LessonQuiz) => void }) {
   const [page, setPage] = useState(1);
   const [zoom, setZoom] = useState(100);
   const fileUrl = absoluteFileUrl(resource.material.fileUrl);
@@ -65,7 +65,10 @@ function PptxCanvas({ resource }: { resource: Exclude<StudioResource, { kind: 'q
       </div>
     </div>
     <div className="flex shrink-0 items-center gap-3 overflow-x-auto border-t border-stone-200 bg-white p-3">
-      {slideUrls.map((slideUrl, index) => <button key={slideUrl} type="button" onClick={() => setPage(index + 1)} className={`w-28 shrink-0 overflow-hidden rounded-lg border-2 bg-white p-1 transition ${currentPage === index + 1 ? 'border-[#397BF6] shadow-sm' : 'border-stone-200 hover:border-stone-300'}`}><div className="flex h-[58px] items-center justify-center overflow-hidden rounded bg-stone-100"><img src={slideUrl} alt={`Thumbnail slide ${index + 1}`} className="h-full w-full object-contain" /></div><span className={`block py-1 text-[8px] font-bold ${currentPage === index + 1 ? 'text-[#397BF6]' : 'text-stone-400'}`}>{index + 1}</span></button>)}
+      {slideUrls.map((slideUrl, index) => {
+        const slideQuizzes = relatedQuizzes.filter((quiz) => quiz.triggerMode === 'at_slide' && quiz.triggerSlideNumber === index + 1);
+        return <div key={slideUrl} className="relative w-28 shrink-0"><button type="button" onClick={() => setPage(index + 1)} className={`w-full overflow-hidden rounded-lg border-2 bg-white p-1 transition ${currentPage === index + 1 ? 'border-[#397BF6] shadow-sm' : 'border-stone-200 hover:border-stone-300'}`}><div className="flex h-[58px] items-center justify-center overflow-hidden rounded bg-stone-100"><img src={slideUrl} alt={`Thumbnail slide ${index + 1}`} className="h-full w-full object-contain" /></div><span className={`block py-1 text-[8px] font-bold ${currentPage === index + 1 ? 'text-[#397BF6]' : 'text-stone-400'}`}>{index + 1}</span></button>{slideQuizzes.length > 0 && <button type="button" title={`Mở quiz gắn với slide ${index + 1}`} onClick={() => onSelectQuiz?.(slideQuizzes[0])} className="absolute -right-1 -top-1 flex items-center gap-0.5 rounded-full border border-violet-200 bg-violet-600 px-1.5 py-1 text-[8px] font-bold text-white shadow"><LightningChargeFill className="h-2.5 w-2.5" />{slideQuizzes.length > 1 ? slideQuizzes.length : ''}</button>}</div>;
+      })}
     </div>
   </div>;
 }

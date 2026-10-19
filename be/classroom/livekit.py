@@ -1,4 +1,5 @@
 from datetime import timedelta
+import json
 
 import jwt
 import requests
@@ -6,12 +7,13 @@ from django.conf import settings
 from django.utils import timezone
 
 
-def create_video_token(user, room_name):
+def create_video_token(user, room_name, role='member'):
     now = timezone.now()
     return jwt.encode({
         'iss': settings.LIVEKIT_API_KEY,
         'sub': str(user.id),
         'name': user.full_name or user.email,
+        'metadata': json.dumps({'role': role}),
         'iat': int(now.timestamp()),
         'nbf': int(now.timestamp()),
         'exp': int((now + timedelta(hours=2)).timestamp()),

@@ -14,7 +14,24 @@ export function mapLessonPlan(dto: LessonPlanDto): LessonPlanDraft {
     audience: 'Học viên trong lớp',
     updatedAt: dto.updated_at,
     steps: dto.sections.map((section) => {
-      const quizResource = section.resources.find((item) => item.kind === 'quiz' && item.quiz);
+      const quizResources = section.resources.filter((item) => item.kind === 'quiz' && item.quiz);
+      const quizzes = quizResources.map((quizResource) => ({
+        ...createDefaultQuiz(true),
+        resourceId: quizResource.id,
+        position: quizResource.position,
+        title: quizResource.title,
+        question: quizResource.quiz!.question,
+        options: quizResource.quiz!.options,
+        correctOption: quizResource.quiz!.correct_option,
+        durationSeconds: quizResource.quiz!.duration_seconds,
+        triggerMode: quizResource.quiz!.trigger_mode === 'after_resource' ? 'after_activity' as const : quizResource.quiz!.trigger_mode,
+        triggerMinute: quizResource.quiz!.trigger_minute,
+        delaySeconds: quizResource.quiz!.delay_seconds,
+        triggerResourceId: quizResource.quiz!.trigger_resource || undefined,
+        triggerSlideNumber: quizResource.quiz!.trigger_slide_number,
+        successThreshold: quizResource.quiz!.success_threshold,
+      }));
+      const primaryQuiz = quizzes[0] || createDefaultQuiz(false);
       return {
         id: section.id,
         title: section.title,
@@ -51,24 +68,11 @@ export function mapLessonPlan(dto: LessonPlanDto): LessonPlanDraft {
             system: item.anatomy_model_detail.system,
           } : null,
         })),
-        quiz: quizResource?.quiz ? {
-          ...createDefaultQuiz(true),
-          resourceId: quizResource.id,
-          position: quizResource.position,
-          title: quizResource.title,
-          question: quizResource.quiz.question,
-          options: quizResource.quiz.options,
-          correctOption: quizResource.quiz.correct_option,
-          durationSeconds: quizResource.quiz.duration_seconds,
-          triggerMode: quizResource.quiz.trigger_mode === 'after_resource' ? 'after_activity' : quizResource.quiz.trigger_mode,
-          triggerMinute: quizResource.quiz.trigger_minute,
-          delaySeconds: quizResource.quiz.delay_seconds,
-          triggerResourceId: quizResource.quiz.trigger_resource || undefined,
-          triggerSlideNumber: quizResource.quiz.trigger_slide_number,
-        } : createDefaultQuiz(false),
+        quizzes,
+        quiz: primaryQuiz,
         transitionCondition: 'Giáo viên xác nhận chuyển bước.',
-        feedbackMode: quizResource ? 'quiz' : 'understanding',
-        successThreshold: quizResource?.quiz?.success_threshold || 70,
+        feedbackMode: quizzes.length ? 'quiz' : 'understanding',
+        successThreshold: primaryQuiz.successThreshold,
         autoAdvance: false,
       };
     }),

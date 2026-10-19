@@ -28,10 +28,13 @@ from .models import (
     LessonQuiz,
     LessonResource,
     LessonSection,
+    LivePoll,
+    LivePollResponse,
     LiveQuizResponse,
     LiveQuizRun,
     LiveSession,
     SessionAttendance,
+    SessionWhiteboardSnapshot,
 )
 from .livekit import create_video_token, delete_room
 from .document_rendering import (
@@ -40,11 +43,15 @@ from .document_rendering import (
 )
 from .serializers import (
     ClassroomSerializer,
+    ClassroomUpdateSerializer,
     JoinClassroomSerializer,
     LessonPlanSerializer,
     LessonResourceSerializer,
     LessonSectionSerializer,
+    PollAnswerSerializer,
     StartSessionSerializer,
+    StartPollSerializer,
+    WhiteboardSnapshotSerializer,
 )
 from .quiz_runtime import (
     close_expired_quiz_runs,
@@ -114,6 +121,10 @@ def finish_session(session):
     now = timezone.now()
     session.quiz_runs.filter(status=LiveQuizRun.Status.OPEN).update(
         status=LiveQuizRun.Status.CLOSED,
+        closed_at=now,
+    )
+    session.polls.filter(status=LivePoll.Status.OPEN).update(
+        status=LivePoll.Status.CLOSED,
         closed_at=now,
     )
     session.status = LiveSession.Status.ENDED
@@ -227,6 +238,16 @@ class ClassroomDetailView(APIView):
         sync_active_session(classroom)
         return Response(serialize_classroom(classroom, request))
 
+    @extend_schema(request=ClassroomUpdateSerializer, responses=ClassroomSerializer)
+    def patch(self, request, code):
+        classroom = get_member_classroom(request.user, code)
+        require_classroom_owner(classroom, request.user)
+        serializer = ClassroomUpdateSerializer(classroom, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        classroom = serializer.save()
+        classroom.member_count = classroom.memberships.count()
+        return Response(serialize_classroom(classroom, request))
+
 
 class SessionStartView(APIView):
     permission_classes = [IsAuthenticated]
@@ -312,8 +333,220 @@ class SessionVideoTokenView(APIView):
         if not session.attendances.filter(user=request.user, left_at__isnull=True).exists():
             return Response({'detail': 'Bạn cần vào phiên học trước.'}, status=status.HTTP_403_FORBIDDEN)
 
-        token = create_video_token(request.user, session.room_name)
+        token = create_video_token(
+            request.user,
+            session.room_name,
+            role='moderator' if classroom.owner_id == request.user.id else 'member',
+        )
         return Response({'url': settings.LIVEKIT_WS_URL, 'token': token})
+
+
+def close_expired_poll(poll):
+    if poll and poll.status == LivePoll.Status.OPEN and poll.closes_at <= timezone.now():
+        poll.status = LivePoll.Status.CLOSED
+        poll.closed_at = poll.closes_at
+        poll.save(update_fields=['status', 'closed_at', 'updated_at'])
+    return poll
+
+
+def serialize_live_poll(poll, request, classroom):
+    responses = list(poll.responses.select_related('user').all())
+    own_response = next((item for item in responses if item.user_id == request.user.id), None)
+    option_counts = [0 for _ in poll.options]
+    for response in responses:
+        if response.selected_option < len(option_counts):
+            option_counts[response.selected_option] += 1
+    participant_count = poll.session.attendances.exclude(user_id=classroom.owner_id).count()
+    is_moderator = classroom.owner_id == request.user.id
+    show_results = is_moderator or poll.status != LivePoll.Status.OPEN
+    payload = {
+        'id': str(poll.id),
+        'question': poll.question,
+        'options': poll.options,
+        'duration_seconds': poll.duration_seconds,
+        'is_anonymous': poll.is_anonymous,
+        'status': poll.status,
+        'opened_at': poll.opened_at.isoformat(),
+        'closes_at': poll.closes_at.isoformat(),
+        'closed_at': poll.closed_at.isoformat() if poll.closed_at else None,
+        'remaining_ms': max(0, round((poll.closes_at - timezone.now()).total_seconds() * 1000)),
+        'response_count': len(responses),
+        'participant_count': participant_count,
+        'selected_option': own_response.selected_option if own_response else None,
+        'option_counts': option_counts if show_results else None,
+    }
+    if is_moderator and not poll.is_anonymous:
+        payload['responses'] = [
+            {
+                'user_id': str(response.user_id),
+                'name': response.user.full_name or response.user.email,
+                'selected_option': response.selected_option,
+                'submitted_at': response.submitted_at.isoformat(),
+            }
+            for response in responses
+        ]
+    return payload
+
+
+class SessionPollView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def _context(self, request, code):
+        classroom = get_member_classroom(request.user, code)
+        session = get_object_or_404(classroom.sessions, status=LiveSession.Status.LIVE)
+        if not session.attendances.filter(user=request.user, left_at__isnull=True).exists():
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied('Bạn cần vào phiên học trước.')
+        return classroom, session
+
+    def get(self, request, code):
+        classroom, session = self._context(request, code)
+        poll = close_expired_poll(
+            session.polls.exclude(status=LivePoll.Status.DISMISSED).first(),
+        )
+        return Response({'poll': serialize_live_poll(poll, request, classroom) if poll else None})
+
+    def post(self, request, code):
+        classroom, session = self._context(request, code)
+        action = request.data.get('action')
+
+        if action == 'start':
+            require_classroom_owner(classroom, request.user)
+            serializer = StartPollSerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            open_poll = close_expired_poll(session.polls.filter(status=LivePoll.Status.OPEN).first())
+            if open_poll and open_poll.status == LivePoll.Status.OPEN:
+                return Response({'detail': 'Đang có một poll diễn ra.'}, status=status.HTTP_409_CONFLICT)
+            session.polls.filter(status=LivePoll.Status.CLOSED).update(status=LivePoll.Status.DISMISSED)
+            try:
+                poll = LivePoll.objects.create(
+                    session=session,
+                    question=serializer.validated_data['question'],
+                    options=serializer.validated_data['options'],
+                    duration_seconds=serializer.validated_data['duration_seconds'],
+                    is_anonymous=serializer.validated_data['is_anonymous'],
+                    closes_at=timezone.now() + timedelta(seconds=serializer.validated_data['duration_seconds']),
+                    created_by=request.user,
+                )
+            except IntegrityError:
+                return Response({'detail': 'Đang có một poll diễn ra.'}, status=status.HTTP_409_CONFLICT)
+            return Response({'poll': serialize_live_poll(poll, request, classroom)}, status=status.HTTP_201_CREATED)
+
+        poll = get_object_or_404(session.polls, pk=request.data.get('poll_id'))
+        close_expired_poll(poll)
+
+        if action == 'answer':
+            if classroom.owner_id == request.user.id:
+                return Response({'detail': 'Giáo viên không tham gia trả lời poll.'}, status=status.HTTP_403_FORBIDDEN)
+            if poll.status != LivePoll.Status.OPEN:
+                return Response({'detail': 'Poll đã kết thúc.'}, status=status.HTTP_409_CONFLICT)
+            serializer = PollAnswerSerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            selected_option = serializer.validated_data['selected_option']
+            if selected_option >= len(poll.options):
+                return Response({'selected_option': 'Lựa chọn không hợp lệ.'}, status=status.HTTP_400_BAD_REQUEST)
+            _, created = LivePollResponse.objects.get_or_create(
+                poll=poll,
+                user=request.user,
+                defaults={'selected_option': selected_option},
+            )
+            if not created:
+                return Response({'detail': 'Bạn đã trả lời poll này.'}, status=status.HTTP_409_CONFLICT)
+            return Response({'poll': serialize_live_poll(poll, request, classroom)})
+
+        require_classroom_owner(classroom, request.user)
+        if action == 'close':
+            if poll.status == LivePoll.Status.OPEN:
+                poll.status = LivePoll.Status.CLOSED
+                poll.closed_at = timezone.now()
+                poll.save(update_fields=['status', 'closed_at', 'updated_at'])
+            return Response({'poll': serialize_live_poll(poll, request, classroom)})
+        if action == 'dismiss':
+            poll.status = LivePoll.Status.DISMISSED
+            if not poll.closed_at:
+                poll.closed_at = timezone.now()
+            poll.save(update_fields=['status', 'closed_at', 'updated_at'])
+            return Response({'poll': None})
+        return Response({'action': 'Thao tác poll không hợp lệ.'}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class SessionWhiteboardView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def _context(self, request, code):
+        classroom = get_member_classroom(request.user, code)
+        session = get_object_or_404(classroom.sessions, status=LiveSession.Status.LIVE)
+        if not session.attendances.filter(user=request.user, left_at__isnull=True).exists():
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied('Bạn cần vào phiên học trước.')
+        return classroom, session
+
+    @staticmethod
+    def _resolve_board_context(classroom, session, resource_id, page):
+        if not resource_id:
+            return None, 'session', 1
+        resource = get_object_or_404(
+            session_resource_queryset(classroom, session),
+            pk=resource_id,
+            kind__in=[LessonResource.Kind.SLIDE, LessonResource.Kind.PDF],
+        )
+        max_page = max(resource.preview_page_count, 1)
+        if page > max_page:
+            raise serializers.ValidationError({'page': f'Tài liệu chỉ có {max_page} trang.'})
+        return resource, f'resource:{resource.id}:page:{page}', page
+
+    @staticmethod
+    def _response(snapshot, resource, context_key, page):
+        return {
+            'context_key': context_key,
+            'resource_id': str(resource.id) if resource else None,
+            'page': page,
+            'strokes': snapshot.strokes if snapshot else [],
+            'locked': snapshot.locked if snapshot else True,
+            'updated_at': snapshot.updated_at.isoformat() if snapshot else None,
+        }
+
+    def get(self, request, code):
+        classroom, session = self._context(request, code)
+        page_serializer = WhiteboardSnapshotSerializer(data={
+            'resource_id': request.query_params.get('resource_id') or None,
+            'page': request.query_params.get('page', 1),
+            'strokes': [],
+            'locked': True,
+        })
+        page_serializer.is_valid(raise_exception=True)
+        resource, context_key, page = self._resolve_board_context(
+            classroom,
+            session,
+            page_serializer.validated_data.get('resource_id'),
+            page_serializer.validated_data['page'],
+        )
+        snapshot = SessionWhiteboardSnapshot.objects.filter(session=session, context_key=context_key).first()
+        return Response(self._response(snapshot, resource, context_key, page))
+
+    def put(self, request, code):
+        classroom, session = self._context(request, code)
+        require_classroom_owner(classroom, request.user)
+        serializer = WhiteboardSnapshotSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        resource, context_key, page = self._resolve_board_context(
+            classroom,
+            session,
+            serializer.validated_data.get('resource_id'),
+            serializer.validated_data['page'],
+        )
+        snapshot, _ = SessionWhiteboardSnapshot.objects.update_or_create(
+            session=session,
+            context_key=context_key,
+            defaults={
+                'resource': resource,
+                'page': page,
+                'strokes': serializer.validated_data['strokes'],
+                'locked': serializer.validated_data['locked'],
+                'updated_by': request.user,
+            },
+        )
+        return Response(self._response(snapshot, resource, context_key, page))
 
 
 class SessionPresentationView(APIView):
@@ -362,6 +595,7 @@ class SessionPresentationView(APIView):
 
     def _apply_quiz_automation(self, classroom, session, presentation):
         if session.quiz_runs.filter(status=LiveQuizRun.Status.OPEN).exists():
+            presentation.pop('pending_quiz', None)
             return
 
         now = timezone.now()
@@ -392,7 +626,30 @@ class SessionPresentationView(APIView):
                 due_at = after_resource_due.get(str(quiz.pk))
                 due = isinstance(due_at, (int, float)) and now.timestamp() >= due_at
 
+            pending_quiz = presentation.get('pending_quiz')
+            if pending_quiz and pending_quiz.get('quiz_pk') == str(quiz.pk):
+                if not due:
+                    presentation.pop('pending_quiz', None)
+                    cache.set(self._key(session), presentation, timeout=60 * 60 * 8)
+                    pending_quiz = None
+                elif now.timestamp() < pending_quiz.get('starts_at_timestamp', 0):
+                    return
+
+            if due and quiz.trigger_mode == LessonQuiz.TriggerMode.AT_SLIDE and not pending_quiz:
+                starts_at = now + timedelta(seconds=5)
+                presentation['pending_quiz'] = {
+                    'quiz_pk': str(quiz.pk),
+                    'quiz_id': str(quiz.resource_id),
+                    'title': quiz.resource.title,
+                    'trigger_mode': quiz.trigger_mode,
+                    'starts_at': starts_at.isoformat(),
+                    'starts_at_timestamp': starts_at.timestamp(),
+                }
+                cache.set(self._key(session), presentation, timeout=60 * 60 * 8)
+                return
+
             if due and self._start_scheduled_quiz(presentation, session, quiz):
+                presentation.pop('pending_quiz', None)
                 after_resource_due.pop(str(quiz.pk), None)
                 presentation['last_automation'] = {
                     'quiz_id': str(quiz.resource_id),
@@ -458,6 +715,16 @@ class SessionPresentationView(APIView):
                     item.file and (item.kind != LessonResource.Kind.DOC or item.file.name.lower().endswith('.docx'))
                 )
             ]
+        pending_quiz = presentation.get('pending_quiz')
+        upcoming_quiz = {
+            'quiz_id': pending_quiz['quiz_id'],
+            'title': pending_quiz['title'],
+            'trigger_mode': pending_quiz['trigger_mode'],
+            'starts_at': pending_quiz['starts_at'],
+            'remaining_ms': max(0, round(
+                (pending_quiz['starts_at_timestamp'] - timezone.now().timestamp()) * 1000,
+            )),
+        } if pending_quiz else None
         return Response({
             'is_moderator': is_moderator,
             'resources': resources,
@@ -474,6 +741,7 @@ class SessionPresentationView(APIView):
                 [],
             ) if staged_resource and staged_resource.kind == LessonResource.Kind.PDF else [],
             'active_run': serialize_quiz_run(run, request.user, moderator=is_moderator) if run else None,
+            'upcoming_quiz': upcoming_quiz,
             'last_automation': presentation.get('last_automation'),
         })
 
