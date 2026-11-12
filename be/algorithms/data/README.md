@@ -12,7 +12,7 @@ data/
 │   ├── code-lesson.json
 │   └── lesson.json
 └── references/
-    ├── knights-tour/       # Source README, code and downloaded textbook pages
+    ├── knights-tour/       # Source README and code (downloaded textbook pages are not committed)
     └── openstax-hamilton/  # Textbook pages, extracted blocks, images and provenance
 ```
 
@@ -22,7 +22,7 @@ data/
 - `references/openstax-hamilton/blocks.json`: extracted textbook blocks for explicit import; includes the figures referenced by Knight's Tour practice.
 - `references/openstax-hamilton/blocks-before-outline.json`: historical block snapshot, retained for comparison.
 - `references/openstax-hamilton/manifest.json`: downloaded image mapping and attribution.
-- The textbook HTML snapshots in the two reference folders are retained from their respective preparation runs.
+- The textbook HTML pages are not committed (OpenStax content is CC BY-NC-SA 4.0, see `THIRD_PARTY_NOTICES.md`). The tool scripts download them into the reference folders when needed, and `.gitignore` keeps them out of git.
 
 ## Preparation
 

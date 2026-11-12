@@ -49,6 +49,8 @@ _samples/
 
 # Lesson image downloads are stored on R2; retain source metadata only.
 be/algorithms/data/references/openstax-hamilton/assets/
+# Trang giáo trình tải về bằng script công cụ (giấy phép CC BY-NC-SA, không commit)
+be/algorithms/data/references/**/*.html
 fe/public/lesson-assets/**/*.webp
 fe/public/lesson-assets/**/*.png
 fe/public/lesson-assets/**/*.jpg
