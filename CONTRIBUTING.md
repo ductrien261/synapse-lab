@@ -191,3 +191,12 @@ Không có role `teacher` / `student` ở cấp hệ thống. Vai trò trong l�
 - Đọc lại **toàn bộ** code AI viết trước khi commit. Bạn chịu trách nhiệm cho code đó.
 - Không để agent tự `git commit`, `git push`, xóa file hay chạy migration.
 - Quy tắc riêng cho agent ở `fe/AGENTS.md`.
+
+---
+
+## 11. Bản quyền và nội dung bên thứ ba
+
+- Mã, tài liệu, thiết kế do bạn viết trong dự án thuộc bản quyền chung của **Synapse Lab Team** theo [LICENSE](LICENSE). Gửi Pull Request nghĩa là bạn đồng ý điều đó.
+- Không đưa mã, văn bản, ảnh, dữ liệu của người khác vào repo khi chưa kiểm tra giấy phép. Nếu dùng, thêm một dòng vào [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) ngay trong PR đó, kèm giữ nguyên file LICENSE của nguồn gốc nếu có.
+- Không commit bản chép nguyên trang web, PDF hay giáo trình. Lưu link, trích dẫn ngắn và ghi nguồn; script tải về thì thêm file tải về vào `.gitignore`.
+- Nội dung giấy phép **NonCommercial** (CC BY-NC, CC BY-NC-SA) hay **copyleft** (GPL, AGPL, CC BY-SA) cần hỏi leader trước, vì ảnh hưởng đến giấy phép và khả năng thương mại hóa của cả dự án.
