@@ -15,6 +15,7 @@ When you add third-party material, add a row here in the same pull request.
 | algorithm-visualizer **server** | `packages/algo-viz/server/` | MIT (declared in upstream `package.json`; upstream has no LICENSE file) | Derived from <https://github.com/algorithm-visualizer/server> (author: Jinseo Park). Modified (simulation engine, code presentation) |
 | algorithm-visualizer **algorithms** | `packages/algo-viz/algorithms/` | **No licence declared upstream** | Derived from <https://github.com/algorithm-visualizer/algorithms> (many contributors). Used for non-commercial study only, with attribution. **Must be re-checked with the upstream authors, or replaced with original code, before any commercial use.** Modified and extended (C++/TypeScript reference code, presentation metadata) |
 | Knight's Tour C++ reference | `packages/algo-viz/algorithms/Backtracking/Knight's Tour Problem/Code.cpp`, `be/algorithms/data/references/knights-tour/Code.cpp` | MIT, Wisnu Adi Nurcahyo | Compact teaching adaptation of `algorithms/backtracking.cpp` from <https://github.com/wisn/knights-tour>; see `SOURCE.md` next to the code |
+| SO-101 robot arm model (3D meshes and URDF) | `fe/public/lab/so101/` | Apache-2.0, The Robot Studio and contributors | From <https://github.com/TheRobotStudio/SO-ARM100> (`Simulation/SO101/`). Meshes simplified to about 9,000 triangles each; see `NOTICE.md` and `LICENSE-Apache-2.0.txt` in that directory |
 
 Upstream project: <https://github.com/algorithm-visualizer>.
 
