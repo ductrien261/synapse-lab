@@ -17,5 +17,6 @@ Closes #
 - [ ] `docker compose up` chạy được, trang mình sửa hoạt động
 - [ ] Không còn `console.log` debug, không có `any` mới trong TypeScript
 - [ ] Không commit `.env`, key, file PDF/model lớn
+- [ ] Nội dung bên thứ ba (mã, văn bản, ảnh, dữ liệu) đã kiểm giấy phép và ghi vào `THIRD_PARTY_NOTICES.md`
 - [ ] Có API mới thì đã xem lại trên Swagger
 - [ ] Đã tự đọc lại toàn bộ code, kể cả phần do AI viết

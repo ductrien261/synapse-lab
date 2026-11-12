@@ -1,0 +1,47 @@
+Synapse Lab - Copyright and Licence Notice
+
+Copyright (c) 2026 Synapse Lab Team. All rights reserved.
+
+Synapse Lab is a non-commercial student project (VKU, AI4Life course). This
+repository is public so that it can be read and evaluated. It is NOT open-source
+software.
+
+1. What this notice covers
+
+   This notice applies to the original work of the Synapse Lab Team in this
+   repository: source code, documentation, designs, the Synapse Lab name and
+   its logos (together, the "Work").
+
+   It does not apply to third-party material, which stays under its own licence
+   terms. That material and its licences are listed in THIRD_PARTY_NOTICES.md
+   and in the LICENSE files kept inside the directories concerned.
+
+2. Permissions
+
+   You may read the Work. If you access this repository through GitHub, you
+   also have the rights granted by the GitHub Terms of Service (viewing and
+   forking within GitHub).
+
+   Beyond that, and except where applicable law gives you the right, no licence
+   or permission is granted to copy, modify, distribute, sublicense, host, run,
+   or build on the Work, in whole or in part, for any purpose, commercial or
+   non-commercial, without the prior written permission of the Synapse Lab Team.
+
+3. Permission requests
+
+   To ask for permission, contact the maintainers through the GitHub profile of
+   the repository owner.
+
+4. No warranty
+
+   THE WORK IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED. IN NO EVENT SHALL THE SYNAPSE LAB TEAM BE LIABLE FOR ANY CLAIM,
+   DAMAGES OR OTHER LIABILITY ARISING FROM THE WORK OR ITS USE.
+
+----------------------------------------------------------------------------
+
+Tóm tắt (tiếng Việt; nếu có khác biệt thì bản tiếng Anh là bản có giá trị):
+Synapse Lab là đồ án sinh viên, phi thương mại. Mã nguồn được công khai để xem
+và đánh giá. Mọi quyền được bảo lưu cho Synapse Lab Team: không ai được sao
+chép, sửa, phân phối hay dùng lại khi chưa được cho phép bằng văn bản. Nội dung
+của bên thứ ba giữ giấy phép riêng, xem THIRD_PARTY_NOTICES.md.
