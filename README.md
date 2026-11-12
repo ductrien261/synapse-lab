@@ -23,11 +23,9 @@ Học thuật toán qua mô phỏng từng bước · Học giải phẫu qua m�
 
 ## Giới thiệu
 
-**Synapse Lab** là đồ án môn **AI4Life** (VKU, học kỳ 7, 2026–2027). Nền tảng giúp sinh viên **CNTT** học thuật toán qua mô phỏng từng bước, và sinh viên **Y khoa** học giải phẫu qua mô hình 3D tương tác. Giáo viên có thể mở **không gian học** để dạy trực tuyến với video, bảng trắng, bài giảng PDF và câu hỏi tương tác.
+**Synapse Lab** là nền tảng học tập trực quan có AI hỗ trợ. Nền tảng giúp sinh viên **CNTT** học thuật toán qua mô phỏng từng bước, và sinh viên **Y khoa** học giải phẫu qua mô hình 3D tương tác. Giáo viên có thể mở **không gian học** để dạy trực tuyến với video, bảng trắng, bài giảng PDF và câu hỏi tương tác.
 
 Kiến thức do AI đưa ra **bám vào giáo trình thật** (RAG, truy xuất từ kho tài liệu đã nhập), có nguồn trích dẫn, thay vì sinh nội dung tùy ý. Mọi lần gọi AI đều đi qua một cổng có hạn mức, nhật ký và theo dõi chi phí.
-
-> Đây là dự án học tập của sinh viên, hiện chưa dùng cho mục đích thương mại.
 
 ## Tính năng
 
@@ -314,7 +312,7 @@ Dự án dùng một số thành phần và tài liệu bên thứ ba (algorithm
 
 ## English summary
 
-**Synapse Lab** is a student project (VKU, AI4Life course, 2026) for interactive, AI-assisted learning:
+**Synapse Lab** is an interactive, AI-assisted learning platform:
 
 - **Algorithm visualization**: 73 algorithms with step-by-step simulation, source code and AI-drafted, admin-reviewed explanations.
 - **3D anatomy**: explore models by body system and click a structure to see grounded knowledge and textbook excerpts.
