@@ -225,7 +225,7 @@ class BacktrackingMigrationTests(TransactionTestCase):
             from knowledge.models import Document
             document = Document(title='Existing textbook', status='ready', scope='cs')
             Document.objects.bulk_create([document])
-            reference = apps.get_model('algorithms', 'AlgorithmReference').objects.create(algorithm=algorithm, document=document, excerpt='Keep reference')
+            reference = apps.get_model('algorithms', 'AlgorithmReference').objects.create(algorithm=algorithm, document_id=document.pk, excerpt='Keep reference')
             with self.assertRaises(CommandError):
                 seed()
             MigrationExecutor(connection).migrate(latest)
