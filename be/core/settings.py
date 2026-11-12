@@ -93,6 +93,10 @@ DATABASES = {
     )
 }
 
+# Không treo vô thời hạn khi database (Neon) không phản hồi: báo lỗi sau 10 giây
+if 'postgresql' in DATABASES['default'].get('ENGINE', ''):
+    DATABASES['default'].setdefault('OPTIONS', {})['connect_timeout'] = 10
+
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
     {
