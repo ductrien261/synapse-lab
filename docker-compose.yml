@@ -56,7 +56,7 @@ services:
       ADMIN_LOGIN_EMAIL: ${ADMIN_LOGIN_EMAIL:-}
       ALGO_SERVER_URL: http://algo-server:8080/api
       LIVEKIT_WS_URL: ${LIVEKIT_WS_URL:-ws://localhost:7880}
-      LIVEKIT_API_URL: ${LIVEKIT_API_URL:-http://host.docker.internal:7880}
+      LIVEKIT_API_URL: ${LIVEKIT_API_URL:-http://livekit:7880}
       LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-devkey}
       LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-secret}
       S3_BUCKET: ${S3_BUCKET:-}
@@ -68,6 +68,25 @@ services:
     depends_on:
       - redis
       - ai
+      - livekit
+
+  # LiveKit local cho phòng học video. Trình duyệt kết nối qua localhost:7880,
+  # còn backend gọi service này bằng hostname nội bộ http://livekit:7880.
+  livekit:
+    image: livekit/livekit-server:v1.13.9
+    restart: unless-stopped
+    command:
+      - --dev
+      - --bind
+      - 0.0.0.0
+      - --node-ip
+      - ${LIVEKIT_NODE_IP:-127.0.0.1}
+    environment:
+      LIVEKIT_KEYS: "${LIVEKIT_API_KEY:-devkey}: ${LIVEKIT_API_SECRET:-secret}"
+    ports:
+      - "7880:7880/tcp"
+      - "7881:7881/tcp"
+      - "7882:7882/udp"
 
   # Service AI: FastAPI + LangGraph (thư mục ai/). Chỉ be gọi vào.
   ai:

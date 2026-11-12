@@ -137,3 +137,25 @@ class AlgorithmTutorIn(Caller):
     scenario_options: AlgorithmScenarioOptions | None = None
     flashcard_options: AlgorithmFlashcardOptions | None = None
     code_selection: AlgorithmCodeSelection | None = None
+
+
+class ClassroomCopilotIn(Caller):
+    document_title: str = Field(default='', max_length=300)
+    page: int = Field(ge=1)
+    total_pages: int = Field(default=1, ge=1)
+    section_title: str = Field(default='', max_length=300)
+    lesson_objective: str = Field(default='', max_length=2000)
+    section_objective: str = Field(default='', max_length=2000)
+    teacher_notes: str = Field(default='', max_length=3000)
+    page_text: str = Field(min_length=1, max_length=15000)
+
+
+class ClassroomAssistantIn(Caller):
+    document_title: str = Field(default='', max_length=300)
+    section_title: str = Field(default='', max_length=300)
+    lesson_objective: str = Field(default='', max_length=2000)
+    current_page: int = Field(ge=1)
+    total_pages: int = Field(default=1, ge=1)
+    question: str = Field(min_length=1, max_length=8000)
+    page_contexts: list[dict] = Field(default_factory=list, max_length=3)
+    history: list[dict] = Field(default_factory=list, max_length=12)

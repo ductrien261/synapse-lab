@@ -177,6 +177,70 @@ export interface LivePollState {
   poll: LivePollDto | null;
 }
 
+export interface ClassroomCopilotResult {
+  status: 'ok';
+  summary: string;
+  explanation: string;
+  key_points: string[];
+  misconception: string;
+  check_question: string;
+  poll: {
+    question: string;
+    options: string[];
+    correct_index: number;
+  };
+  context: {
+    resource_id: string;
+    title: string;
+    page: number;
+    total_pages: number;
+  };
+}
+
+export interface ClassroomAssistantMessage {
+  role: 'user' | 'assistant';
+  content: string;
+  page: number;
+  used_external_knowledge?: boolean;
+}
+
+export interface ClassroomAssistantResult {
+  status: 'ok';
+  answer: string;
+  used_external_knowledge: boolean;
+  suggested_questions: string[];
+  context: {
+    resource_id: string;
+    title: string;
+    page: number;
+    total_pages: number;
+    source_pages: number[];
+  };
+}
+
+export type PdfTextBox = [number, number, number, number];
+
+export interface PdfTextBlock {
+  id: number;
+  text: string;
+  bbox: PdfTextBox;
+}
+
+export interface PdfTextWord {
+  id: number;
+  text: string;
+  block_id: number;
+  line: number;
+  word: number;
+  bbox: PdfTextBox;
+}
+
+export interface PdfTextGeometry {
+  page: number;
+  blocks: PdfTextBlock[];
+  words: PdfTextWord[];
+}
+
 export interface PresentationState {
   is_moderator: boolean;
   resources: PresentationResource[];
@@ -242,6 +306,26 @@ export const classroomApi = {
 
   presentation: (code: string) =>
     request<PresentationState>(`/classrooms/${encodeURIComponent(code)}/sessions/presentation/`),
+
+  classroomCopilot: (code: string, context: { resourceId: string; page: number }) =>
+    request<ClassroomCopilotResult>(`/classrooms/${encodeURIComponent(code)}/sessions/copilot/`, {
+      method: 'POST',
+      body: JSON.stringify({ resource_id: context.resourceId, page: context.page }),
+    }),
+
+  classroomAssistant: (code: string, data: { resourceId: string; page: number; question: string; history: ClassroomAssistantMessage[] }) =>
+    request<ClassroomAssistantResult>(`/classrooms/${encodeURIComponent(code)}/sessions/assistant/`, {
+      method: 'POST',
+      body: JSON.stringify({
+        resource_id: data.resourceId,
+        page: data.page,
+        question: data.question,
+        history: data.history,
+      }),
+    }),
+
+  pdfTextGeometry: (code: string, resourceId: string, page: number) =>
+    request<PdfTextGeometry>(`/classrooms/${encodeURIComponent(code)}/sessions/presentation/pdf/${resourceId}/pages/${page}/text/`),
 
   whiteboardSnapshot: (code: string, context: { resourceId: string | null; page: number }) => {
     const query = new URLSearchParams({ page: String(context.page) });

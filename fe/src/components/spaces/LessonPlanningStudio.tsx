@@ -146,6 +146,11 @@ export function LessonPlanningStudio({ roomCode: rawRoomCode }: { roomCode: stri
 
   const addFiles = async (files: FileList | null, requestedStepId?: string) => {
     if (!files?.length || !planDto?.sections.length || uploadingRef.current) return;
+    const unsupported = Array.from(files).find((file) => !/\.(pptx|pdf|docx)$/i.test(file.name));
+    if (unsupported) {
+      setNotice({ text: `“${unsupported.name}” chưa được hỗ trợ. Chỉ tải lên PPTX, PDF hoặc DOCX.`, tone: 'error' });
+      return;
+    }
     const targetStepId = requestedStepId || selectedResource?.stepId || plan?.steps[0]?.id;
     if (!targetStepId) return;
     uploadingRef.current = true;

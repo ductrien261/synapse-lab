@@ -15,6 +15,8 @@ import { InteractionToolbar } from './InteractionToolbar';
 import { RealtimeClassroomInteractions } from './RealtimeClassroomInteractions';
 import { CollaborativeWhiteboard } from './CollaborativeWhiteboard';
 import { RealtimePoll } from './RealtimePoll';
+import { ClassroomUtilitiesMenu } from './ClassroomUtilitiesMenu';
+import { ClassroomPageAssistant } from './ClassroomPageAssistant';
 
 type VideoConnection = { url: string; token: string };
 
@@ -31,6 +33,9 @@ export function LocalVideoRoom({ roomCode }: { roomCode: string }) {
   const [presentation, setPresentation] = useState<PresentationState | null>(null);
   const [annotationTool, setAnnotationTool] = useState<AnnotationTool>('none');
   const annotationStageIdRef = useRef<string | null>(null);
+  const contentActiveRef = useRef(false);
+  const presentationActive = Boolean(presentation?.on_stage && presentation.stage);
+  const contentActive = presentationActive || whiteboardVisible;
   const classroomUrl = `/spaces/${encodeURIComponent(roomCode)}`;
   const openPanel = useCallback(() => { setAiOpen(false); setPanelOpen(true); }, []);
   const closePanel = useCallback(() => setPanelOpen(false), []);
@@ -70,6 +75,13 @@ export function LocalVideoRoom({ roomCode }: { roomCode: string }) {
     return () => observer.disconnect();
   }, [connection]);
 
+  useEffect(() => {
+    if (contentActiveRef.current === contentActive) return;
+    contentActiveRef.current = contentActive;
+    const frame = window.requestAnimationFrame(() => setParticipantsCollapsed(contentActive));
+    return () => window.cancelAnimationFrame(frame);
+  }, [contentActive]);
+
   if (error || !connection) {
     return <main className="flex min-h-[calc(100dvh-4rem)] items-center justify-center bg-[#0F172A] p-6 text-center text-white">
       <div>
@@ -105,10 +117,10 @@ export function LocalVideoRoom({ roomCode }: { roomCode: string }) {
         setError((current) => current || 'Bạn đã rời phòng video.');
       }}
     >
-      <div className="relative h-full min-h-0 w-full flex-1 overflow-hidden" data-participants-collapsed={participantsCollapsed} data-presentation-active={Boolean(presentation?.on_stage && presentation.stage)} data-whiteboard-active={whiteboardVisible}>
+      <div className="relative h-full min-h-0 w-full flex-1 overflow-hidden" data-focus-layout={hasFocusLayout} data-participants-collapsed={participantsCollapsed} data-presentation-active={presentationActive} data-whiteboard-active={whiteboardVisible}>
         <VideoConference />
         {presentation?.on_stage && presentation.stage && <LocalPresentationStage roomCode={roomCode} state={presentation} onStateChange={updatePresentation} onOpenPanel={openPanel} annotationTool={annotationTool} />}
-        {hasFocusLayout && <button
+        {(hasFocusLayout || contentActive) && <button
           type="button"
           aria-expanded={!participantsCollapsed}
           aria-label={participantsCollapsed ? 'Hiện người tham gia' : 'Thu gọn người tham gia'}
@@ -118,10 +130,15 @@ export function LocalVideoRoom({ roomCode }: { roomCode: string }) {
         >
           {participantsCollapsed ? <ChevronLeft size={19} aria-hidden="true" /> : <ChevronRight size={19} aria-hidden="true" />}
         </button>}
+        {isModerator !== null && <ClassroomUtilitiesMenu
+          isModerator={isModerator}
+          canAnnotate={Boolean(isModerator && presentation?.on_stage && presentation.stage?.kind === 'pdf')}
+        />}
         {isModerator !== null && <InteractionToolbar isModerator={isModerator} roomCode={roomCode} presentation={presentation} onPresentationChange={updatePresentation} annotationTool={annotationTool} onAnnotationToolChange={setAnnotationTool} />}
         {isModerator !== null && <RealtimeClassroomInteractions isModerator={isModerator} />}
         {isModerator !== null && <CollaborativeWhiteboard roomCode={roomCode} isModerator={isModerator} presentation={presentation} onVisibilityChange={setWhiteboardVisible} />}
         {isModerator !== null && <RealtimePoll roomCode={roomCode} isModerator={isModerator} />}
+        {isModerator && presentation?.on_stage && presentation.stage?.kind === 'pdf' && <ClassroomPageAssistant roomCode={roomCode} presentation={presentation} />}
         <LocalPresentationPanel roomCode={roomCode} open={panelOpen} onClose={closePanel} onStateChange={updatePresentation} />
         {aiOpen && <ClassroomAiPanel roomCode={roomCode} open onClose={() => setAiOpen(false)} />}
       </div>

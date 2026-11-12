@@ -15,6 +15,6 @@ export function ResourceLibrary({ resources, selectedKey, onSelect, onAddFiles }
       })}
       {resources.length === 0 && <div className="rounded-xl border border-dashed border-white/20 p-5 text-center text-[10px] leading-relaxed text-stone-400"><FileEarmarkText className="mx-auto mb-2 h-5 w-5" />Lớp học chưa có tài liệu.</div>}
     </div>
-    <div className="border-t border-white/10 p-3"><label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#4C86F7] py-3 text-[10px] font-extrabold text-white hover:bg-[#3D73DF]"><PlusLg className="h-3 w-3" />Thêm tài liệu<input type="file" multiple accept=".ppt,.pptx,.pdf,.doc,.docx" onChange={(event) => { onAddFiles(event.target.files); event.target.value = ''; }} className="sr-only" /></label></div>
+    <div className="border-t border-white/10 p-3"><label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#4C86F7] py-3 text-[10px] font-extrabold text-white hover:bg-[#3D73DF]"><PlusLg className="h-3 w-3" />Thêm tài liệu<input type="file" multiple accept=".pptx,.pdf,.docx" onChange={(event) => { onAddFiles(event.target.files); event.target.value = ''; }} className="sr-only" /></label></div>
   </aside>;
 }
