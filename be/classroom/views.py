@@ -21,6 +21,8 @@ from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from ai_gateway.services import AIError, call_ai
+
 from .models import (
     ClassMembership,
     Classroom,
@@ -1027,6 +1029,255 @@ class SessionPresentationPdfPageView(APIView):
         if not resource.file:
             raise Http404('Tài liệu chưa có tệp PDF.')
         return render_pdf_resource_page(resource, page)
+
+
+class SessionPresentationPdfTextView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, code, resource_id, page):
+        classroom = get_member_classroom(request.user, code)
+        session = get_object_or_404(classroom.sessions, status=LiveSession.Status.LIVE)
+        if not session.attendances.filter(user=request.user, left_at__isnull=True).exists():
+            return Response({'detail': 'Bạn cần vào phiên học trước.'}, status=status.HTTP_403_FORBIDDEN)
+        presentation = cache.get(SessionPresentationView._key(session), {})
+        is_staged = presentation.get('on_stage') and presentation.get(
+            'stage_resource_id', presentation.get('resource_id')
+        ) == str(resource_id)
+        is_selected_by_owner = classroom.owner_id == request.user.id and presentation.get('resource_id') == str(resource_id)
+        if not is_staged and not is_selected_by_owner:
+            raise Http404('Tài liệu chưa được chiếu.')
+        resource = get_object_or_404(
+            session_resource_queryset(classroom, session), pk=resource_id, kind=LessonResource.Kind.PDF,
+        )
+        if not resource.file:
+            raise Http404('Tài liệu chưa có tệp PDF.')
+
+        cache_key = f'classroom-pdf-text-geometry:{resource.id}:{resource.updated_at.timestamp()}:{page}'
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return Response(cached)
+        try:
+            with fitz.open(resource.file.path) as document:
+                if page > document.page_count:
+                    raise Http404('Trang PDF không tồn tại.')
+                pdf_page = document.load_page(page - 1)
+                width = max(float(pdf_page.rect.width), 1)
+                height = max(float(pdf_page.rect.height), 1)
+                raw_words = pdf_page.get_text('words', sort=True)
+        except (fitz.FileDataError, ValueError, OSError, NotImplementedError):
+            return Response({'detail': 'Không thể đọc lớp chữ của trang PDF.'}, status=status.HTTP_422_UNPROCESSABLE_ENTITY)
+
+        words = []
+        block_words = {}
+        def normalize(value, size):
+            return round(min(1, max(0, value / size)), 6)
+        for raw in raw_words:
+            if len(raw) < 8 or not str(raw[4]).strip():
+                continue
+            x0, y0, x1, y1 = (float(raw[index]) for index in range(4))
+            block_no, line_no, word_no = (int(raw[index]) for index in range(5, 8))
+            word = {
+                'id': len(words),
+                'text': str(raw[4]),
+                'block_id': block_no,
+                'line': line_no,
+                'word': word_no,
+                'bbox': [normalize(x0, width), normalize(y0, height), normalize(x1, width), normalize(y1, height)],
+            }
+            words.append(word)
+            block_words.setdefault(block_no, []).append(word)
+
+        blocks = []
+        for block_id, items in block_words.items():
+            boxes = [item['bbox'] for item in items]
+            blocks.append({
+                'id': block_id,
+                'text': ' '.join(item['text'] for item in items),
+                'bbox': [
+                    min(box[0] for box in boxes), min(box[1] for box in boxes),
+                    max(box[2] for box in boxes), max(box[3] for box in boxes),
+                ],
+            })
+        payload = {'page': page, 'blocks': blocks, 'words': words}
+        cache.set(cache_key, payload, timeout=60 * 60)
+        return Response(payload)
+
+
+class SessionClassroomCopilotView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, code):
+        classroom = get_member_classroom(request.user, code)
+        require_classroom_owner(classroom, request.user)
+        session = get_object_or_404(classroom.sessions, status=LiveSession.Status.LIVE)
+        if not session.attendances.filter(user=request.user, left_at__isnull=True).exists():
+            return Response({'detail': 'Bạn cần vào phiên học trước.'}, status=status.HTTP_403_FORBIDDEN)
+
+        input_serializer = inline_serializer(
+            name='ClassroomCopilotRequest',
+            fields={
+                'resource_id': serializers.UUIDField(),
+                'page': serializers.IntegerField(min_value=1),
+            },
+            data=request.data,
+        )
+        input_serializer.is_valid(raise_exception=True)
+        presentation = cache.get(SessionPresentationView._key(session), {})
+        resource_id = str(input_serializer.validated_data['resource_id'])
+        page = input_serializer.validated_data['page']
+        if not presentation.get('on_stage') or presentation.get('stage_resource_id') != resource_id or presentation.get('stage_page') != page:
+            return Response({'detail': 'Trang đang trình chiếu đã thay đổi. Hãy phân tích lại trang hiện tại.'}, status=status.HTTP_409_CONFLICT)
+
+        resource = get_object_or_404(
+            session_resource_queryset(classroom, session).select_related('section__plan'),
+            pk=resource_id,
+            kind=LessonResource.Kind.PDF,
+        )
+        text_key = f'classroom-copilot-text:{resource.id}:{resource.updated_at.timestamp()}:{page}'
+        page_text = cache.get(text_key)
+        if page_text is None:
+            try:
+                with fitz.open(resource.file.path) as document:
+                    if page > document.page_count:
+                        raise Http404('Trang PDF không tồn tại.')
+                    page_text = document.load_page(page - 1).get_text('text').strip()[:15000]
+            except (fitz.FileDataError, ValueError, OSError, NotImplementedError):
+                return Response({'detail': 'Không thể đọc nội dung trang PDF.'}, status=status.HTTP_422_UNPROCESSABLE_ENTITY)
+            cache.set(text_key, page_text, timeout=60 * 60)
+        if len(' '.join(page_text.split())) < 40:
+            return Response(
+                {'detail': 'Trang này là ảnh scan hoặc không có đủ văn bản để trợ giảng AI phân tích.'},
+                status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            )
+
+        try:
+            result = call_ai('/v1/classroom/copilot', {
+                'document_title': resource.title,
+                'page': page,
+                'total_pages': max(resource.preview_page_count, 1),
+                'section_title': resource.section.title,
+                'lesson_objective': resource.section.plan.objective,
+                'section_objective': resource.section.objective,
+                'teacher_notes': resource.section.teacher_notes,
+                'page_text': page_text,
+            }, user=request.user, feature='classroom_copilot', timeout=120)
+        except AIError as exc:
+            return Response({'detail': str(exc)}, status=exc.status_code)
+
+        if result.get('status') != 'ok':
+            return Response({'detail': result.get('error') or 'AI chưa phân tích được trang này.'}, status=status.HTTP_422_UNPROCESSABLE_ENTITY)
+        result.pop('meta', None)
+        return Response({
+            **result,
+            'context': {
+                'resource_id': str(resource.id),
+                'title': resource.title,
+                'page': page,
+                'total_pages': max(resource.preview_page_count, 1),
+            },
+        })
+
+
+class SessionClassroomAssistantView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, code):
+        classroom = get_member_classroom(request.user, code)
+        session = get_object_or_404(classroom.sessions, status=LiveSession.Status.LIVE)
+        if not session.attendances.filter(user=request.user, left_at__isnull=True).exists():
+            return Response({'detail': 'Bạn cần vào phiên học trước.'}, status=status.HTTP_403_FORBIDDEN)
+
+        input_serializer = inline_serializer(
+            name='ClassroomAssistantRequest',
+            fields={
+                'resource_id': serializers.UUIDField(),
+                'page': serializers.IntegerField(min_value=1),
+                'question': serializers.CharField(min_length=1, max_length=8000, trim_whitespace=True),
+                'history': serializers.JSONField(required=False, default=list),
+            },
+            data=request.data,
+        )
+        input_serializer.is_valid(raise_exception=True)
+        presentation = cache.get(SessionPresentationView._key(session), {})
+        resource_id = str(input_serializer.validated_data['resource_id'])
+        page = input_serializer.validated_data['page']
+        if not presentation.get('on_stage') or presentation.get('stage_resource_id') != resource_id:
+            return Response({'detail': 'Tài liệu đang trình chiếu đã thay đổi. Hãy gửi lại câu hỏi.'}, status=status.HTTP_409_CONFLICT)
+
+        resource = get_object_or_404(
+            session_resource_queryset(classroom, session).select_related('section__plan'),
+            pk=resource_id,
+            kind=LessonResource.Kind.PDF,
+        )
+        if not resource.file:
+            raise Http404('Tài liệu chưa có tệp PDF.')
+
+        history = input_serializer.validated_data['history']
+        if not isinstance(history, list):
+            return Response({'history': 'Lịch sử hội thoại không hợp lệ.'}, status=status.HTTP_400_BAD_REQUEST)
+        clean_history = []
+        for item in history[-12:]:
+            if not isinstance(item, dict) or item.get('role') not in {'user', 'assistant'}:
+                continue
+            content = ' '.join(str(item.get('content') or '').split())[:1800]
+            if content:
+                clean_history.append({
+                    'role': item['role'],
+                    'content': content,
+                    'page': item.get('page') if isinstance(item.get('page'), int) else None,
+                })
+
+        page_contexts = []
+        try:
+            with fitz.open(resource.file.path) as document:
+                if page > document.page_count:
+                    raise Http404('Trang PDF không tồn tại.')
+                for context_page in range(max(1, page - 2), page + 1):
+                    text_key = f'classroom-copilot-text:{resource.id}:{resource.updated_at.timestamp()}:{context_page}'
+                    page_text = cache.get(text_key)
+                    if page_text is None:
+                        page_text = document.load_page(context_page - 1).get_text('text').strip()[:15000]
+                        cache.set(text_key, page_text, timeout=60 * 60)
+                    clean_text = ' '.join(page_text.split())
+                    if clean_text:
+                        page_contexts.append({'page': context_page, 'text': clean_text})
+        except (fitz.FileDataError, ValueError, OSError, NotImplementedError):
+            return Response({'detail': 'Không thể đọc nội dung trang PDF.'}, status=status.HTTP_422_UNPROCESSABLE_ENTITY)
+
+        current_text = next((item['text'] for item in page_contexts if item['page'] == page), '')
+        if len(current_text) < 40:
+            return Response(
+                {'detail': 'Trang hiện tại là ảnh scan hoặc không có đủ văn bản để trợ giảng AI đọc.'},
+                status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            )
+
+        try:
+            result = call_ai('/v1/classroom/assistant', {
+                'document_title': resource.title,
+                'section_title': resource.section.title,
+                'lesson_objective': resource.section.plan.objective,
+                'current_page': page,
+                'total_pages': max(resource.preview_page_count, 1),
+                'question': input_serializer.validated_data['question'],
+                'page_contexts': page_contexts,
+                'history': clean_history,
+            }, user=request.user, feature='classroom_assistant', timeout=120)
+        except AIError as exc:
+            return Response({'detail': str(exc)}, status=exc.status_code)
+
+        if result.get('status') != 'ok':
+            return Response({'detail': result.get('error') or 'AI chưa trả lời được câu hỏi này.'}, status=status.HTTP_422_UNPROCESSABLE_ENTITY)
+        result.pop('meta', None)
+        return Response({
+            **result,
+            'context': {
+                'resource_id': str(resource.id),
+                'title': resource.title,
+                'page': page,
+                'total_pages': max(resource.preview_page_count, 1),
+                'source_pages': [item['page'] for item in page_contexts],
+            },
+        })
 
 
 class SessionQuizReportView(APIView):

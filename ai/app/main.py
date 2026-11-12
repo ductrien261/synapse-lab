@@ -17,13 +17,15 @@ from .config import get_settings
 from .graphs import draft as draft_graph
 from .graphs import algorithm_draft
 from .graphs import algorithm_tutor
+from .graphs import classroom_copilot
+from .graphs import classroom_assistant
 from .graphs import anatomy_actions
 from .graphs import quick_check as quick_check_graph
 from .graphs import quiz as quiz_graph
 from .graphs import tutor as tutor_graph
 from .llm.chat import LLMError, LLMNotConfigured
 from .llm.tracing import run_context, shutdown
-from .schemas import AlgorithmTutorIn, AnatomyActionIn, DraftAlgorithmIn, DraftStructureIn, QuickCheckIn, QuizGenerateIn, QuizGradeIn, SearchIn, TranslateIn, TutorAskIn
+from .schemas import AlgorithmTutorIn, AnatomyActionIn, ClassroomAssistantIn, ClassroomCopilotIn, DraftAlgorithmIn, DraftStructureIn, QuickCheckIn, QuizGenerateIn, QuizGradeIn, SearchIn, TranslateIn, TutorAskIn
 from .tools.embeddings import EmbeddingError
 from .tools.retrieval import RetrievalError, search
 from .tools.translate import translate_text
@@ -173,6 +175,30 @@ def algorithm_tutor_generate(body: AlgorithmTutorIn):
             )
         except LLMError as exc:
             raise _fail(exc, ctx) from exc
+        return {**result, 'meta': ctx.meta()}
+
+
+@app.post('/v1/classroom/copilot', dependencies=[Depends(require_token)])
+def classroom_copilot_generate(body: ClassroomCopilotIn):
+    with run_context('classroom_copilot', 'classroom_copilot', body.user_id, {
+        'document': body.document_title, 'page': body.page,
+    }) as ctx:
+        try:
+            result = classroom_copilot.run(ctx, body.model_dump(exclude={'user_id'}))
+        except LLMError as exc:
+            result = {'status': 'failed', 'error': str(exc)}
+        return {**result, 'meta': ctx.meta()}
+
+
+@app.post('/v1/classroom/assistant', dependencies=[Depends(require_token)])
+def classroom_assistant_generate(body: ClassroomAssistantIn):
+    with run_context('classroom_assistant', 'classroom_assistant', body.user_id, {
+        'document': body.document_title, 'page': body.current_page,
+    }) as ctx:
+        try:
+            result = classroom_assistant.run(ctx, body.model_dump(exclude={'user_id'}))
+        except LLMError as exc:
+            result = {'status': 'failed', 'error': str(exc)}
         return {**result, 'meta': ctx.meta()}
 
 

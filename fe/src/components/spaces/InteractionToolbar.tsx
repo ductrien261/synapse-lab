@@ -3,9 +3,10 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useRoomContext } from '@livekit/components-react';
-import { ArrowCounterclockwise, Cursor, Eraser, Highlighter, Pencil, PencilSquare, Sticky } from 'react-bootstrap-icons';
+import { ArrowCounterclockwise, Cursor, Eraser, Highlighter, Pencil, Sticky } from 'react-bootstrap-icons';
 import { classroomApi, type AnnotationTool, type PresentationState } from './classroom-api';
 import { PRESENTATION_UPDATE_TOPIC } from './LocalPresentationPanel';
+import { CLASSROOM_UTILITY_EVENT, type ClassroomUtility } from './classroom-utility-events';
 
 interface Props {
   isModerator: boolean;
@@ -51,6 +52,15 @@ export function InteractionToolbar({ isModerator, roomCode, presentation, onPres
     return () => { document.removeEventListener('pointerdown', close); window.removeEventListener('keydown', onKeyDown); };
   }, [open]);
 
+  useEffect(() => {
+    const handleUtility = (event: Event) => {
+      const utility = (event as CustomEvent<ClassroomUtility>).detail;
+      setOpen(utility === 'annotations' && Boolean(canAnnotate));
+    };
+    window.addEventListener(CLASSROOM_UTILITY_EVENT, handleUtility);
+    return () => window.removeEventListener(CLASSROOM_UTILITY_EVENT, handleUtility);
+  }, [canAnnotate]);
+
   const undo = async () => {
     if (!presentation?.stage || pending) return;
     setPending(true);
@@ -70,10 +80,9 @@ export function InteractionToolbar({ isModerator, roomCode, presentation, onPres
     }
   };
 
-  if (!controlBar || !canAnnotate) return null;
+  if (!controlBar || !canAnnotate || !open) return null;
   return createPortal(<div ref={panelRef} className="synapse-utility-actions relative shrink-0">
-    <button type="button" aria-label="Công cụ ghi chú PDF" title="Công cụ ghi chú PDF" aria-expanded={open} aria-controls={panelId} onClick={() => setOpen((value) => !value)} className={`lk-button synapse-utility-button !px-3 ${annotationTool !== 'none' ? '!bg-blue-700 !text-white' : ''}`}><PencilSquare size={20} aria-hidden="true" /></button>
-    {open && <aside id={panelId} role="dialog" aria-label="Công cụ ghi chú PDF" className="absolute bottom-[calc(100%+12px)] right-0 z-50 w-[min(290px,calc(100vw-2rem))] rounded-2xl border border-slate-200 bg-white p-3 text-slate-900 shadow-[0_24px_64px_-16px_rgba(15,34,88,0.35)]">
+    <aside id={panelId} role="dialog" aria-label="Công cụ ghi chú PDF" className="absolute bottom-[calc(100%+12px)] right-0 z-50 w-[min(290px,calc(100vw-2rem))] rounded-2xl border border-slate-200 bg-white p-3 text-slate-900 shadow-[0_24px_64px_-16px_rgba(15,34,88,0.35)]">
       <p className="mb-2 px-1 text-sm font-bold text-[#0F2258]">Ghi chú trên PDF</p>
       {([
         ['none', Cursor, 'Di chuyển'],
@@ -84,6 +93,6 @@ export function InteractionToolbar({ isModerator, roomCode, presentation, onPres
       ] as const).map(([tool, Icon, label]) => <button key={tool} type="button" aria-pressed={annotationTool === tool} onClick={() => { onAnnotationToolChange(tool); setError(''); }} className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-xs font-semibold ${annotationTool === tool ? 'bg-blue-50 text-[#1E3F82]' : 'text-slate-700 hover:bg-slate-50'}`}><Icon size={17} aria-hidden="true" />{label}</button>)}
       <div className="mt-2 border-t border-slate-100 pt-2"><button type="button" disabled={pending || !presentation.stage_annotations.length} onClick={() => void undo()} className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40"><ArrowCounterclockwise size={17} aria-hidden="true" />Hoàn tác ghi chú cuối</button></div>
       {error && <p role="alert" className="mt-2 rounded-lg bg-rose-50 px-2 py-1.5 text-xs text-rose-700">{error}</p>}
-    </aside>}
+    </aside>
   </div>, controlBar);
 }

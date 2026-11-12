@@ -331,6 +331,10 @@ class LessonResourceSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({'quiz': 'Tài nguyên quiz cần nội dung câu hỏi.'})
         if kind == LessonResource.Kind.SLIDE and uploaded_file and not uploaded_file.name.lower().endswith('.pptx'):
             raise serializers.ValidationError({'file': 'Bài trình chiếu phải ở định dạng .pptx.'})
+        if kind == LessonResource.Kind.PDF and uploaded_file and not uploaded_file.name.lower().endswith('.pdf'):
+            raise serializers.ValidationError({'file': 'Tài liệu PDF phải ở định dạng .pdf.'})
+        if kind == LessonResource.Kind.DOC and uploaded_file and not uploaded_file.name.lower().endswith('.docx'):
+            raise serializers.ValidationError({'file': 'Tài liệu Word phải ở định dạng .docx; định dạng .doc cũ chưa được hỗ trợ.'})
         return attrs
 
     def create(self, validated_data):

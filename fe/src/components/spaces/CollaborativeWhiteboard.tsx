@@ -1,12 +1,12 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState, type PointerEvent } from 'react';
-import { createPortal } from 'react-dom';
 import { useRoomContext } from '@livekit/components-react';
 import { RemoteParticipant, RoomEvent } from 'livekit-client';
-import { ArrowCounterclockwise, Cursor, Easel2, Eraser, Highlighter, LockFill, Pencil, Trash3, UnlockFill, X } from 'react-bootstrap-icons';
+import { ArrowCounterclockwise, Cursor, Eraser, Highlighter, LockFill, Pencil, Trash3, UnlockFill, X } from 'react-bootstrap-icons';
 import { classroomApi, type PresentationState } from './classroom-api';
 import { isWhiteboardModerator, parseWhiteboardMessage, toWireStroke, WHITEBOARD_COLORS, WHITEBOARD_TOPIC, whiteboardPath, type WhiteboardCursor, type WhiteboardMessage, type WhiteboardPayload, type WhiteboardPoint, type WhiteboardStroke, type WhiteboardTool } from './whiteboard-realtime';
+import { CLASSROOM_UTILITY_EVENT, type ClassroomUtility } from './classroom-utility-events';
 
 const encoder = new TextEncoder();
 
@@ -24,7 +24,6 @@ export function CollaborativeWhiteboard({ roomCode, isModerator, presentation, o
   const page = resourceId ? presentation?.stage_page || 1 : 1;
   const contextKey = resourceId ? `resource:${resourceId}:page:${page}` : 'session';
   const contextLabel = stagedDocument ? `${stagedDocument.title} · Trang ${page}` : 'Bảng chung của buổi học';
-  const [controlBar, setControlBar] = useState<HTMLElement | null>(null);
   const [visible, setVisible] = useState(false);
   const [locked, setLocked] = useState(true);
   const [tool, setTool] = useState<WhiteboardTool>('cursor');
@@ -46,7 +45,6 @@ export function CollaborativeWhiteboard({ roomCode, isModerator, presentation, o
   useEffect(() => { strokesRef.current = strokes; }, [strokes]);
   useEffect(() => { lockedRef.current = locked; }, [locked]);
   useEffect(() => { visibleRef.current = visible; onVisibilityChange(visible); }, [onVisibilityChange, visible]);
-
   const publish = useCallback(async (payload: WhiteboardPayload, destinationIdentities?: string[]) => {
     const message: WhiteboardMessage = { ...payload, contextKey: contextKeyRef.current, sentAt: Date.now() };
     await room.localParticipant.publishData(encoder.encode(JSON.stringify(message)), {
@@ -62,17 +60,6 @@ export function CollaborativeWhiteboard({ roomCode, isModerator, presentation, o
       strokesRef.current = next;
       return next;
     });
-  }, []);
-
-  useEffect(() => {
-    const findControlBar = () => {
-      const target = document.querySelector<HTMLElement>('.lk-video-conference .lk-control-bar');
-      if (target) { setControlBar(target); observer.disconnect(); }
-    };
-    const observer = new MutationObserver(findControlBar);
-    observer.observe(document.body, { childList: true, subtree: true });
-    const frame = window.requestAnimationFrame(findControlBar);
-    return () => { window.cancelAnimationFrame(frame); observer.disconnect(); };
   }, []);
 
   useEffect(() => {
@@ -239,10 +226,17 @@ export function CollaborativeWhiteboard({ roomCode, isModerator, presentation, o
     const stroke = [...visibleStrokes].reverse().find((item) => item.authorId === room.localParticipant.identity);
     if (stroke) removeStroke(stroke, true);
   };
-  const setBoardVisible = (next: boolean) => {
+  const setBoardVisible = useCallback((next: boolean) => {
     visibleRef.current = next; setVisible(next);
     if (isModerator) void publish({ type: 'present', visible: next }).catch(() => setError('Chưa đồng bộ được bảng với lớp.'));
-  };
+  }, [isModerator, publish]);
+  useEffect(() => {
+    const handleUtility = (event: Event) => {
+      if ((event as CustomEvent<ClassroomUtility>).detail === 'whiteboard') setBoardVisible(!visibleRef.current);
+    };
+    window.addEventListener(CLASSROOM_UTILITY_EVENT, handleUtility);
+    return () => window.removeEventListener(CLASSROOM_UTILITY_EVENT, handleUtility);
+  }, [setBoardVisible]);
   const toggleLock = () => {
     const next = !locked; lockedRef.current = next; setLocked(next);
     void publish({ type: 'lock', locked: next }).catch(() => setError('Chưa cập nhật được quyền chỉnh sửa.'));
@@ -252,10 +246,7 @@ export function CollaborativeWhiteboard({ roomCode, isModerator, presentation, o
     void publish({ type: 'clear' }).catch(() => setError('Chưa xóa được bảng.'));
   };
 
-  const toolbarButton = controlBar ? createPortal(<div className="synapse-utility-actions relative shrink-0"><button type="button" title="Bảng cộng tác" aria-label="Bảng cộng tác" aria-pressed={visible} onClick={() => setBoardVisible(!visible)} className={`lk-button synapse-utility-button !px-3 ${visible ? '!bg-blue-700 !text-white' : ''}`}><Easel2 size={20} aria-hidden="true" /></button></div>, controlBar) : null;
-
   return <>
-    {toolbarButton}
     {visible && <section aria-label="Bảng cộng tác" className="synapse-collaborative-whiteboard flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white text-slate-900 shadow-2xl">
       <header className="flex min-h-14 shrink-0 flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-3 py-2">
         <div className="min-w-0"><h2 className="text-sm font-bold text-[#0F2258]">Bảng cộng tác</h2><p className="max-w-[340px] truncate text-[11px] font-medium text-slate-600">{contextLabel}</p><p className="text-[10px] text-slate-400">{locked ? 'Học viên đang chỉ xem' : 'Mọi người có thể cùng vẽ'} · {displayedStatus}</p></div>

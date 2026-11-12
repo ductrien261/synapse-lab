@@ -106,13 +106,27 @@ docker compose exec be python manage.py init_data
 
 ### Phòng học LiveKit
 
-Chạy LiveKit Server trên máy host để thử phòng video local:
+LiveKit Server đã nằm trong `docker-compose.yml`, nên không cần chạy `livekit-server.exe` ở terminal riêng. Khởi động toàn bộ hệ thống bằng:
 
 ```bash
-livekit-server --dev
+docker compose up --build
 ```
 
-Giữ server chạy, đặt `LIVEKIT_WS_URL`, `LIVEKIT_API_URL`, `LIVEKIT_API_KEY` và `LIVEKIT_API_SECRET` trong `.env` theo cấu hình LiveKit, rồi khởi động lại backend. `LIVEKIT_WS_URL` là địa chỉ trình duyệt dùng để vào phòng; `LIVEKIT_API_URL` là địa chỉ backend dùng để đóng phòng. Giá trị `ws://localhost:7880` trong mẫu chỉ hoạt động khi trình duyệt và LiveKit cùng máy. Khi cho người ở xa tham gia, dùng địa chỉ `wss://` truy cập được từ trình duyệt của họ. Sau khi cập nhật code, chạy migration bằng lệnh ở bước 4.
+Compose chạy LiveKit ở chế độ dev với cặp khóa `devkey` / `secret`. Trình duyệt kết nối qua `ws://localhost:7880`, còn backend kết nối nội bộ qua `http://livekit:7880`. Các cổng `7880/tcp`, `7881/tcp` và `7882/udp` được mở cho signaling và WebRTC.
+
+Các giá trị có thể thay đổi trong `.env`:
+
+```env
+LIVEKIT_WS_URL=ws://localhost:7880
+LIVEKIT_API_URL=http://livekit:7880
+LIVEKIT_API_KEY=devkey
+LIVEKIT_API_SECRET=secret
+LIVEKIT_NODE_IP=127.0.0.1
+```
+
+`localhost`/`127.0.0.1` chỉ phù hợp khi mở lớp trên chính máy chạy Docker. Nếu thử từ điện thoại hoặc máy khác trong cùng mạng LAN, đặt `LIVEKIT_WS_URL=ws://<IP_LAN>:7880` và `LIVEKIT_NODE_IP=<IP_LAN>`, rồi tạo lại service bằng `docker compose up -d --force-recreate livekit be`.
+
+Đây là cấu hình phát triển local. Khi triển khai Internet cần domain `wss://`, TLS hợp lệ, cấu hình IP public/TURN và firewall phù hợp.
 
 Muốn có mô hình 3D để học: vào trang quản trị để nhập, hoặc dùng lệnh:
 
@@ -134,6 +148,7 @@ Xong. Mở <http://localhost:3100> và đăng nhập bằng tài khoản vừa t
 | Django Admin (dự phòng cho dev) | <http://localhost:8000/admin/> |
 | Kiểm tra backend sống | <http://localhost:8000/api/health/> |
 | Algo server | <http://localhost:8080/api/algorithms/> |
+| LiveKit signaling | <http://localhost:7880> |
 
 ### Chia sẻ bản demo qua VS Code Ports
 

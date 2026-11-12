@@ -113,6 +113,54 @@ class ClassroomApiTests(APITestCase):
         self.assertTrue(classroom.is_archived)
         self.assertEqual(self.client.get(reverse('classroom-list-create')).data, [])
 
+    def test_teacher_studio_accepts_long_pdf_and_docx_names_but_rejects_legacy_doc(self):
+        classroom = Classroom.objects.create(name='Lớp tài liệu', owner=self.owner)
+        ClassMembership.objects.create(
+            classroom=classroom,
+            user=self.owner,
+            role=ClassMembership.Role.OWNER,
+        )
+        plan = LessonPlan.objects.create(classroom=classroom, title='Bài học')
+        section = LessonSection.objects.create(plan=plan, title='Tài liệu')
+        url = reverse('lesson-resource-list-create', kwargs={
+            'code': classroom.code,
+            'section_id': section.id,
+        })
+        self.client.force_authenticate(self.owner)
+
+        long_pdf_name = f"{'tai_lieu_giai_phau_' * 7}.pdf"
+        pdf_response = self.client.post(url, {
+            'kind': LessonResource.Kind.PDF,
+            'title': long_pdf_name,
+            'file': SimpleUploadedFile(
+                long_pdf_name,
+                make_test_pdf_bytes('Long filename'),
+                content_type='application/pdf',
+            ),
+        }, format='multipart')
+        self.assertEqual(pdf_response.status_code, status.HTTP_201_CREATED)
+        pdf_resource = LessonResource.objects.get(pk=pdf_response.data['id'])
+        self.assertGreater(len(pdf_resource.file.name), 100)
+
+        docx_response = self.client.post(url, {
+            'kind': LessonResource.Kind.DOC,
+            'title': 'Ke hoach bai day.docx',
+            'file': SimpleUploadedFile(
+                'Ke hoach bai day.docx',
+                b'PK\x03\x04docx-placeholder',
+                content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            ),
+        }, format='multipart')
+        self.assertEqual(docx_response.status_code, status.HTTP_201_CREATED)
+
+        legacy_doc = self.client.post(url, {
+            'kind': LessonResource.Kind.DOC,
+            'title': 'Tai lieu cu.doc',
+            'file': SimpleUploadedFile('Tai lieu cu.doc', b'legacy-doc', content_type='application/msword'),
+        }, format='multipart')
+        self.assertEqual(legacy_doc.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('docx', str(legacy_doc.data['file'][0]).lower())
+
     def test_whiteboard_snapshot_is_saved_per_resource_page_by_owner(self):
         classroom = Classroom.objects.create(name='Lớp bảng cộng tác', owner=self.owner)
         ClassMembership.objects.bulk_create([
@@ -777,3 +825,90 @@ class ClassroomApiTests(APITestCase):
         run.refresh_from_db()
         self.assertEqual(run.status, LiveQuizRun.Status.CLOSED)
         self.assertIsNotNone(run.closed_at)
+
+    @patch('classroom.views.call_ai')
+    def test_student_assistant_uses_current_and_previous_pdf_pages_with_history(self, call_ai_mock):
+        classroom = Classroom.objects.create(name='Lớp trợ lý', owner=self.owner)
+        ClassMembership.objects.bulk_create([
+            ClassMembership(classroom=classroom, user=self.owner, role=ClassMembership.Role.OWNER),
+            ClassMembership(classroom=classroom, user=self.member, role=ClassMembership.Role.MEMBER),
+        ])
+        plan = LessonPlan.objects.create(classroom=classroom, title='Bài học', objective='Hiểu nội dung bài học')
+        section = LessonSection.objects.create(plan=plan, title='Khái niệm chính')
+        pdf = LessonResource.objects.create(
+            section=section,
+            kind=LessonResource.Kind.PDF,
+            title='Tài liệu học.pdf',
+            file=SimpleUploadedFile(
+                'assistant.pdf',
+                make_test_pdf_bytes('Nội dung trang đủ dài để trợ lý giải thích cho học sinh trong lớp học trực tiếp.', page_count=2),
+            ),
+            preview_page_count=2,
+        )
+        session = LiveSession.objects.create(
+            classroom=classroom, title='Buổi học', room_name='assistant-room', created_by=self.owner,
+        )
+        SessionAttendance.objects.bulk_create([
+            SessionAttendance(session=session, user=self.owner),
+            SessionAttendance(session=session, user=self.member),
+        ])
+        presentation_url = reverse('session-presentation', kwargs={'code': classroom.code})
+        self.client.force_authenticate(self.owner)
+        self.client.post(presentation_url, {'action': 'show', 'resource_id': str(pdf.id)}, format='json')
+        self.client.post(presentation_url, {'action': 'present'}, format='json')
+        self.client.post(presentation_url, {'action': 'stage_page', 'page': 2}, format='json')
+
+        call_ai_mock.return_value = {
+            'status': 'ok',
+            'answer': 'Trang 2 tiếp nối khái niệm ở trang 1.',
+            'used_external_knowledge': False,
+            'suggested_questions': ['Cho mình ví dụ?', 'Điểm chính là gì?'],
+            'meta': {},
+        }
+        assistant_url = reverse('session-classroom-assistant', kwargs={'code': classroom.code})
+        self.client.force_authenticate(self.member)
+        geometry = self.client.get(reverse('session-presentation-pdf-text', kwargs={
+            'code': classroom.code,
+            'resource_id': pdf.id,
+            'page': 2,
+        }))
+        self.assertEqual(geometry.status_code, status.HTTP_200_OK)
+        self.assertTrue(geometry.data['blocks'])
+        self.assertTrue(geometry.data['words'])
+        self.assertTrue(all(0 <= value <= 1 for value in geometry.data['words'][0]['bbox']))
+
+        response = self.client.post(assistant_url, {
+            'resource_id': str(pdf.id),
+            'page': 2,
+            'question': 'Nội dung này liên quan trang trước thế nào?',
+            'history': [{'role': 'assistant', 'content': 'Trang 1 giới thiệu khái niệm.', 'page': 1}],
+        }, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['context']['source_pages'], [1, 2])
+        self.assertEqual(response.data['answer'], 'Trang 2 tiếp nối khái niệm ở trang 1.')
+        ai_path, payload = call_ai_mock.call_args.args[:2]
+        self.assertEqual(ai_path, '/v1/classroom/assistant')
+        self.assertEqual([item['page'] for item in payload['page_contexts']], [1, 2])
+        self.assertEqual(payload['history'][0]['page'], 1)
+        self.assertNotIn('teacher_notes', payload)
+
+        independent_page = self.client.post(assistant_url, {
+            'resource_id': str(pdf.id),
+            'page': 1,
+            'question': 'Giải thích và liên hệ đoạn này: ' + ('nội dung dài ' * 120),
+            'history': [],
+        }, format='json')
+        self.assertEqual(independent_page.status_code, status.HTTP_200_OK)
+        self.assertEqual(independent_page.data['context']['source_pages'], [1])
+
+        self.client.force_authenticate(self.owner)
+        self.client.post(presentation_url, {'action': 'stop_present'}, format='json')
+        self.client.force_authenticate(self.member)
+        stale = self.client.post(assistant_url, {
+            'resource_id': str(pdf.id),
+            'page': 1,
+            'question': 'Tài liệu còn đang chiếu không?',
+            'history': [],
+        }, format='json')
+        self.assertEqual(stale.status_code, status.HTTP_409_CONFLICT)
