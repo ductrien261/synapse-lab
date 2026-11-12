@@ -2,9 +2,8 @@ Synapse Lab - Copyright and Licence Notice
 
 Copyright (c) 2026 Synapse Lab Team. All rights reserved.
 
-Synapse Lab is a non-commercial student project (VKU, AI4Life course). This
-repository is public so that it can be read and evaluated. It is NOT open-source
-software.
+This repository is public so that it can be read and evaluated. It is NOT
+open-source software.
 
 1. What this notice covers
 
@@ -41,7 +40,7 @@ software.
 ----------------------------------------------------------------------------
 
 Tóm tắt (tiếng Việt; nếu có khác biệt thì bản tiếng Anh là bản có giá trị):
-Synapse Lab là đồ án sinh viên, phi thương mại. Mã nguồn được công khai để xem
+Mã nguồn Synapse Lab được công khai để xem
 và đánh giá. Mọi quyền được bảo lưu cho Synapse Lab Team: không ai được sao
 chép, sửa, phân phối hay dùng lại khi chưa được cho phép bằng văn bản. Nội dung
 của bên thứ ba giữ giấy phép riêng, xem THIRD_PARTY_NOTICES.md.
