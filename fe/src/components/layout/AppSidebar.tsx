@@ -14,6 +14,7 @@ import {
   HeartPulseFill,
   PeopleFill,
   ShieldLockFill,
+  Tools,
 } from 'react-bootstrap-icons';
 import { useUser } from '@/lib/user-context';
 import { useRecent } from '@/lib/recent';
@@ -62,15 +63,34 @@ export function AppSidebar({ collapsed: collapsedProp, onToggle, mobile = false 
       }`}
     >
       <div className="flex-1 overflow-y-auto overflow-x-hidden p-3 pt-4 flex flex-col gap-5">
-        {/* ---------- Học tập ---------- */}
-        <NavSection title="Học tập" collapsed={collapsed}>
-          {!guest && <NavLink href="/dashboard" label="Tổng quan" icon={Grid1x2Fill} active={isActive('/dashboard')} collapsed={collapsed} />}
-          {showAlgorithms && (
-            <AlgorithmsNav active={isActive('/algorithms')} collapsed={collapsed} />
-          )}
-          {showAnatomy && <AnatomyNav active={isActive('/anatomy')} collapsed={collapsed} />}
-          {!guest && <NavLink href="/spaces" label="Không gian" icon={PeopleFill} active={isActive('/spaces')} collapsed={collapsed} />}
-        </NavSection>
+        {/* ---------- Tổng quan ---------- */}
+        {!guest && (
+          <div className="flex flex-col gap-1">
+            <NavLink href="/dashboard" label="Tổng quan" icon={Grid1x2Fill} active={isActive('/dashboard')} collapsed={collapsed} />
+          </div>
+        )}
+
+        {/* ---------- Học liệu ---------- */}
+        {(showAlgorithms || showAnatomy) && (
+          <NavSection title="Học liệu" collapsed={collapsed}>
+            {showAlgorithms && <AlgorithmsNav active={isActive('/algorithms')} collapsed={collapsed} />}
+            {showAnatomy && <AnatomyNav active={isActive('/anatomy')} collapsed={collapsed} />}
+          </NavSection>
+        )}
+
+        {/* ---------- Không gian ---------- */}
+        {!guest && (
+          <NavSection title="Không gian" collapsed={collapsed}>
+            <NavLink href="/spaces" label="Không gian học" icon={PeopleFill} active={isActive('/spaces')} collapsed={collapsed} />
+          </NavSection>
+        )}
+
+        {/* ---------- Phòng thí nghiệm ---------- */}
+        {!guest && (
+          <NavSection title="Phòng thí nghiệm" collapsed={collapsed}>
+            <NavLink href="/lab" label="Virtual Lab" icon={Tools} active={isActive('/lab')} collapsed={collapsed} />
+          </NavSection>
+        )}
 
         {/* ---------- Gần đây ---------- */}
         {!collapsed && recent.length > 0 && (
