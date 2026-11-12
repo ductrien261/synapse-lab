@@ -1,0 +1,156 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# A new push to the same PR cancels the previous, now-obsolete run.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend (Django)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        # Migrations enable the pgvector extension and use Postgres full-text search,
+        # so SQLite cannot be used here.
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: synapse
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/synapse
+      SECRET_KEY: ci-only-secret-key
+    defaults:
+      run:
+        working-directory: be
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: be/uv.lock
+      - name: Install dependencies
+        run: uv sync --frozen
+      - name: Django system check
+        run: uv run python manage.py check
+      - name: Fail if a model change is missing its migration
+        run: uv run python manage.py makemigrations --check --dry-run
+      - name: Run tests
+        run: uv run python manage.py test --noinput
+
+  ai:
+    name: AI service (FastAPI)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: ai
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: ai/uv.lock
+      - name: Install dependencies
+        run: uv sync --frozen
+      # "python -m pytest" (not bare "pytest") puts the current directory on sys.path so "import app" works.
+      - name: Run tests
+        run: uv run python -m pytest -q
+
+  frontend:
+    name: Frontend (Next.js)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+    defaults:
+      run:
+        working-directory: fe
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: fe/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Type check
+        run: npx tsc -p tsconfig.verify.json --noEmit
+      - name: Lint
+        run: npm run lint
+      - name: Build
+        run: npm run build
+
+  algo-server:
+    name: Algorithm server (Node)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: packages/algo-viz/server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: packages/algo-viz/server/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      # The server has no test script; each *.test.ts is a standalone script that exits non-zero on failure.
+      - name: Run simulation tests
+        env:
+          NODE_PATH: src
+        run: |
+          for f in src/simulation/*.test.ts; do
+            echo "::group::$f"
+            npx ts-node --transpile-only "$f"
+            echo "::endgroup::"
+          done
+
+  compose:
+    name: Docker Compose file
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate docker-compose.yml
+        run: docker compose config --quiet
+        env:
+          DATABASE_URL: postgresql://user:pass@localhost/db
+          GEMINI_API_KEY: ci
+
+  # Single status to mark as "required" in branch protection, so adding or renaming
+  # a job above never needs a settings change.
+  ci-ok:
+    name: CI OK
+    if: always()
+    needs: [backend, ai, frontend, algo-server, compose]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check that every job succeeded
+        run: |
+          echo '${{ toJSON(needs) }}'
+          if [ "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}" = "true" ]; then
+            echo "At least one job failed or was cancelled."
+            exit 1
+          fi
