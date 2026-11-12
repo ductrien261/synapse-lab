@@ -1,0 +1,33 @@
+name: Báo lỗi
+description: Có thứ gì đó chạy sai
+title: "fix(<phạm vi>): "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: Chuyện gì đã xảy ra
+      description: Kèm ảnh chụp màn hình hoặc thông báo lỗi nếu có (không dán key hay token).
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Các bước tái hiện
+      placeholder: |
+        1. Vào trang ...
+        2. Bấm ...
+        3. Thấy ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Kết quả mong đợi
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: Môi trường
+      description: Docker hay chạy trực tiếp, hệ điều hành, nhánh git.

@@ -1,0 +1,41 @@
+name: Công việc / tính năng
+description: Một việc cần làm hoặc một tính năng mới
+title: "feat(<phạm vi>): "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: Mục tiêu
+      description: Việc này giải quyết vấn đề gì, ai dùng?
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Phạm vi
+      description: Làm những gì, và nói rõ những gì chưa làm.
+      placeholder: |
+        - [ ] ...
+        - [ ] ...
+    validations:
+      required: true
+  - type: textarea
+    id: done
+    attributes:
+      label: Tiêu chí hoàn thành
+      description: Kiểm tra thế nào là xong.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Phần phụ trách
+      options:
+        - Thuật toán (algo-viz)
+        - Không gian (classroom / spaces)
+        - Giải phẫu 3D (anatomy)
+        - Thiết bị / device-lab
+        - Nền tảng chung (core, users, knowledge, admin, CI)
+    validations:
+      required: true

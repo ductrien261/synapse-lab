@@ -105,6 +105,7 @@ class ClassroomApiTests(APITestCase):
         joined = self.client.post(reverse('session-join', kwargs={'code': classroom.code}), {})
         self.assertEqual(joined.status_code, status.HTTP_200_OK)
         self.assertEqual(joined.data, {'mode': 'livekit'})
+        session.refresh_from_db()
         self.assertEqual(session.participant_count, 1)
         self.assertTrue(SessionAttendance.objects.filter(session=session, user=self.member, left_at=None).exists())
         token_response = self.client.get(token_url)
