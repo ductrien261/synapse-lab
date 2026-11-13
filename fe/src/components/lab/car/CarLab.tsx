@@ -16,22 +16,34 @@ import {
   type CarState,
   type Pt,
 } from '@/lib/lab/car-spec';
-import { BuildPanel, LearnPanel, PartList, PreviewPanel, useAssembly, type Stage } from '../shared/assembly';
+import { BuildPanel, LearnPanel, PartList, PreviewPanel, useAssembly, type Stage, type StageDef } from '../shared/assembly';
 import { LabAssistant } from '../shared/LabAssistant';
 import { LabLayout } from '../shared/LabLayout';
 import { OverviewBox } from '../shared/OverviewBox';
 import { Card, NumberGuess, Notice, PrimaryButton, Row, Slider, closeTo, parseGuess } from '../shared/LabUi';
-import { ArcScene, CarDiagram, TrackScene } from './CarScenes';
+import { CAR_WIRING } from '@/lib/lab/car-wiring';
+import { ArcScene, CarDiagram, TrackScene, WiringDiagram } from './CarScenes';
 import { ScanDemo, ScanLive } from './ScanView';
+import { TerminalList, WiringPanel, useWiring } from '../shared/WiringKit';
 
 /** Thứ tự danh sách khi tự lắp ráp: xáo trộn để người học tự suy luận. */
 const SHUFFLED = [6, 2, 8, 0, 4, 7, 1, 5, 3];
+const CAR_STAGES: StageDef[] = [
+  { key: 'learn', label: '1. Tìm hiểu' },
+  { key: 'preview', label: '2. Xem quy trình' },
+  { key: 'build', label: '3. Tự lắp ráp' },
+  { key: 'wire', label: '4. Đi dây' },
+  { key: 'design', label: '5. Tính toán' },
+  { key: 'tune', label: '6. Thử tự do' },
+];
 const CALC_STEPS = ['Tính tốc độ xe', 'Tính vòng quay', 'Chọn pin'];
 const TARGET_MINUTES = 240;
 
 export function CarLab() {
   const [stage, setStage] = useState<Stage>('learn');
   const a = useAssembly(CAR_PARTS, stage, SHUFFLED);
+  const wiring = useWiring(CAR_WIRING);
+  const wired = wiring.status.complete;
 
   // Bước tính toán
   const [calc, setCalc] = useState(0);
@@ -115,6 +127,7 @@ export function CarLab() {
   };
 
   const toggleRun = () => {
+    if (!wired) return;
     if (running) {
       setRunning(false);
       return;
@@ -134,6 +147,7 @@ export function CarLab() {
 
   const goStage = (s: Stage) => {
     a.enter(s);
+    wiring.reset();
     setStage(s);
     if (s === 'design') startCalc(0);
     if (s === 'tune') resetRun();
@@ -187,6 +201,8 @@ export function CarLab() {
   let viewport;
   if (stage === 'tune') {
     viewport = <TrackScene parts={CAR_PARTS} sim={sim} trail={trail} track={track.points} />;
+  } else if (stage === 'wire') {
+    viewport = <WiringDiagram parts={CAR_PARTS} wires={wiring.wires} pending={wiring.pending} hover={wiring.hover} onPick={wiring.pick} onHover={wiring.setHover} onRemoveWire={wiring.remove} onMiss={() => wiring.setPending(null)} />;
   } else if (stage === 'design' && calc === 1) {
     viewport = <ArcScene parts={CAR_PARTS} vLeft={vL} vRight={vR} />;
   } else if (stage === 'design') {
@@ -204,7 +220,8 @@ export function CarLab() {
   };
 
   const getState = (): Record<string, unknown> => {
-    if (stage === 'tune') return carSimulationState(params, sim, track);
+    if (stage === 'wire') return CAR_WIRING.state(wiring.wires);
+    if (stage === 'tune') return { ...carSimulationState(params, sim, track), wiring_complete: wired };
     if (stage === 'design') {
       const given =
         calc === 0 ? { wheel_diameter_mm: wheelMm, motor_rpm: rpm } : calc === 1 ? { v_left_m_s: vL, v_right_m_s: vR, track_m: CAR.track } : { cells, cell_mah: CAR.cellMah, motor_amp: CAR.motorAmp, logic_amp: CAR.logicAmp, target_minutes: TARGET_MINUTES };
@@ -222,7 +239,9 @@ export function CarLab() {
         </>
       )}
       {stage === 'preview' && <PreviewPanel parts={CAR_PARTS} a={a} onStart={() => goStage('build')} />}
-      {stage === 'build' && <BuildPanel parts={CAR_PARTS} a={a} doneText="Xe đã đủ khung, motor, bánh, pin, công tắc, mạch ổn áp, mạch điều khiển motor, mạch điều khiển và cảm biến. Giờ bạn tính các thông số của nó." onDone={() => goStage('design')} />}
+      {stage === 'build' && <BuildPanel parts={CAR_PARTS} a={a} doneText="Xe đã đủ khung, motor, bánh, pin, công tắc, mạch ổn áp, mạch điều khiển motor, mạch điều khiển và cảm biến. Nhưng các linh kiện chưa có điện: giờ bạn đi dây nối chúng lại." doneLabel="Sang bước đi dây" onDone={() => goStage('wire')} />}
+
+      {stage === 'wire' && <WiringPanel w={wiring} onNext={() => goStage('design')} doneText="Mạch đã đủ và đúng. Pin cấp điện qua công tắc, mạch ổn áp nuôi mạch điều khiển và cảm biến, hai mạch điều khiển motor nhận lệnh PWM rồi cấp điện cho motor. Xe đã sẵn sàng." />}
 
       {stage === 'design' && (
         <Card tone="accent">
@@ -315,9 +334,15 @@ export function CarLab() {
             </div>
             <p className="text-xs text-stone-500">{track.blurb}</p>
           </Card>
+          {!wired && (
+            <Card tone="accent">
+              <Notice ok={false}>Xe chưa có điện vì chưa đi dây xong ({wiring.status.netsDone}/{wiring.status.netsTotal} mạch). Hãy đi dây rồi quay lại đây để chạy.</Notice>
+              <PrimaryButton onClick={() => goStage('wire')}>Đến bước đi dây</PrimaryButton>
+            </Card>
+          )}
           <Card>
             <div className="flex gap-2">
-              <PrimaryButton onClick={toggleRun}>{running ? 'Tạm dừng' : sim.status === 'ready' ? 'Chạy' : sim.status === 'running' ? 'Tiếp tục' : 'Chạy lại'}</PrimaryButton>
+              <PrimaryButton onClick={toggleRun} disabled={!wired}>{running ? 'Tạm dừng' : sim.status === 'ready' ? 'Chạy' : sim.status === 'running' ? 'Tiếp tục' : 'Chạy lại'}</PrimaryButton>
               <button type="button" onClick={() => resetRun()} className="rounded-xl border border-stone-200 bg-white px-4 py-2.5 text-sm font-semibold text-stone-700">
                 Về vạch xuất phát
               </button>
@@ -344,21 +369,39 @@ export function CarLab() {
         </>
       )}
 
-      {(stage === 'design' || stage === 'tune') && <LabAssistant lab="car" stage={stage === 'design' ? `calc-${calc + 1}` : 'tune'} getState={getState} canHint={stage === 'design'} />}
+      {(stage === 'wire' || stage === 'design' || stage === 'tune') && <LabAssistant lab="car" stage={stage === 'design' ? `calc-${calc + 1}` : stage} getState={getState} canHint={stage === 'design' || stage === 'wire'} />}
     </>
   );
 
   return (
     <LabLayout
       title="Xe tự hành bám vạch"
-      subtitle="Tìm hiểu các bộ phận, xem quy trình lắp, tự lắp, tính thông số rồi chỉnh bộ điều khiển để xe chạy hết đường đua."
+      subtitle="Tìm hiểu các bộ phận, xem quy trình lắp, tự lắp, đi dây điện, tính thông số rồi chỉnh bộ điều khiển để xe chạy hết đường đua."
       stage={stage}
+      stages={CAR_STAGES}
       onStage={goStage}
-      list={learning ? <PartList parts={CAR_PARTS} a={a} stage={stage} /> : <PartList parts={CAR_PARTS} a={a} stage="learn" />}
+      list={stage === 'wire' ? <TerminalList w={wiring} /> : learning ? <PartList parts={CAR_PARTS} a={a} stage={stage} /> : <PartList parts={CAR_PARTS} a={a} stage="learn" />}
       viewport={viewport}
       side={side}
       overlay={
-        stage === 'learn'
+        stage === 'wire'
+          ? (pos) => (
+              <OverviewBox
+                className={pos}
+                defaultOpen={false}
+                footer="Đọc xong thì bấm vào các chân (chấm nhỏ) để nối dây."
+                title="Điện đi trong xe thế nào?"
+                what="Dây điện đưa năng lượng từ pin tới từng linh kiện và đưa tín hiệu điều khiển đi đúng đường."
+                steps={[
+                  'Điện đi từ cực dương của pin qua công tắc. Công tắc đóng thì toàn xe có điện, mở thì ngắt hết.',
+                  'Sau công tắc điện chia ba nhánh: vào mạch ổn áp, và vào hai mạch điều khiển motor. Motor ăn dòng lớn nên lấy thẳng điện pin.',
+                  'Mạch ổn áp đổi điện pin thành 5 V ổn định, cấp cho mạch điều khiển ESP32 và cảm biến. Hai thứ này cần điện áp không đổi.',
+                  'Mọi linh kiện nối chung GND (mức 0 V) làm mốc. Dòng điện chạy từ cực dương đi qua tải rồi về cực âm của pin.',
+                  'Dây tín hiệu không mang điện công suất: cảm biến báo vạch về ESP32, ESP32 gửi PWM cho từng mạch điều khiển motor, rồi mạch này mới cấp điện cho motor.',
+                ]}
+              />
+            )
+          : stage === 'learn'
           ? (pos) => (
               <OverviewBox
                 className={pos}
@@ -368,7 +411,7 @@ export function CarLab() {
                   'Năm cảm biến hồng ngoại ở mũi xe nhìn xuống đất. Mắt nào nằm trên vạch đen thì báo "có vạch".',
                   'Mạch điều khiển (ESP32) xem mắt nào đang thấy vạch để biết vạch lệch trái hay phải và lệch bao nhiêu. Con số đó gọi là sai số e.',
                   'Nó tính lệnh bẻ lái = Kp × e (cộng thành phần Kd cho đỡ lắc). Bánh bên này chạy chậm đi, bánh bên kia nhanh lên, xe quẹo về phía vạch.',
-                  'Mạch điều khiển motor nhận tín hiệu PWM rồi cấp dòng lớn cho hai motor quay bánh. Pin qua công tắc và mạch ổn áp cấp điện cho tất cả.',
+                  'Mạch điều khiển motor nhận tín hiệu PWM rồi cấp dòng lớn cho hai motor quay bánh. Pin cấp điện qua công tắc: thẳng cho motor, và qua mạch ổn áp 5 V cho ESP32 và cảm biến.',
                   'Vòng lặp này chạy hàng trăm lần mỗi giây nên xe liên tục được kéo về giữa vạch.',
                 ]}
               />

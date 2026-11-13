@@ -16,6 +16,14 @@ from .services import AIError, call_ai
 MAX_STATE_CHARS = 4000
 
 
+MAX_TURNS = 8
+
+
+class LabTurnSerializer(serializers.Serializer):
+    role = serializers.ChoiceField(choices=('user', 'assistant'))
+    content = serializers.CharField(max_length=1500, allow_blank=True)
+
+
 class LabExplainThrottle(UserRateThrottle):
     rate = '10/min'
 
@@ -30,10 +38,16 @@ class LabExplainView(APIView):
         stage = serializers.CharField(max_length=40, required=False, allow_blank=True)
         state = serializers.DictField()
         question = serializers.CharField(max_length=500, required=False, allow_blank=True)
+        history = LabTurnSerializer(many=True, required=False)
 
         def validate_state(self, value):
             if len(json.dumps(value, ensure_ascii=False)) > MAX_STATE_CHARS:
                 raise serializers.ValidationError('Trạng thái mô phỏng quá lớn.')
+            return value
+
+        def validate_history(self, value):
+            if len(value) > MAX_TURNS:
+                raise serializers.ValidationError('Cuộc trò chuyện quá dài.')
             return value
 
         def validate(self, attrs):
@@ -48,7 +62,7 @@ class LabExplainView(APIView):
         try:
             result = call_ai('/v1/lab/explain', {
                 'lab': v['lab'], 'mode': v['mode'], 'stage': v.get('stage', ''),
-                'state': v['state'], 'question': v.get('question', ''),
+                'state': v['state'], 'question': v.get('question', ''), 'history': [dict(t) for t in v.get('history', [])],
             }, user=request.user, feature='lab_explain')
         except AIError as exc:
             return Response({'detail': str(exc)}, status=exc.status_code)

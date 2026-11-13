@@ -4,8 +4,11 @@ import { useMemo } from 'react';
 import { BufferGeometry, Float32BufferAttribute } from 'three';
 import { Line } from '@react-three/drei';
 import { CAR, arcPath, type CarState, type Pt } from '@/lib/lab/car-spec';
+import { CAR_WIRING } from '@/lib/lab/car-wiring';
+import type { Terminal, Wire } from '@/lib/lab/wiring';
 import type { AsmPart } from '../shared/assembly';
 import { Ball, Blk, Cyl, PartGroup, PartMesh, Plate, Stage3D, type V3 } from '../shared/Scene3D';
+import { WiringLayer, type Placement } from '../shared/WiringLayer';
 
 /** Đổi tọa độ của xe (x về phía trước, y sang trái, z lên) sang hệ trục của three (x, z lên, -y). */
 const p = (x: number, y: number, z: number): V3 => [x, z, -y];
@@ -191,6 +194,35 @@ export function ArcScene({ parts, vLeft, vRight }: { parts: AsmPart[]; vLeft: nu
     <Stage3D cam={[1.2, 3.4, 1.6]} target={[1.2, 0, 0]} min={0.5} max={6} grid={6} ground="#E9EEF6">
       {pts.length > 1 && <Line points={pts} color="#F59E0B" lineWidth={3} />}
       <Car parts={parts} x={0} y={0} th={0} scale={2.5} />
+    </Stage3D>
+  );
+}
+
+interface WiringProps {
+  parts: AsmPart[];
+  wires: Wire[];
+  /** Chân đang chọn, chờ chọn chân thứ hai */
+  pending: string | null;
+  hover: string | null;
+  onPick: (id: string) => void;
+  onHover: (id: string | null) => void;
+  onRemoveWire: (index: number) => void;
+  onMiss?: () => void;
+}
+
+/** Vị trí chân trên xe (hệ tọa độ của xe) đổi sang cảnh 3D. */
+const placeTerminal = (t: Terminal): Placement | null => (t.pos && t.base !== undefined ? { at: p(...t.pos), base: p(t.pos[0], t.pos[1], t.base) } : null);
+
+/** Xe đã lắp đủ, kèm các chân đấu dây và dây người học đã nối. */
+export function WiringDiagram({ parts, wires, pending, hover, onPick, onHover, onRemoveWire, onMiss }: WiringProps) {
+  return (
+    <Stage3D cam={[0.05, 0.27, 0.19]} target={[-0.005, 0.04, 0]} min={0.1} max={1} grid={0.8} onMiss={onMiss}>
+      {parts.map((part) => (
+        <PartGroup key={part.id} placed faded={false}>
+          <Shape id={part.id} color={part.color} />
+        </PartGroup>
+      ))}
+      <WiringLayer W={CAR_WIRING} wires={wires} pending={pending} hover={hover} onPick={onPick} onHover={onHover} onRemoveWire={onRemoveWire} place={placeTerminal} />
     </Stage3D>
   );
 }

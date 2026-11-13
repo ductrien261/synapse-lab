@@ -1,16 +1,29 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Vector3, type Object3D } from 'three';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import { PARTS, type ArmParams, type PartId } from '@/lib/lab/arm-spec';
 import { applyPose, setHighlight, setInstalled, type Model, type Vec3 } from '@/lib/lab/so101-model';
+import { ARM_DEVICES, ARM_WIRING } from '@/lib/lab/arm-wiring';
+import type { Terminal, Wire } from '@/lib/lab/wiring';
+import { WiringLayer, type Placement } from '../shared/WiringLayer';
 
 const VIEWS = {
   build: { pos: [0.72, 0.55, 0.8] as [number, number, number], tgt: [-0.1, 0.06, 0] as [number, number, number] },
   show: { pos: [0.55, 0.38, 0.62] as [number, number, number], tgt: [0.1, 0.12, 0] as [number, number, number] },
+  wire: { pos: [0.18, 0.4, 0.52] as [number, number, number], tgt: [-0.06, 0.1, 0.02] as [number, number, number] },
 };
+
+interface WiringProps {
+  wires: Wire[];
+  pending: string | null;
+  hover: string | null;
+  onPick: (id: string) => void;
+  onHover: (id: string | null) => void;
+  onRemoveWire: (index: number) => void;
+}
 
 interface SceneProps {
   model: Model;
@@ -23,7 +36,9 @@ interface SceneProps {
   onPart: (id: PartId) => void;
   target: Vec3 | null;
   /** build = lùi ra để thấy giá linh kiện; show = lại gần cánh tay */
-  view: 'build' | 'show';
+  view: 'build' | 'show' | 'wire';
+  /** Bước đi dây: vẽ bộ nguồn, bo mạch, máy tính, các chân và dây */
+  wiring?: WiringProps | null;
 }
 
 export default function ArmScene(props: SceneProps) {
@@ -41,7 +56,7 @@ export default function ArmScene(props: SceneProps) {
 }
 
 /** Lướt camera sang góc nhìn mới trong khoảng 1,2 giây sau khi đổi giai đoạn, rồi trả quyền cho người dùng. */
-function CameraRig({ view }: { view: 'build' | 'show' }) {
+function CameraRig({ view }: { view: 'build' | 'show' | 'wire' }) {
   const controls = useThree((s) => s.controls) as unknown as { target: Vector3; update: () => void } | null;
   const left = useRef(0);
   useEffect(() => {
@@ -66,8 +81,54 @@ function partOf(o: Object3D | null): PartId | null {
   return null;
 }
 
-function World({ model, params, installed, selected, dim, onPart, target }: SceneProps) {
+/** Chấm đấu dây trên mặt trên của một thiết bị ngoài cánh tay. */
+function deviceSpot(key: keyof typeof ARM_DEVICES, dx: number, dz: number): Placement {
+  const d = ARM_DEVICES[key];
+  const top = d.center[1] + d.size[1] / 2;
+  return { at: [d.center[0] + dx, top + 0.012, d.center[2] + dz], base: [d.center[0] + dx, top, d.center[2] + dz] };
+}
+
+const DEVICE_SPOTS: Record<string, Placement> = {
+  'psu-out': deviceSpot('psu', 0, 0),
+  'pc-usb': deviceSpot('pc', 0, 0),
+  'board-psu': deviceSpot('board', -0.022, 0.014),
+  'board-usb': deviceSpot('board', -0.022, -0.014),
+  'board-port': deviceSpot('board', 0.022, 0),
+};
+
+/** Bộ nguồn, bo mạch điều khiển servo và máy tính, đặt cạnh cánh tay ở bước đi dây. */
+function Devices() {
+  return (
+    <group>
+      {Object.values(ARM_DEVICES).map((d) => (
+        <mesh key={d.name} position={d.center}>
+          <boxGeometry args={d.size} />
+          <meshStandardMaterial color={d.color} roughness={0.55} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+function World({ model, params, installed, selected, dim, onPart, target, wiring }: SceneProps) {
   const [hovered, setHovered] = useState<PartId | null>(null);
+
+  // Vị trí hai cổng của từng servo: lấy từ vị trí khớp trong mô hình đang đặt tư thế
+  const wiringOn = wiring != null;
+  const servoSpots = useMemo(() => {
+    const out: Record<string, Placement> = {};
+    if (!wiringOn) return out;
+    applyPose(model.robot, params);
+    model.robot.updateMatrixWorld(true);
+    const v = new Vector3();
+    PARTS.forEach((p, i) => {
+      model.robot.links[p.link].getWorldPosition(v);
+      out[`s${i + 1}-in`] = { at: [v.x, v.y + 0.014, v.z + 0.014], base: [v.x, v.y, v.z] };
+      out[`s${i + 1}-out`] = { at: [v.x, v.y + 0.014, v.z - 0.014], base: [v.x, v.y, v.z] };
+    });
+    return out;
+  }, [model, params, wiringOn]);
+  const place = (t: Terminal): Placement | null => DEVICE_SPOTS[t.id] ?? servoSpots[t.id] ?? null;
 
   // Đặt tư thế và số bộ phận đã lắp lên mô hình dùng chung
   useEffect(() => {
@@ -106,6 +167,12 @@ function World({ model, params, installed, selected, dim, onPart, target }: Scen
   return (
     <group>
       <primitive object={model.robot} {...events} />
+      {wiring && (
+        <>
+          <Devices />
+          <WiringLayer W={ARM_WIRING} wires={wiring.wires} pending={wiring.pending} hover={wiring.hover} onPick={wiring.onPick} onHover={wiring.onHover} onRemoveWire={wiring.onRemoveWire} place={place} />
+        </>
+      )}
       {trayOpen && (
         <group>
           <mesh position={[-0.385, -0.003, 0]}>

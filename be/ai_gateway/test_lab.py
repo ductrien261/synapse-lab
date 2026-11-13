@@ -34,3 +34,23 @@ class LabExplainViewTests(TestCase):
         big = {'lab': 'arm', 'mode': 'explain', 'state': {'x': 'a' * 5000}}
         self.assertEqual(self.client.post(URL, big, format='json').status_code, 400)
         call_ai.assert_not_called()
+
+    @patch('ai_gateway.lab.call_ai')
+    def test_forwards_conversation_history(self, call_ai):
+        call_ai.return_value = {'mode': 'ask', 'title': 'Giải đáp', 'content': 'Kd làm xe bớt lắc.', 'meta': {}}
+        self.client.force_authenticate(self.user)
+        history = [{'role': 'user', 'content': 'Kp là gì?'}, {'role': 'assistant', 'content': 'Kp là hệ số bẻ lái.'}]
+        response = self.client.post(URL, {'lab': 'car', 'mode': 'ask', 'state': STATE, 'question': 'Còn Kd?', 'history': history}, format='json')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(call_ai.call_args.args[1]['history'], history)
+
+    @patch('ai_gateway.lab.call_ai')
+    def test_rejects_bad_history(self, call_ai):
+        self.client.force_authenticate(self.user)
+        base = {'lab': 'car', 'mode': 'ask', 'state': STATE, 'question': 'Còn Kd?'}
+        too_long = [{'role': 'user', 'content': 'x'}] * 9
+        self.assertEqual(self.client.post(URL, {**base, 'history': too_long}, format='json').status_code, 400)
+        self.assertEqual(self.client.post(URL, {**base, 'history': [{'role': 'system', 'content': 'x'}]}, format='json').status_code, 400)
+        self.assertEqual(self.client.post(URL, {**base, 'history': [{'role': 'user', 'content': 'x' * 1600}]}, format='json').status_code, 400)
+        call_ai.assert_not_called()
+
