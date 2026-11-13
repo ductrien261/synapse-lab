@@ -1,12 +1,14 @@
 'use client';
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { STAGES, type Stage } from './assembly';
+import { STAGES, type Stage, type StageDef } from './assembly';
 
 interface Props {
   title: string;
   subtitle: string;
   stage: Stage;
+  /** Danh sách bước riêng của bài (mặc định năm bước chung) */
+  stages?: StageDef[];
   onStage: (s: Stage) => void;
   /** Cột trái: danh sách bộ phận */
   list: ReactNode;
@@ -22,7 +24,7 @@ interface Props {
  * Bố cục chung cho các bài thí nghiệm: ba cột, vừa chiều cao màn hình,
  * và chế độ toàn màn hình (khung tương tác phủ kín, các bảng thành hộp nổi).
  */
-export function LabLayout({ title, subtitle, stage, onStage, list, viewport, side, overlay }: Props) {
+export function LabLayout({ title, subtitle, stage, stages = STAGES, onStage, list, viewport, side, overlay }: Props) {
   const [full, setFull] = useState(false);
   const [hidePanels, setHidePanels] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -59,7 +61,7 @@ export function LabLayout({ title, subtitle, stage, onStage, list, viewport, sid
           {!full && <p className="text-sm text-stone-500">{subtitle}</p>}
         </div>
         <div className="flex flex-wrap items-center gap-2" role="tablist" aria-label="Giai đoạn học">
-          {STAGES.map((p) => (
+          {stages.map((p) => (
             <button
               key={p.key}
               type="button"

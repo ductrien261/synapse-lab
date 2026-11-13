@@ -3,9 +3,14 @@
 import { useEffect, useState } from 'react';
 import { Card, Notice, PrimaryButton, Row } from './LabUi';
 
-export type Stage = 'learn' | 'preview' | 'build' | 'design' | 'tune';
+export type Stage = 'learn' | 'preview' | 'build' | 'wire' | 'design' | 'tune';
 
-export const STAGES: { key: Stage; label: string }[] = [
+export interface StageDef {
+  key: Stage;
+  label: string;
+}
+
+export const STAGES: StageDef[] = [
   { key: 'learn', label: '1. Tìm hiểu' },
   { key: 'preview', label: '2. Xem quy trình' },
   { key: 'build', label: '3. Tự lắp ráp' },
@@ -217,7 +222,7 @@ export function PreviewPanel({ parts, a, onStart }: PanelProps & { onStart: () =
   );
 }
 
-export function BuildPanel({ parts, a, doneText, onDone }: PanelProps & { doneText: string; onDone: () => void }) {
+export function BuildPanel({ parts, a, doneText, onDone, doneLabel = 'Sang bước tính toán' }: PanelProps & { doneText: string; onDone: () => void; doneLabel?: string }) {
   const done = a.installed === parts.length;
   return (
     <Card tone="accent">
@@ -245,7 +250,7 @@ export function BuildPanel({ parts, a, doneText, onDone }: PanelProps & { doneTe
         <>
           <h2 className="text-sm font-bold text-green-800">Lắp xong</h2>
           <p className="text-sm text-stone-700">{doneText}</p>
-          <PrimaryButton onClick={onDone}>Sang bước tính toán</PrimaryButton>
+          <PrimaryButton onClick={onDone}>{doneLabel}</PrimaryButton>
         </>
       )}
       {a.feedback && <Notice ok={a.feedback.ok}>{a.feedback.text}</Notice>}

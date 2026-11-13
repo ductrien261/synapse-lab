@@ -10,11 +10,15 @@ interface Props {
   steps: string[];
   /** Vị trí (lớp CSS), mặc định góc trái dưới của khung tương tác */
   className?: string;
+  /** Mở sẵn hay thu gọn khi vào bước */
+  defaultOpen?: boolean;
+  /** Dòng nhắc cuối hộp */
+  footer?: string;
 }
 
 /** Hộp giải thích tổng quan cố định ở góc khung 3D, cho người học đọc trước khi bấm vào từng bộ phận. */
-export function OverviewBox({ title, what, steps, className = 'left-3 bottom-3' }: Props) {
-  const [open, setOpen] = useState(true);
+export function OverviewBox({ title, what, steps, className = 'left-3 bottom-3', defaultOpen = true, footer = 'Đọc xong thì bấm vào từng bộ phận để xem chi tiết.' }: Props) {
+  const [open, setOpen] = useState(defaultOpen);
   if (!open) {
     return (
       <button
@@ -43,7 +47,7 @@ export function OverviewBox({ title, what, steps, className = 'left-3 bottom-3' 
           </li>
         ))}
       </ol>
-      <p className="text-xs text-stone-400">Đọc xong thì bấm vào từng bộ phận để xem chi tiết.</p>
+      <p className="text-xs text-stone-400">{footer}</p>
     </div>
   );
 }
