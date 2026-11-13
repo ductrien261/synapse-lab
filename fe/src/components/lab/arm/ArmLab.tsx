@@ -4,20 +4,23 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { DEFAULT_PARAMS, LIMITS, PARTS, SUPPLY, type ArmParams, type PartId, type SupplyKey } from '@/lib/lab/arm-spec';
 import { applyPose, horizontalPose, inverse, loadModel, simulationState, tipPosition, torques, type Model, type Vec3 } from '@/lib/lab/so101-model';
+import { ARM_WIRING } from '@/lib/lab/arm-wiring';
 import { LabAssistant } from '../shared/LabAssistant';
 import { Check, Gauge, Row, Slider } from '../shared/LabUi';
 import { OverviewBox } from '../shared/OverviewBox';
+import { TerminalList, WiringPanel, useWiring } from '../shared/WiringKit';
 
 // Cảnh 3D chỉ chạy trên trình duyệt
 const ArmScene = dynamic(() => import('./ArmScene'), { ssr: false });
 
-type Phase = 'learn' | 'preview' | 'build' | 'design' | 'tune';
+type Phase = 'learn' | 'preview' | 'build' | 'wire' | 'design' | 'tune';
 const PHASES: { key: Phase; label: string }[] = [
   { key: 'learn', label: '1. Tìm hiểu' },
   { key: 'preview', label: '2. Xem quy trình' },
   { key: 'build', label: '3. Tự lắp ráp' },
-  { key: 'design', label: '4. Tính toán' },
-  { key: 'tune', label: '5. Thử tự do' },
+  { key: 'wire', label: '4. Đi dây' },
+  { key: 'design', label: '5. Tính toán' },
+  { key: 'tune', label: '6. Thử tự do' },
 ];
 
 const CALC_STEPS = ['Ước tính moment', 'Chọn động cơ', 'Tối ưu tư thế'];
@@ -56,6 +59,8 @@ export function ArmLab() {
   const [calcOk, setCalcOk] = useState(false);
   const [flat, setFlat] = useState<{ params: ArmParams; reach: number } | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
+  const wiring = useWiring(ARM_WIRING);
+  const wired = wiring.status.complete;
 
   useEffect(() => {
     let alive = true;
@@ -124,6 +129,8 @@ export function ArmLab() {
   };
 
   const goPhase = (p: Phase) => {
+    wiring.reset();
+    if (p === 'wire') setParams(DEFAULT_PARAMS);
     setPhase(p);
     setFeedback(null);
     setShowHint(false);
@@ -234,7 +241,7 @@ export function ArmLab() {
       <div className={full ? `${floatCls} absolute left-3 right-16 top-3 z-20 flex flex-wrap items-center justify-between gap-2 px-4 py-2` : 'flex flex-wrap items-end justify-between gap-3'}>
         <div>
           <h1 className={`${full ? 'text-lg' : 'text-2xl'} font-bold tracking-tight text-[#0F2258]`}>Cánh tay robot</h1>
-          {!full && <p className="text-sm text-stone-500">Tìm hiểu từng bộ phận, xem quy trình, tự lắp ráp, tính toán rồi thử nghiệm.</p>}
+          {!full && <p className="text-sm text-stone-500">Tìm hiểu từng bộ phận, xem quy trình, tự lắp ráp, đi dây, tính toán rồi thử nghiệm.</p>}
         </div>
         <div className="flex flex-wrap items-center gap-2" role="tablist" aria-label="Giai đoạn học">
           {PHASES.map((p) => (
@@ -262,6 +269,10 @@ export function ArmLab() {
       <div className={full ? 'absolute inset-0' : 'grid gap-4 lg:grid-cols-[210px_minmax(0,1fr)_310px]'}>
         {/* Trái: danh sách bộ phận */}
         <aside className={full ? `${floatCls} absolute left-3 top-20 z-10 max-h-[calc(100%-6rem)] w-56 overflow-y-auto p-4 ${hidePanels ? 'hidden' : ''}` : 'max-h-[calc(100svh-14rem)] min-h-0 overflow-y-auto rounded-2xl border border-stone-200 bg-white p-4 lg:order-1'}>
+          {phase === 'wire' ? (
+            <TerminalList w={wiring} />
+          ) : (
+            <>
           <h2 className="text-xs font-bold uppercase tracking-[0.12em] text-stone-400">{phase === 'build' ? 'Linh kiện trên giá' : 'Danh sách bộ phận'}</h2>
           <ul className="mt-3 flex flex-col gap-1.5">
             {listOrder.map((i) => {
@@ -284,6 +295,8 @@ export function ArmLab() {
               );
             })}
           </ul>
+            </>
+          )}
         </aside>
 
         {/* Giữa: khung 3D */}
@@ -294,7 +307,7 @@ export function ArmLab() {
             ) : !model ? (
               <div className="flex h-full items-center justify-center text-sm text-stone-400">Đang tải mô hình 3D…</div>
             ) : (
-              <ArmScene model={model} params={params} installed={installed} selected={focus} dim={phase !== 'build'} onPart={onPart} target={phase === 'tune' && ikOn ? target : null} view={phase === 'build' || phase === 'preview' ? 'build' : 'show'} />
+              <ArmScene model={model} params={params} installed={installed} selected={focus} dim={phase !== 'build'} onPart={onPart} target={phase === 'tune' && ikOn ? target : null} view={phase === 'build' || phase === 'preview' ? 'build' : phase === 'wire' ? 'wire' : 'show'} wiring={phase === 'wire' ? { wires: wiring.wires, pending: wiring.pending, hover: wiring.hover, onPick: wiring.pick, onHover: wiring.setHover, onRemoveWire: wiring.remove } : null} />
             )}
           </div>
           {phase === 'learn' && (
@@ -380,13 +393,31 @@ export function ArmLab() {
               ) : (
                 <>
                   <h2 className="text-sm font-bold text-green-800">Lắp xong cánh tay</h2>
-                  <p className="text-sm text-stone-700">Cánh tay có 6 bậc tự do: xoay đế, vai, khuỷu, gập cổ tay, xoay cổ tay và kẹp. Giờ bạn thử điều khiển nó.</p>
-                  <button type="button" onClick={() => goPhase('design')} className="rounded-xl bg-[#1E3F82] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#163070]">
-                    Sang bước tính toán
+                  <p className="text-sm text-stone-700">Cánh tay có 6 bậc tự do: xoay đế, vai, khuỷu, gập cổ tay, xoay cổ tay và kẹp. Nhưng các servo chưa có điện và chưa nhận lệnh: giờ bạn đi dây.</p>
+                  <button type="button" onClick={() => goPhase('wire')} className="rounded-xl bg-[#1E3F82] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#163070]">
+                    Sang bước đi dây
                   </button>
                 </>
               )}
               {feedback && <p className={`rounded-lg px-3 py-2 text-sm ${feedback.ok ? 'bg-green-50 text-green-800' : 'bg-amber-50 text-amber-800'}`}>{feedback.text}</p>}
+            </div>
+          )}
+
+          {phase === 'wire' && (
+            <WiringPanel
+              w={wiring}
+              onNext={() => goPhase('design')}
+              intro="Bấm một chân rồi bấm chân cần nối tới để kéo dây. Các servo nối tiếp nhau thành chuỗi nên không cần nối từng servo về bo mạch. Muốn gỡ dây, bấm vào dây trong hình hoặc bấm Gỡ ở danh sách dây."
+              doneText="Mạch đã đủ và đúng. Bộ nguồn cấp điện cho bo mạch, máy tính gửi lệnh qua USB, bo mạch đẩy điện và tín hiệu xuống chuỗi sáu servo. Cánh tay đã sẵn sàng nhận lệnh."
+            />
+          )}
+
+          {phase === 'tune' && !wired && (
+            <div className="flex flex-col gap-3 rounded-2xl border border-[#1E3F82]/20 bg-[#EEF3FC] p-4">
+              <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">Cánh tay chưa có điện vì chưa đi dây xong ({wiring.status.netsDone}/{wiring.status.netsTotal} mạch). Hãy đi dây rồi quay lại đây để điều khiển.</p>
+              <button type="button" onClick={() => goPhase('wire')} className="rounded-xl bg-[#1E3F82] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#163070]">
+                Đến bước đi dây
+              </button>
             </div>
           )}
 
@@ -534,7 +565,7 @@ export function ArmLab() {
             </>
           )}
 
-          {phase === 'tune' && (
+          {phase === 'tune' && wired && (
             <>
               <div className="rounded-2xl border border-stone-200 bg-white p-4">
                 <div className="flex gap-2" role="group" aria-label="Cách điều khiển">
@@ -610,13 +641,15 @@ export function ArmLab() {
               </div>
             </>
           )}
-          {(phase === 'design' || phase === 'tune') && model && (
+          {(phase === 'wire' || phase === 'design' || phase === 'tune') && model && (
             <LabAssistant
               lab="arm"
-              stage={phase === 'design' ? `calc-${calc + 1}` : 'tune'}
-              canHint={phase === 'design'}
+              stage={phase === 'design' ? `calc-${calc + 1}` : phase}
+              canHint={phase === 'design' || phase === 'wire'}
               getState={() =>
-                phase === 'design'
+                phase === 'wire'
+                  ? ARM_WIRING.state(wiring.wires)
+                  : phase === 'design'
                   ? { exercise: `Bài ${calc + 1}`, given_values: { payload_kg: params.payload, reach_m: Number(reach.toFixed(2)), supply: params.supply } }
                   : simulationState(model.robot, params)
               }
