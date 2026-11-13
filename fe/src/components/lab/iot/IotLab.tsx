@@ -14,12 +14,23 @@ import {
   type IotParams,
   type IotState,
 } from '@/lib/lab/iot-spec';
-import { BuildPanel, LearnPanel, PartList, PreviewPanel, useAssembly, type Stage } from '../shared/assembly';
+import { IOT_WIRING } from '@/lib/lab/iot-wiring';
+import { BuildPanel, LearnPanel, PartList, PreviewPanel, useAssembly, type Stage, type StageDef } from '../shared/assembly';
 import { LabAssistant } from '../shared/LabAssistant';
 import { LabLayout } from '../shared/LabLayout';
 import { OverviewBox } from '../shared/OverviewBox';
+import { TerminalList, WiringPanel, useWiring } from '../shared/WiringKit';
 import { Card, NumberGuess, Notice, PrimaryButton, Row, Slider, closeTo, parseGuess } from '../shared/LabUi';
-import { IotDiagram, TuneScene } from './IotScenes';
+import { IotDiagram, IotWiringDiagram, TuneScene } from './IotScenes';
+
+const IOT_STAGES: StageDef[] = [
+  { key: 'learn', label: '1. Tìm hiểu' },
+  { key: 'preview', label: '2. Xem quy trình' },
+  { key: 'build', label: '3. Tự lắp ráp' },
+  { key: 'wire', label: '4. Đi dây' },
+  { key: 'design', label: '5. Tính toán' },
+  { key: 'tune', label: '6. Thử tự do' },
+];
 
 /** Thứ tự danh sách khi tự lắp ráp: xáo trộn để người học tự suy luận. */
 const SHUFFLED = [3, 0, 5, 2, 4, 1];
@@ -37,6 +48,8 @@ const clock = (t: number) => {
 export function IotLab() {
   const [stage, setStage] = useState<Stage>('learn');
   const a = useAssembly(IOT_PARTS, stage, SHUFFLED);
+  const wiring = useWiring(IOT_WIRING);
+  const wired = wiring.status.complete;
 
   // Bước tính toán
   const [calc, setCalc] = useState(0);
@@ -105,6 +118,7 @@ export function IotLab() {
 
   const goStage = (s: Stage) => {
     a.enter(s);
+    wiring.reset();
     setStage(s);
     if (s === 'design') startCalc(0);
     if (s === 'tune') resetRun();
@@ -148,7 +162,9 @@ export function IotLab() {
   const learning = stage === 'learn' || stage === 'preview' || stage === 'build';
 
   let viewport;
-  if (stage === 'tune') {
+  if (stage === 'wire') {
+    viewport = <IotWiringDiagram parts={IOT_PARTS} wires={wiring.wires} pending={wiring.pending} hover={wiring.hover} onPick={wiring.pick} onHover={wiring.setHover} onRemoveWire={wiring.remove} onMiss={() => wiring.setPending(null)} />;
+  } else if (stage === 'tune') {
     viewport = <TuneScene params={params} sim={sim} history={history} />;
   } else if (stage === 'design') {
     const focus = calc === 0 ? 'mcu' : calc === 1 ? 'sensor' : 'pump';
@@ -158,7 +174,8 @@ export function IotLab() {
   }
 
   const getState = (): Record<string, unknown> => {
-    if (stage === 'tune') return iotSimulationState(params, sim);
+    if (stage === 'wire') return IOT_WIRING.state(wiring.wires);
+    if (stage === 'tune') return { ...iotSimulationState(params, sim), wiring_complete: wired };
     if (stage === 'design') {
       const given =
         calc === 0 ? { adc_raw: raw, adc_max: IOT.adcMax, vref_v: IOT.vref } : calc === 1 ? { adc_raw: rawMoist, raw_dry: IOT.rawDry, raw_wet: IOT.rawWet } : { volume_ml: ml, pump_flow_ml_per_min: IOT.pumpFlow };
@@ -173,7 +190,14 @@ export function IotLab() {
     <>
       {stage === 'learn' && <LearnPanel parts={IOT_PARTS} a={a} onNext={() => goStage('preview')} />}
       {stage === 'preview' && <PreviewPanel parts={IOT_PARTS} a={a} onStart={() => goStage('build')} />}
-      {stage === 'build' && <BuildPanel parts={IOT_PARTS} a={a} doneText="Hệ thống đã có cảm biến, ESP32, rơ-le, bơm, Wi-Fi và bảng điều khiển. Giờ bạn tính các con số bên trong nó." onDone={() => goStage('design')} />}
+      {stage === 'build' && <BuildPanel parts={IOT_PARTS} a={a} doneText="Hệ thống đã có cảm biến, ESP32, rơ-le, bơm, Wi-Fi và bảng điều khiển. Nhưng chúng chưa có điện và chưa nối với nhau: giờ bạn đi dây." doneLabel="Sang bước đi dây" onDone={() => goStage('wire')} />}
+      {stage === 'wire' && (
+        <WiringPanel
+          w={wiring}
+          onNext={() => goStage('design')}
+          doneText="Mạch đã đủ và đúng. Cảm biến báo độ ẩm về chân ADC, ESP32 ra lệnh qua GPIO cho rơ-le, rơ-le đóng ngắt điện 5 V cấp cho bơm. Hệ thống đã sẵn sàng."
+        />
+      )}
 
       {stage === 'design' && (
         <Card tone="accent">
@@ -234,11 +258,18 @@ export function IotLab() {
         </Card>
       )}
 
+      {stage === 'tune' && !wired && (
+        <Card tone="accent">
+          <Notice ok={false}>Hệ thống chưa có điện vì chưa đi dây xong ({wiring.status.netsDone}/{wiring.status.netsTotal} mạch). Hãy đi dây rồi quay lại đây để chạy.</Notice>
+          <PrimaryButton onClick={() => goStage('wire')}>Đến bước đi dây</PrimaryButton>
+        </Card>
+      )}
+
       {stage === 'tune' && (
         <>
           <Card>
             <div className="flex gap-2">
-              <PrimaryButton onClick={() => setRunning((r) => !r)}>{running ? 'Tạm dừng' : sim.t === 0 ? 'Chạy' : 'Tiếp tục'}</PrimaryButton>
+              <PrimaryButton disabled={!wired} onClick={() => setRunning((r) => (wired ? !r : false))}>{running ? 'Tạm dừng' : sim.t === 0 ? 'Chạy' : 'Tiếp tục'}</PrimaryButton>
               <button type="button" onClick={resetRun} className="rounded-xl border border-stone-200 bg-white px-4 py-2.5 text-sm font-semibold text-stone-700">
                 Làm lại
               </button>
@@ -278,7 +309,7 @@ export function IotLab() {
         </>
       )}
 
-      {(stage === 'design' || stage === 'tune') && <LabAssistant lab="iot" stage={stage === 'design' ? `calc-${calc + 1}` : 'tune'} getState={getState} canHint={stage === 'design'} />}
+      {(stage === 'wire' || stage === 'design' || stage === 'tune') && <LabAssistant lab="iot" stage={stage === 'design' ? `calc-${calc + 1}` : stage} getState={getState} canHint={stage === 'design' || stage === 'wire'} />}
     </>
   );
 
@@ -287,8 +318,9 @@ export function IotLab() {
       title="Hệ thống tưới cây thông minh"
       subtitle="Theo dõi dữ liệu đi từ cảm biến tới màn hình, tự lắp, tính các con số rồi chỉnh quy tắc tưới."
       stage={stage}
+      stages={IOT_STAGES}
       onStage={goStage}
-      list={<PartList parts={IOT_PARTS} a={a} stage={learning ? stage : 'learn'} />}
+      list={stage === 'wire' ? <TerminalList w={wiring} /> : <PartList parts={IOT_PARTS} a={a} stage={learning ? stage : 'learn'} />}
       viewport={viewport}
       side={side}
       overlay={

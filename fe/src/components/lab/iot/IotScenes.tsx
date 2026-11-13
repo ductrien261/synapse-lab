@@ -5,8 +5,11 @@ import { useFrame } from '@react-three/fiber';
 import { Line } from '@react-three/drei';
 import type { Mesh } from 'three';
 import { IOT, type IotParams, type IotState } from '@/lib/lab/iot-spec';
+import { IOT_WIRING } from '@/lib/lab/iot-wiring';
+import type { Terminal, Wire } from '@/lib/lab/wiring';
 import type { AsmPart } from '../shared/assembly';
 import { Arc, Ball, Blk, Cyl, PartGroup, PartMesh, Stage3D, type V3 } from '../shared/Scene3D';
+import { WiringLayer, type Placement } from '../shared/WiringLayer';
 
 /** Chậu cây dùng chung cho sơ đồ lắp ráp và cảnh thử nghiệm (không phải bộ phận để lắp). */
 function Pot({ soil }: { soil: string }) {
@@ -127,6 +130,39 @@ export function IotDiagram({ parts, installed, focus, guides, onPick, onMiss }: 
           </PartGroup>
         );
       })}
+    </Stage3D>
+  );
+}
+
+interface WiringProps {
+  parts: AsmPart[];
+  wires: Wire[];
+  pending: string | null;
+  hover: string | null;
+  onPick: (id: string) => void;
+  onHover: (id: string | null) => void;
+  onRemoveWire: (index: number) => void;
+  onMiss?: () => void;
+}
+
+const placeTerminal = (t: Terminal): Placement | null => (t.pos && t.base !== undefined ? { at: t.pos, base: [t.pos[0], t.base, t.pos[2]] } : null);
+
+/** Hệ thống đã lắp đủ, kèm các chân đấu dây và dây người học đã nối. */
+export function IotWiringDiagram({ parts, wires, pending, hover, onPick, onHover, onRemoveWire, onMiss }: WiringProps) {
+  return (
+    <Stage3D cam={[0.06, 0.3, 0.24]} target={[-0.03, 0.04, 0.03]} min={0.12} max={1.2} grid={0.9} ground="#E7D8C4" onMiss={onMiss}>
+      <group position={[POT_X, 0, 0]}>
+        <Pot soil="#6B4E31" />
+      </group>
+      <PartGroup placed faded={false}>
+        <Blk pos={[0.05, 0.0015, 0.03]} size={[0.2, 0.003, 0.15]} color="#334155" />
+      </PartGroup>
+      {parts.map((part) => (
+        <PartGroup key={part.id} placed faded={false}>
+          <PartShape id={part.id} color={part.color} />
+        </PartGroup>
+      ))}
+      <WiringLayer W={IOT_WIRING} wires={wires} pending={pending} hover={hover} onPick={onPick} onHover={onHover} onRemoveWire={onRemoveWire} place={placeTerminal} />
     </Stage3D>
   );
 }
