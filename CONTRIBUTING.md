@@ -29,12 +29,14 @@ Mọi thay đổi đi theo cùng một đường, không push thẳng vào `main
 Issue  ->  branch  ->  commit  ->  Pull Request  ->  CI xanh + review  ->  merge
 ```
 
-1. **Mở Issue** (mẫu có sẵn: Task, Bug) mô tả việc cần làm.
+1. **Mở Issue** (mẫu có sẵn: Task, Bug) mô tả việc cần làm. Nhớ chọn đúng **khu vực** ở cuối form.
 2. **Tạo branch** từ `main` mới nhất.
 3. **Commit** nhỏ, rõ ràng.
 4. **Mở Pull Request**, ghi `Closes #<số Issue>` trong mô tả để Issue tự đóng khi merge.
 5. **CI phải xanh** (check `CI OK`) và có ít nhất một người review.
 6. **Merge**, mặc định bằng *Squash and merge*. Dùng *Rebase and merge* khi cần giữ nguyên từng commit và tác giả của nó (ví dụ bàn giao một nhánh dài).
+
+**Ngôn ngữ:** tiêu đề Issue, tiêu đề Pull Request và commit viết bằng **tiếng Anh** (dạng Conventional Commits, ví dụ `feat(lab): ...`). Phần mô tả bên trong Issue và Pull Request viết bằng **tiếng Việt**.
 
 ---
 
@@ -47,6 +49,7 @@ Mỗi phần có một người chịu trách nhiệm chính. Cần sửa phần
 | Thuật toán | `packages/algo-viz/`, `be/algorithms/`, `fe/src/app/(main)/algorithms/`, `fe/src/components/simulation/` |
 | Không gian học | `be/classroom/`, `fe/src/app/(main)/spaces/`, `fe/src/components/spaces/` |
 | Giải phẫu 3D | `be/anatomy/`, `fe/src/app/(main)/anatomy/`, `fe/src/components/anatomy/` |
+| Phòng thí nghiệm ảo (Virtual Lab) | `fe/src/app/(main)/lab/`, `fe/src/components/lab/`, `fe/src/lib/lab/`, `fe/src/lib/lab-catalog.ts`, `fe/public/lab/`, `docs/lab/` |
 | Gia sư AI, người học | `ai/`, `be/tutor/`, `be/learner/`, `be/learning/`, `fe/src/components/ai/`, `fe/src/components/learner/` |
 | Nền tảng chung | `be/core/`, `be/users/`, `be/knowledge/`, `be/ai_gateway/`, `fe/src/app/(admin)/`, `fe/src/components/admin/`, `fe/src/components/layout/`, `fe/src/lib/` |
 

@@ -139,6 +139,14 @@ class AlgorithmTutorIn(Caller):
     code_selection: AlgorithmCodeSelection | None = None
 
 
+class LabExplainIn(Caller):
+    lab: Literal['arm', 'car', 'iot']
+    mode: Literal['explain', 'ask', 'hint']
+    stage: str = Field(default='', max_length=40)
+    state: dict
+    question: str = Field(default='', max_length=500)
+
+
 class ClassroomCopilotIn(Caller):
     document_title: str = Field(default='', max_length=300)
     page: int = Field(ge=1)

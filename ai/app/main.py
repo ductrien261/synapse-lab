@@ -18,6 +18,7 @@ from .graphs import draft as draft_graph
 from .graphs import algorithm_draft
 from .graphs import algorithm_tutor
 from .graphs import classroom_copilot
+from .graphs import lab_explainer
 from .graphs import classroom_assistant
 from .graphs import anatomy_actions
 from .graphs import quick_check as quick_check_graph
@@ -25,7 +26,7 @@ from .graphs import quiz as quiz_graph
 from .graphs import tutor as tutor_graph
 from .llm.chat import LLMError, LLMNotConfigured
 from .llm.tracing import run_context, shutdown
-from .schemas import AlgorithmTutorIn, AnatomyActionIn, ClassroomAssistantIn, ClassroomCopilotIn, DraftAlgorithmIn, DraftStructureIn, QuickCheckIn, QuizGenerateIn, QuizGradeIn, SearchIn, TranslateIn, TutorAskIn
+from .schemas import AlgorithmTutorIn, AnatomyActionIn, ClassroomAssistantIn, ClassroomCopilotIn, DraftAlgorithmIn, LabExplainIn, DraftStructureIn, QuickCheckIn, QuizGenerateIn, QuizGradeIn, SearchIn, TranslateIn, TutorAskIn
 from .tools.embeddings import EmbeddingError
 from .tools.retrieval import RetrievalError, search
 from .tools.translate import translate_text
@@ -173,6 +174,18 @@ def algorithm_tutor_generate(body: AlgorithmTutorIn):
                 body.scenario_options.model_dump() if body.scenario_options else None,
                 body.flashcard_options.model_dump() if body.flashcard_options else None,
             )
+        except LLMError as exc:
+            raise _fail(exc, ctx) from exc
+        return {**result, 'meta': ctx.meta()}
+
+
+@app.post('/v1/lab/explain', dependencies=[Depends(require_token)])
+def lab_explain(body: LabExplainIn):
+    with run_context('lab_explain', 'lab_explainer', body.user_id, {'lab': body.lab, 'mode': body.mode}) as ctx:
+        try:
+            result = lab_explainer.run(ctx, body.mode, body.lab, body.stage, body.state, body.question)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
         except LLMError as exc:
             raise _fail(exc, ctx) from exc
         return {**result, 'meta': ctx.meta()}
