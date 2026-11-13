@@ -3,7 +3,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { DEFAULT_PARAMS, LIMITS, PARTS, SUPPLY, type ArmParams, type PartId, type SupplyKey } from '@/lib/lab/arm-spec';
-import { applyPose, horizontalPose, inverse, loadModel, tipPosition, torques, type Model, type Vec3 } from '@/lib/lab/so101-model';
+import { applyPose, horizontalPose, inverse, loadModel, simulationState, tipPosition, torques, type Model, type Vec3 } from '@/lib/lab/so101-model';
+import { LabAssistant } from '../shared/LabAssistant';
+import { Check, Gauge, Row, Slider } from '../shared/LabUi';
+import { OverviewBox } from '../shared/OverviewBox';
 
 // Cảnh 3D chỉ chạy trên trình duyệt
 const ArmScene = dynamic(() => import('./ArmScene'), { ssr: false });
@@ -294,6 +297,20 @@ export function ArmLab() {
               <ArmScene model={model} params={params} installed={installed} selected={focus} dim={phase !== 'build'} onPart={onPart} target={phase === 'tune' && ikOn ? target : null} view={phase === 'build' || phase === 'preview' ? 'build' : 'show'} />
             )}
           </div>
+          {phase === 'learn' && (
+            <OverviewBox
+              className={full && !hidePanels ? 'left-[15.5rem] bottom-3' : 'left-3 bottom-3'}
+              title="Cánh tay robot hoạt động thế nào?"
+              what="Cánh tay đưa bàn kẹp tới đúng vị trí bằng cách xoay từng khớp tới một góc."
+              steps={[
+                'Mỗi khớp có một servo (motor kèm mạch tự giữ góc). Servo nhận góc đặt rồi tự quay tới đúng góc đó.',
+                'Các đoạn tay nối tiếp nhau từ đế tới bàn kẹp, nên góc của các khớp cộng dồn lại và quyết định vị trí đầu kẹp.',
+                'Bo mạch điều khiển ở đế gửi lệnh góc cho tất cả servo cùng lúc qua một đường truyền chung.',
+                'Khi tay vươn xa hoặc nâng vật, khớp phía dưới chịu mô-men lớn (khối lượng × khoảng cách). Quá giới hạn của servo thì tay sụp xuống.',
+                'Muốn đưa đầu kẹp tới một điểm, ta tính ngược xem mỗi khớp cần quay bao nhiêu độ.',
+              ]}
+            />
+          )}
           <button
             type="button"
             onClick={toggleFull}
@@ -593,56 +610,19 @@ export function ArmLab() {
               </div>
             </>
           )}
+          {(phase === 'design' || phase === 'tune') && model && (
+            <LabAssistant
+              lab="arm"
+              stage={phase === 'design' ? `calc-${calc + 1}` : 'tune'}
+              canHint={phase === 'design'}
+              getState={() =>
+                phase === 'design'
+                  ? { exercise: `Bài ${calc + 1}`, given_values: { payload_kg: params.payload, reach_m: Number(reach.toFixed(2)), supply: params.supply } }
+                  : simulationState(model.robot, params)
+              }
+            />
+          )}
         </aside>
-      </div>
-    </div>
-  );
-}
-
-function Check({ ok, text }: { ok: boolean; text: string }) {
-  return (
-    <li className={`flex gap-2 ${ok ? 'text-green-800' : 'text-stone-500'}`}>
-      <span aria-hidden>{ok ? '✓' : '○'}</span>
-      <span>{text}</span>
-    </li>
-  );
-}
-
-function Row({ k, v }: { k: string; v: string }) {
-  return (
-    <div className="flex justify-between gap-3">
-      <dt className="text-stone-400">{k}</dt>
-      <dd className="text-right font-semibold text-stone-700">{v}</dd>
-    </div>
-  );
-}
-
-function Slider({ label, unit, value, min, max, step = 1, onChange }: { label: string; unit: string; value: number; min: number; max: number; step?: number; onChange: (v: number) => void }) {
-  return (
-    <label className="flex items-center gap-3 text-xs text-stone-500">
-      <span className="w-16 shrink-0">{label}</span>
-      <input type="range" min={min} max={max} step={step} value={Math.round(value)} onChange={(e) => onChange(Number(e.target.value))} className="flex-1" />
-      <span className="w-14 text-right font-semibold text-stone-700">
-        {Math.round(value)}
-        {unit}
-      </span>
-    </label>
-  );
-}
-
-function Gauge({ label, value, limit }: { label: string; value: number; limit: number }) {
-  const ratio = value / limit;
-  const over = ratio > 1;
-  return (
-    <div>
-      <div className="flex justify-between text-xs">
-        <span className="font-semibold text-stone-700">{label}</span>
-        <span className={over ? 'font-bold text-red-700' : 'text-stone-500'}>
-          {value.toFixed(2)} / {limit.toFixed(2)} N·m
-        </span>
-      </div>
-      <div className="mt-1 h-2 rounded-full bg-stone-100">
-        <div className={`h-2 rounded-full ${over ? 'bg-red-500' : ratio > 0.8 ? 'bg-amber-500' : 'bg-[#1E3F82]'}`} style={{ width: `${Math.min(100, ratio * 100)}%` }} />
       </div>
     </div>
   );
