@@ -42,3 +42,27 @@ Ghi chú nội bộ cho nhóm phát triển. Chưa có quyết định, chỉ đ
 
 **Câu hỏi mở.** Chưa chốt: tiêu chí admin duyệt, nhãn "do cộng đồng đóng góp", giấy phép các mô hình 3D người dùng tải lên, hạn mức AI cho người tạo.
 
+
+## 3. Cấu trúc tổng thể của Phòng thí nghiệm (định hướng, chưa làm)
+
+**Tên khu chung: "Phòng STEM"** (tạm; chưa chốt). Bên trong có ba phòng:
+1. **Phòng thực hành** (đang làm: cánh tay, xe dò vạch, IoT). Bài học có sẵn các bước: tìm hiểu, xem quy trình, tự lắp, đi dây, tính toán, thử tự do. Mỗi mục là một "bài thực hành".
+2. **Phòng kỹ thuật** (kiểu Tinkercad). Cho sẵn môi trường và linh kiện, người dùng kéo thả để tự lắp ráp, đi dây, có AI giúp sức khi gặp khó.
+3. **Phòng thí nghiệm** (hóa học, vật lý, pha chế). Cho sẵn dụng cụ (lọ, ống nghiệm...) và hóa chất, người dùng kéo thả rồi xem phản ứng xảy ra, có AI đồng hành.
+
+AI ở cả ba phòng là người cùng làm: hỏi khi thắc mắc, gợi ý khi vướng, không làm thay.
+
+**Thứ tự.** Làm xong phần AI sinh gói bài thực hành (mục 1 và 2) rồi mới làm phòng kỹ thuật và phòng khoa học. Hai phòng mới dùng lại thư viện linh kiện, khung 3D, đi dây và khung trợ lý AI đã có.
+
+**Lưu dữ liệu.**
+- Bài chuẩn của đội (cánh tay, xe, IoT): giữ trong mã nguồn.
+- Nội dung người dùng tạo hoặc đóng góp thì thay đổi liên tục nên phải lưu trong cơ sở dữ liệu, không cố định cứng trong code.
+- Nội dung bài và bản lắp ráp lưu dạng JSON có `schema_version`, backend kiểm tra theo schema trước khi lưu và trước khi hiển thị. File mô hình 3D để ngoài cơ sở dữ liệu (thư mục tĩnh hoặc kho lưu trữ), cơ sở dữ liệu chỉ giữ đường dẫn và thông tin giấy phép.
+
+**Quy ước đặt tên (đề xuất, chưa chốt).** Gom vào một app Django `lab`, bám theo cách repo đang đặt tên:
+- Model tiếng Anh, PascalCase, số ít, không thêm tiền tố vì Django tự ghép tên app vào tên bảng (app `lab` + model `Part` thành bảng `lab_part`, giống `classroom_student`); tên trường tiếng Anh snake_case; nội dung tiếng Việt đặt ở trường `name_vi`, `description_vi`; nhãn hiển thị (`verbose_name`) tiếng Việt.
+- Trạng thái dùng `status` kiểu `TextChoices` giống các app khác (nháp, chờ duyệt, xuất bản), thêm cờ riêng tư; người tạo là `created_by` (khóa ngoại tới người dùng, `SET_NULL`).
+- Các bảng dự kiến: `Part` → `lab_part` (linh kiện, dụng cụ, hóa chất: loại, kích thước, các chân, thông số, file 3D, giấy phép), `Lesson` → `lab_lesson` (một bài thực hành: `spec` JSON), `Build` → `lab_build` (bản lắp ráp ở phòng kỹ thuật: `spec` JSON), `Submission` → `lab_submission` (đóng góp chờ duyệt: người duyệt, ghi chú), `Progress` → `lab_progress` (tiến độ người học: bước đã xong, kết quả).
+- `kind` phân biệt loại phòng (`practice`, `workshop`, `science`) để một bảng dùng chung cho nhiều phòng.
+
+**Câu hỏi mở.** Chốt tên tiếng Việt cho từng phòng; chống rủi ro khi người dùng ghép hóa chất nguy hiểm trong phòng khoa học (giới hạn hóa chất, cách mô tả phản ứng); dùng chung một khung trợ lý AI cho cả ba phòng; thư viện linh kiện cho phòng khoa học (dụng cụ, hóa chất) lấy mô hình 3D và dữ liệu phản ứng ở đâu cho đúng giấy phép.
