@@ -5,7 +5,7 @@
  * Đơn vị: kích thước mm, điện áp V, dòng A.
  */
 
-export type PartCategory = 'controller' | 'sensor' | 'actuator' | 'driver' | 'power' | 'switch' | 'display' | 'relay';
+export type PartCategory = 'service' | 'controller' | 'sensor' | 'actuator' | 'driver' | 'power' | 'switch' | 'display' | 'relay';
 
 /** Loại tín hiệu của một chân, dùng để kiểm tra dây nối hợp lý (ví dụ không nối nguồn vào ngõ tín hiệu). */
 export type PinSignal = 'power-in' | 'power-out' | 'ground' | 'digital' | 'analog' | 'pwm' | 'motor' | 'switched';
@@ -22,11 +22,22 @@ export interface PartPin {
   pos?: [number, number, number];
 }
 
+export type V3 = [number, number, number];
+
+/** Cách đặt mô hình CAD trong cảnh 3D (khớp với BASES trong Scene3D) */
+export type PartOrient = 'flat' | 'motor' | 'lying' | 'probe' | 'upright';
+
+/** Khối dựng bằng code, tọa độ theo hệ của linh kiện (m), gốc ở giữa đáy. Không ghi `color` thì dùng màu của bộ phận. */
+export type ShapeDef =
+  | { t: 'blk'; pos: V3; size: V3; color?: string; rot?: V3 }
+  | { t: 'cyl'; pos: V3; r: number; rBottom?: number; h: number; color?: string; rot?: V3 }
+  | { t: 'arc'; pos: V3; r: number; tube: number; arc: number; color?: string; rot?: V3 };
+
 export type PartModel =
-  /** Tệp STL trong `public/lab/parts/<file>.stl` */
-  | { kind: 'stl'; file: string; source: string; license: string }
-  /** Dựng bằng code trong cảnh 3D, không có tệp mô hình */
-  | { kind: 'procedural'; note: string };
+  /** Tệp STL trong `public/lab/parts/<file>.stl`, kèm cách đặt mặc định */
+  | { kind: 'stl'; file: string; orient: PartOrient; source: string; license: string }
+  /** Dựng bằng các khối trong code, không có tệp mô hình */
+  | { kind: 'procedural'; note: string; shapes: ShapeDef[] };
 
 export interface PartSpec {
   /** Tên thông số, ví dụ `Điện áp nguồn` */

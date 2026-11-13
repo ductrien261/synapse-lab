@@ -1,17 +1,37 @@
-import type { PartDef } from './types';
+import type { PartDef, PartOrient } from './types';
 
 const ADAFRUIT = { source: 'Adafruit_CAD_Parts', license: 'MIT' } as const;
-const stl = (file: string) => ({ kind: 'stl' as const, file, ...ADAFRUIT });
+const stl = (file: string, orient: PartOrient) => ({ kind: 'stl' as const, file, orient, ...ADAFRUIT });
 
 /** Linh kiện đang dùng ở cánh tay, xe dò vạch và tưới cây. Thêm linh kiện mới: xem docs/lab/PARTS.md. */
 export const PARTS: PartDef[] = [
+  {
+    id: 'wifi',
+    nameVi: 'Kết nối Wi-Fi',
+    nameEn: 'Wi-Fi link',
+    category: 'service',
+    summaryVi: 'Đưa dữ liệu từ vi điều khiển qua router lên máy chủ.',
+    model: {
+      kind: 'procedural',
+      note: 'Hộp nhỏ có hai ăng-ten và ba vòng sóng',
+      shapes: [
+        { t: 'blk', pos: [0, 0.006, 0], size: [0.06, 0.012, 0.04] },
+        { t: 'cyl', pos: [-0.022, 0.037, 0], r: 0.0022, h: 0.05, color: '#1F2937' },
+        { t: 'cyl', pos: [0.022, 0.037, 0], r: 0.0022, h: 0.05, color: '#1F2937' },
+        ...[0.018, 0.03, 0.042].map((r) => ({ t: 'arc' as const, pos: [0, 0.067, 0] as [number, number, number], r, tube: 0.0018, arc: Math.PI * 0.6, rot: [0, 0, Math.PI / 2 - Math.PI * 0.3] as [number, number, number] })),
+      ],
+    },
+    sizeMm: [60, 80, 40],
+    pins: [],
+    specs: [{ label: 'Giao thức', value: 'MQTT hoặc HTTP' }],
+  },
   {
     id: 'esp32',
     nameVi: 'Vi điều khiển ESP32',
     nameEn: 'ESP32 microcontroller',
     category: 'controller',
     summaryVi: 'Bộ não: đọc cảm biến, ra quyết định, xuất tín hiệu điều khiển và có sẵn Wi-Fi.',
-    model: stl('esp32'),
+    model: stl('esp32', 'flat'),
     sizeMm: [51.3, 22.9, 6.4],
     pins: [
       { id: '5v', labelVi: '5V', signal: 'power-in', volts: 5 },
@@ -33,7 +53,7 @@ export const PARTS: PartDef[] = [
     nameEn: 'Capacitive soil moisture sensor',
     category: 'sensor',
     summaryVi: 'Cắm vào đất, đổi độ ẩm thành điện áp để vi điều khiển đọc được.',
-    model: stl('soil-sensor'),
+    model: stl('soil-sensor', 'probe'),
     sizeMm: [76.2, 14.0, 6.4],
     pins: [
       { id: 'vcc', labelVi: 'VCC', signal: 'power-in', volts: 3.3 },
@@ -51,11 +71,12 @@ export const PARTS: PartDef[] = [
     nameEn: 'Relay',
     category: 'relay',
     summaryVi: 'Công tắc điều khiển bằng điện: tín hiệu nhỏ đóng ngắt dòng lớn của máy bơm.',
-    model: stl('relay'),
+    model: stl('relay', 'flat'),
     sizeMm: [50.8, 22.9, 22.5],
     pins: [
-      { id: 'ctrl', labelVi: 'Tín hiệu điều khiển', signal: 'digital', volts: 3.3 },
+      { id: 'vcc', labelVi: 'VCC (nuôi cuộn dây)', signal: 'power-in', volts: 5 },
       { id: 'gnd', labelVi: 'GND', signal: 'ground', volts: 0 },
+      { id: 'in', labelVi: 'IN (lệnh)', signal: 'digital', volts: 3.3 },
       { id: 'com', labelVi: 'Chân chung (COM)', signal: 'switched' },
       { id: 'no', labelVi: 'Thường hở (NO)', signal: 'switched' },
     ],
@@ -70,7 +91,18 @@ export const PARTS: PartDef[] = [
     nameEn: 'Mini water pump',
     category: 'actuator',
     summaryVi: 'Đưa nước từ bình vào chậu khi được cấp điện.',
-    model: { kind: 'procedural', note: 'Dựng bằng hình khối trong IotScenes.tsx' },
+    model: {
+      kind: 'procedural',
+      note: 'Thân trụ, nắp, hai đầu ống và dây điện',
+      shapes: [
+        { t: 'cyl', pos: [0, 0.016, 0], r: 0.0125, h: 0.032 },
+        { t: 'cyl', pos: [0, 0.034, 0], r: 0.0105, h: 0.004, color: '#1F2937' },
+        { t: 'cyl', pos: [-0.016, 0.024, 0], r: 0.003, h: 0.012, color: '#94A3B8', rot: [0, 0, Math.PI / 2] },
+        { t: 'cyl', pos: [0.016, 0.012, 0], r: 0.003, h: 0.012, color: '#94A3B8', rot: [0, 0, Math.PI / 2] },
+        { t: 'cyl', pos: [0, 0.0015, 0.0125], r: 0.0012, h: 0.008, color: '#DC2626', rot: [Math.PI / 2, 0, 0] },
+        { t: 'cyl', pos: [0.004, 0.0015, 0.0125], r: 0.0012, h: 0.008, color: '#111827', rot: [Math.PI / 2, 0, 0] },
+      ],
+    },
     sizeMm: [40, 25, 25],
     pins: [
       { id: 'pos', labelVi: 'Dây dương (+)', signal: 'power-in', volts: 5 },
@@ -87,7 +119,7 @@ export const PARTS: PartDef[] = [
     nameEn: 'TFT touch display',
     category: 'display',
     summaryVi: 'Hiển thị số liệu và trạng thái của hệ thống.',
-    model: stl('tft'),
+    model: stl('tft', 'upright'),
     sizeMm: [62.5, 81.3, 7.0],
     pins: [
       { id: 'vin', labelVi: 'VIN', signal: 'power-in', volts: 3.3 },
@@ -102,7 +134,7 @@ export const PARTS: PartDef[] = [
     nameEn: 'TT gearbox motor',
     category: 'actuator',
     summaryVi: 'Biến điện năng thành chuyển động quay để lái một bánh xe.',
-    model: stl('tt-motor'),
+    model: stl('tt-motor', 'motor'),
     sizeMm: [22.4, 36.6, 70.6],
     pins: [
       { id: 'a', labelVi: 'Dây motor A', signal: 'motor' },
@@ -119,7 +151,7 @@ export const PARTS: PartDef[] = [
     nameEn: 'Motor driver',
     category: 'driver',
     summaryVi: 'Nhận tín hiệu PWM nhỏ rồi cấp dòng lớn, đúng chiều và tốc độ cho motor.',
-    model: stl('driver'),
+    model: stl('driver', 'flat'),
     sizeMm: [20.3, 24.1, 10.1],
     pins: [
       { id: 'vm', labelVi: 'VM (nguồn motor)', signal: 'power-in' },
@@ -135,7 +167,7 @@ export const PARTS: PartDef[] = [
     nameEn: 'Line sensor (TCRT1000)',
     category: 'sensor',
     summaryVi: 'Mắt hồng ngoại báo mặt đường là vạch đen hay nền sáng.',
-    model: stl('line-sensor'),
+    model: stl('line-sensor', 'flat'),
     sizeMm: [25.5, 17.8, 8.5],
     pins: [
       { id: 'vcc', labelVi: 'VCC', signal: 'power-in', volts: 5 },
@@ -150,7 +182,7 @@ export const PARTS: PartDef[] = [
     nameEn: 'Battery pack',
     category: 'power',
     summaryVi: 'Nguồn năng lượng của xe.',
-    model: stl('battery'),
+    model: stl('battery', 'lying'),
     sizeMm: [36.6, 18.0, 76.0],
     pins: [
       { id: 'pos', labelVi: 'Cực dương (+)', signal: 'power-out', volts: 3.7 },
@@ -167,7 +199,7 @@ export const PARTS: PartDef[] = [
     nameEn: 'Toggle switch',
     category: 'switch',
     summaryVi: 'Bật tắt nguồn cho toàn bộ xe.',
-    model: stl('switch'),
+    model: stl('switch', 'flat'),
     sizeMm: [10.0, 13.2, 33.3],
     pins: [
       { id: 'in', labelVi: 'Vào', signal: 'power-in' },
@@ -181,7 +213,7 @@ export const PARTS: PartDef[] = [
     nameEn: '5 V regulator',
     category: 'power',
     summaryVi: 'Đổi điện áp pin thành 5 V ổn định cho mạch điều khiển và cảm biến.',
-    model: stl('boost'),
+    model: stl('boost', 'flat'),
     sizeMm: [11.4, 17.8, 5.1],
     pins: [
       { id: 'vin', labelVi: 'VIN (vào)', signal: 'power-in' },

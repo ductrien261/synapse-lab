@@ -1,0 +1,818 @@
+{
+  "schemaVersion": 1,
+  "slug": "iot-watering",
+  "title": "Hệ thống tưới cây thông minh",
+  "subtitle": "Theo dõi dữ liệu đi từ cảm biến tới màn hình, tự lắp, tính các con số rồi chỉnh quy tắc tưới.",
+  "overview": {
+    "title": "Hệ thống tưới cây hoạt động thế nào?",
+    "what": "Tự tưới cây khi đất khô, dừng khi đủ ẩm, và cho người dùng theo dõi số liệu từ xa.",
+    "steps": [
+      "Cảm biến cắm trong đất đo độ ẩm và đổi nó thành một điện áp.",
+      "Vi điều khiển ESP32 đọc điện áp đó (ADC), đổi ra phần trăm độ ẩm rồi so với ngưỡng bật bơm.",
+      "Đất khô hơn ngưỡng thì ESP32 bật rơ-le. Rơ-le đóng mạch điện cho máy bơm, nước chảy vào chậu.",
+      "Bơm chạy cho đến khi độ ẩm vượt ngưỡng tắt (ngưỡng bật cộng độ trễ). Độ trễ giúp bơm không bật tắt liên tục.",
+      "Module Wi-Fi gửi số liệu lên bảng điều khiển để người dùng xem độ ẩm và lịch sử tưới."
+    ]
+  },
+  "scene": {
+    "camera": {
+      "pos": [
+        0.3,
+        0.34,
+        0.52
+      ],
+      "target": [
+        -0.005,
+        0.03,
+        -0.005
+      ],
+      "min": 0.2,
+      "max": 1.5
+    },
+    "wireCamera": {
+      "pos": [
+        0.06,
+        0.3,
+        0.24
+      ],
+      "target": [
+        -0.03,
+        0.04,
+        0.03
+      ],
+      "min": 0.12,
+      "max": 1.2
+    },
+    "grid": 0.9,
+    "ground": "#E7D8C4",
+    "decor": [
+      {
+        "t": "cyl",
+        "pos": [
+          -0.15,
+          0.0035,
+          0
+        ],
+        "r": 0.045,
+        "h": 0.007,
+        "color": "#9A4F31"
+      },
+      {
+        "t": "cyl",
+        "pos": [
+          -0.15,
+          0.0405,
+          0
+        ],
+        "r": 0.048,
+        "h": 0.066,
+        "color": "#B45F3C",
+        "rBottom": 0.036
+      },
+      {
+        "t": "cyl",
+        "pos": [
+          -0.15,
+          0.0735,
+          0
+        ],
+        "r": 0.053,
+        "h": 0.008,
+        "color": "#C26D48"
+      },
+      {
+        "t": "cyl",
+        "pos": [
+          -0.15,
+          0.0705,
+          0
+        ],
+        "r": 0.045,
+        "h": 0.003,
+        "color": "#6B4E31"
+      },
+      {
+        "t": "blk",
+        "pos": [
+          0.05,
+          0.0015,
+          0.03
+        ],
+        "size": [
+          0.2,
+          0.003,
+          0.15
+        ],
+        "color": "#334155"
+      },
+      {
+        "t": "blk",
+        "pos": [
+          0.14,
+          0.004,
+          -0.07
+        ],
+        "size": [
+          0.05,
+          0.008,
+          0.035
+        ],
+        "color": "#334155"
+      }
+    ]
+  },
+  "parts": [
+    {
+      "id": "sensor",
+      "partId": "soil-sensor",
+      "name": "Cảm biến độ ẩm đất",
+      "role": "Cắm vào đất, đổi độ ẩm thành một điện áp để máy tính hiểu được.",
+      "color": "#0F8A6B",
+      "goal": "Bắt đầu từ nơi dữ liệu sinh ra: thứ cắm xuống đất và \"cảm nhận\" độ ẩm.",
+      "hint": "Một thanh mỏng cắm xuống chậu cây.",
+      "facts": [
+        {
+          "k": "Loại",
+          "v": "Điện dung, ngõ ra analog"
+        },
+        {
+          "k": "Ngõ ra",
+          "v": "0 đến 3,3 V"
+        }
+      ],
+      "details": [
+        "Đất càng khô thì số đo càng cao với loại cảm biến này.",
+        "Loại điện dung bền hơn loại điện trở vì không bị ăn mòn."
+      ],
+      "at": [
+        -0.132,
+        0.0255,
+        0
+      ],
+      "node": [
+        -0.132,
+        0.1,
+        0
+      ]
+    },
+    {
+      "id": "mcu",
+      "partId": "esp32",
+      "name": "Vi điều khiển ESP32",
+      "role": "Bộ não: đọc cảm biến, so với ngưỡng, quyết định bơm và gửi dữ liệu đi.",
+      "color": "#1E3F82",
+      "goal": "Gắn bộ não nhận tín hiệu từ cảm biến và ra quyết định.",
+      "hint": "Tấm mạch có chip và ăng-ten Wi-Fi, nối sau cảm biến.",
+      "facts": [
+        {
+          "k": "ADC",
+          "v": "12 bit (0 đến 4095)"
+        },
+        {
+          "k": "Điện áp tham chiếu",
+          "v": "3,3 V"
+        }
+      ],
+      "details": [
+        "ADC biến điện áp thành một số nguyên để chương trình xử lý.",
+        "Có sẵn Wi-Fi nên gửi dữ liệu lên mạng không cần thêm mạch."
+      ],
+      "at": [
+        0,
+        0.003,
+        0
+      ],
+      "node": [
+        0,
+        0.014,
+        0
+      ]
+    },
+    {
+      "id": "relay",
+      "partId": "relay",
+      "name": "Rơ-le",
+      "role": "Công tắc điều khiển bằng điện: tín hiệu nhỏ của ESP32 đóng ngắt dòng lớn của máy bơm.",
+      "color": "#C0392B",
+      "goal": "Vi điều khiển không đủ dòng cho máy bơm, hãy gắn thứ đóng ngắt hộ nó.",
+      "hint": "Khối xanh có tiếng \"tách\" khi đóng, nối sau ESP32.",
+      "facts": [
+        {
+          "k": "Điều khiển",
+          "v": "Tín hiệu 3,3 V từ ESP32"
+        },
+        {
+          "k": "Đóng ngắt",
+          "v": "Nguồn 5 V của bơm"
+        }
+      ],
+      "details": [
+        "Rơ-le cách ly mạch điều khiển với mạch công suất.",
+        "Đóng ngắt quá thường xuyên làm rơ-le mòn nhanh."
+      ],
+      "at": [
+        0,
+        0.003,
+        0.062
+      ],
+      "node": [
+        0,
+        0.03,
+        0.062
+      ]
+    },
+    {
+      "id": "pump",
+      "partId": "pump",
+      "name": "Bơm nước mini",
+      "role": "Đưa nước từ bình vào chậu khi rơ-le đóng.",
+      "color": "#3B82F6",
+      "goal": "Gắn thứ thực sự đưa nước tới cây.",
+      "hint": "Động cơ nhỏ có ống dẫn nước, nối sau rơ-le.",
+      "facts": [
+        {
+          "k": "Nguồn",
+          "v": "5 V"
+        },
+        {
+          "k": "Lưu lượng",
+          "v": "60 mL mỗi phút"
+        }
+      ],
+      "details": [
+        "Bơm chạy càng lâu thì nước càng nhiều.",
+        "Nên bơm vừa đủ để đất không bị úng."
+      ],
+      "at": [
+        0.1,
+        0.003,
+        0.062
+      ],
+      "node": [
+        0.1,
+        0.03,
+        0.062
+      ]
+    },
+    {
+      "id": "network",
+      "partId": "wifi",
+      "name": "Kết nối Wi-Fi",
+      "role": "Đưa dữ liệu từ ESP32 qua router lên máy chủ.",
+      "color": "#8B5CF6",
+      "goal": "Gắn đường truyền để số liệu đi ra khỏi chậu cây.",
+      "hint": "Biểu tượng sóng, đi từ ESP32 tới bảng điều khiển.",
+      "facts": [
+        {
+          "k": "Giao thức",
+          "v": "MQTT hoặc HTTP"
+        },
+        {
+          "k": "Tần suất",
+          "v": "Theo chu kỳ lấy mẫu"
+        }
+      ],
+      "details": [
+        "Gửi càng thường xuyên thì càng tốn điện và dữ liệu.",
+        "Mất Wi-Fi thì ESP32 vẫn nên tự quyết định tưới được."
+      ],
+      "at": [
+        0,
+        0.003,
+        -0.07
+      ],
+      "node": [
+        0,
+        0.012,
+        -0.07
+      ]
+    },
+    {
+      "id": "dashboard",
+      "partId": "tft",
+      "name": "Bảng điều khiển",
+      "role": "Hiển thị độ ẩm theo thời gian và cho bạn xem hệ thống đang làm gì.",
+      "color": "#E08A2E",
+      "goal": "Gắn thứ cuối để con người nhìn thấy dữ liệu.",
+      "hint": "Màn hình có biểu đồ, ở cuối đường truyền.",
+      "facts": [
+        {
+          "k": "Hiển thị",
+          "v": "Độ ẩm, trạng thái bơm"
+        },
+        {
+          "k": "Truy cập",
+          "v": "Trình duyệt hoặc điện thoại"
+        }
+      ],
+      "details": [
+        "Biểu đồ giúp thấy xu hướng mà một con số không cho thấy.",
+        "Có thể đặt cảnh báo khi độ ẩm quá thấp."
+      ],
+      "at": [
+        0.14,
+        0.008,
+        -0.074
+      ],
+      "node": [
+        0.14,
+        0.06,
+        -0.06
+      ]
+    }
+  ],
+  "links": [
+    [
+      "sensor",
+      "mcu"
+    ],
+    [
+      "mcu",
+      "relay"
+    ],
+    [
+      "relay",
+      "pump"
+    ],
+    [
+      "mcu",
+      "network"
+    ],
+    [
+      "network",
+      "dashboard"
+    ]
+  ],
+  "buildOrder": [
+    3,
+    0,
+    5,
+    2,
+    4,
+    1
+  ],
+  "wiring": {
+    "exercise": "Đi dây cho hệ thống tưới cây",
+    "nets": [
+      {
+        "id": "v33",
+        "name": "Nguồn 3,3 V cho cảm biến",
+        "color": "#EA580C",
+        "done": "Cảm biến được cấp 3,3 V, nên tín hiệu analog của nó không vượt quá mức mà ADC của ESP32 chịu được."
+      },
+      {
+        "id": "v5",
+        "name": "Nguồn 5 V cho rơ-le và bơm",
+        "color": "#D97706",
+        "done": "Chân 5 V của ESP32 (lấy từ cổng USB) nuôi cuộn dây rơ-le và cũng là nguồn đưa tới bơm khi rơ-le đóng."
+      },
+      {
+        "id": "gnd",
+        "name": "Đường nối đất (GND) chung",
+        "color": "#1F2937",
+        "done": "Mọi linh kiện dùng chung mức 0 V làm mốc, để tín hiệu và dòng điện có đường về."
+      },
+      {
+        "id": "sense",
+        "name": "Tín hiệu độ ẩm về ESP32",
+        "color": "#059669",
+        "done": "Điện áp analog của cảm biến đi vào chân ADC, ESP32 đổi nó thành số để so với ngưỡng."
+      },
+      {
+        "id": "ctrl",
+        "name": "Lệnh bật tắt bơm",
+        "color": "#2563EB",
+        "done": "Chân GPIO của ESP32 điều khiển rơ-le. Chân này chỉ cấp được dòng rất nhỏ nên không thể nuôi bơm trực tiếp."
+      },
+      {
+        "id": "pump",
+        "name": "Điện cấp cho bơm",
+        "color": "#DB2777",
+        "done": "Khi rơ-le đóng, 5 V từ tiếp điểm đi qua tới bơm nên bơm chạy. Rơ-le đóng vai trò công tắc do ESP32 điều khiển."
+      }
+    ],
+    "terminals": [
+      {
+        "id": "soil-vcc",
+        "part": "sensor",
+        "pin": "vcc",
+        "label": "VCC",
+        "desc": "Chân cấp nguồn cho cảm biến. Cảm biến chịu 3,3 V đến 5 V.",
+        "net": "v33",
+        "pos": [
+          -0.144,
+          0.1085,
+          0
+        ],
+        "base": 0.1017
+      },
+      {
+        "id": "soil-aout",
+        "part": "sensor",
+        "pin": "out",
+        "label": "AOUT (tín hiệu)",
+        "desc": "Điện áp analog thay đổi theo độ ẩm của đất.",
+        "net": "sense",
+        "pos": [
+          -0.132,
+          0.1085,
+          0
+        ],
+        "base": 0.1017
+      },
+      {
+        "id": "soil-gnd",
+        "part": "sensor",
+        "pin": "gnd",
+        "label": "GND",
+        "desc": "Chân nối đất của cảm biến.",
+        "net": "gnd",
+        "pos": [
+          -0.12,
+          0.1085,
+          0
+        ],
+        "base": 0.1017
+      },
+      {
+        "id": "esp-3v3",
+        "part": "mcu",
+        "pin": "3v3",
+        "label": "3V3",
+        "desc": "Đầu ra 3,3 V do bo mạch tạo ra, dùng nuôi các cảm biến nhỏ.",
+        "net": "v33",
+        "pos": [
+          -0.019,
+          0.0154,
+          -0.006
+        ],
+        "base": 0.0094
+      },
+      {
+        "id": "esp-gnd",
+        "part": "mcu",
+        "pin": "gnd",
+        "label": "GND",
+        "desc": "Chân nối đất của bo mạch.",
+        "net": "gnd",
+        "pos": [
+          -0.006,
+          0.0154,
+          -0.006
+        ],
+        "base": 0.0094
+      },
+      {
+        "id": "esp-5v",
+        "part": "mcu",
+        "pin": "5v",
+        "label": "5V",
+        "desc": "Đầu ra 5 V lấy từ cổng USB cấp nguồn cho bo mạch.",
+        "net": "v5",
+        "pos": [
+          0.008,
+          0.0154,
+          -0.006
+        ],
+        "base": 0.0094
+      },
+      {
+        "id": "esp-adc",
+        "part": "mcu",
+        "pin": "adc",
+        "label": "ADC (đọc analog)",
+        "desc": "Chân đọc điện áp analog, chỉ chịu tối đa 3,3 V.",
+        "net": "sense",
+        "pos": [
+          -0.019,
+          0.0154,
+          0.006
+        ],
+        "base": 0.0094
+      },
+      {
+        "id": "esp-gpio",
+        "part": "mcu",
+        "pin": "gpio-out",
+        "label": "GPIO (xuất lệnh)",
+        "desc": "Chân xuất tín hiệu bật tắt mức 3,3 V, chỉ cấp được dòng vài chục mA.",
+        "net": "ctrl",
+        "pos": [
+          0.008,
+          0.0154,
+          0.006
+        ],
+        "base": 0.0094
+      },
+      {
+        "id": "rly-vcc",
+        "part": "relay",
+        "pin": "vcc",
+        "label": "VCC",
+        "desc": "Cấp nguồn 5 V nuôi cuộn dây của rơ-le.",
+        "net": "v5",
+        "pos": [
+          -0.01,
+          0.0315,
+          0.056
+        ],
+        "base": 0.0255
+      },
+      {
+        "id": "rly-gnd",
+        "part": "relay",
+        "pin": "gnd",
+        "label": "GND",
+        "desc": "Chân nối đất của mạch rơ-le.",
+        "net": "gnd",
+        "pos": [
+          -0.01,
+          0.0315,
+          0.068
+        ],
+        "base": 0.0255
+      },
+      {
+        "id": "rly-in",
+        "part": "relay",
+        "pin": "in",
+        "label": "IN (lệnh)",
+        "desc": "Nhận lệnh bật tắt từ vi điều khiển.",
+        "net": "ctrl",
+        "pos": [
+          -0.022,
+          0.0315,
+          0.062
+        ],
+        "base": 0.0255
+      },
+      {
+        "id": "rly-com",
+        "part": "relay",
+        "pin": "com",
+        "label": "COM (chung)",
+        "desc": "Đầu chung của tiếp điểm: nhận điện cần đóng ngắt (5 V).",
+        "net": "v5",
+        "pos": [
+          0.014,
+          0.0315,
+          0.056
+        ],
+        "base": 0.0255
+      },
+      {
+        "id": "rly-no",
+        "part": "relay",
+        "pin": "no",
+        "label": "NO (thường hở)",
+        "desc": "Tiếp điểm hở khi rơ-le nghỉ, nối với COM khi rơ-le được cấp lệnh.",
+        "net": "pump",
+        "pos": [
+          0.014,
+          0.0315,
+          0.068
+        ],
+        "base": 0.0255
+      },
+      {
+        "id": "pump-pos",
+        "part": "pump",
+        "pin": "pos",
+        "label": "Dây dương (+)",
+        "desc": "Nhận điện từ tiếp điểm của rơ-le.",
+        "net": "pump",
+        "pos": [
+          0.096,
+          0.0125,
+          0.079
+        ],
+        "base": 0.0045
+      },
+      {
+        "id": "pump-neg",
+        "part": "pump",
+        "pin": "neg",
+        "label": "Dây âm (−)",
+        "desc": "Đường về của dòng điện qua bơm, mức 0 V.",
+        "net": "gnd",
+        "pos": [
+          0.108,
+          0.0125,
+          0.079
+        ],
+        "base": 0.0045
+      }
+    ],
+    "rules": [
+      {
+        "nets": [
+          "v5",
+          "pump"
+        ],
+        "terminals": [
+          "rly-com",
+          "rly-no"
+        ],
+        "message": "Nối thẳng COM với NO là bỏ qua rơ-le: bơm sẽ chạy liên tục và ESP32 không điều khiển được nữa."
+      },
+      {
+        "nets": [
+          "v33",
+          "v5"
+        ],
+        "message": "Nối 3,3 V với 5 V làm hai nguồn đẩy dòng vào nhau, chân 3,3 V của ESP32 có thể hỏng."
+      },
+      {
+        "nets": [
+          "v33",
+          "sense"
+        ],
+        "terminals": [
+          "soil-vcc",
+          "soil-aout"
+        ],
+        "message": "Đưa nguồn vào chân tín hiệu cảm biến làm sai số đo và có thể phá hỏng cảm biến."
+      },
+      {
+        "nets": [
+          "v33",
+          "sense"
+        ],
+        "terminals": [
+          "soil-vcc",
+          "esp-adc"
+        ],
+        "message": "Đưa nguồn vào chân tín hiệu cảm biến làm sai số đo và có thể phá hỏng cảm biến."
+      },
+      {
+        "nets": [
+          "gnd",
+          "sense"
+        ],
+        "message": "Nối tín hiệu xuống GND giữ nó ở 0 V, ESP32 sẽ luôn đọc ra \"rất ẩm\" hoặc không ra được lệnh bật bơm."
+      },
+      {
+        "nets": [
+          "gnd",
+          "ctrl"
+        ],
+        "message": "Nối tín hiệu xuống GND giữ nó ở 0 V, ESP32 sẽ luôn đọc ra \"rất ẩm\" hoặc không ra được lệnh bật bơm."
+      },
+      {
+        "nets": [
+          "gnd",
+          "*"
+        ],
+        "message": "Nối đường điện với GND là chập mạch: nguồn USB bị nối tắt, bo mạch có thể tự ngắt hoặc nóng lên."
+      },
+      {
+        "nets": [
+          "ctrl",
+          "pump"
+        ],
+        "message": "Chân GPIO chỉ cấp được khoảng 12 mA mà bơm cần hàng trăm mA: chân sẽ quá tải và hỏng. Phải dùng rơ-le làm công tắc cho bơm."
+      },
+      {
+        "nets": [
+          "pump",
+          "v5"
+        ],
+        "message": "Bơm nối thẳng vào 5 V sẽ chạy liên tục, không qua rơ-le nên ESP32 không điều khiển được. Điện tới bơm phải đi qua tiếp điểm rơ-le."
+      },
+      {
+        "nets": [
+          "sense",
+          "v5"
+        ],
+        "message": "Đưa điện áp nguồn vào chân đọc analog có thể vượt quá 3,3 V mà ADC của ESP32 chịu được và làm hỏng nó."
+      },
+      {
+        "nets": [
+          "sense",
+          "v33"
+        ],
+        "message": "Đưa điện áp nguồn vào chân đọc analog có thể vượt quá 3,3 V mà ADC của ESP32 chịu được và làm hỏng nó."
+      },
+      {
+        "nets": [
+          "ctrl",
+          "v5"
+        ],
+        "message": "Chân điều khiển rơ-le phải nhận tín hiệu từ GPIO của ESP32, không nối với đường nguồn."
+      },
+      {
+        "nets": [
+          "ctrl",
+          "v33"
+        ],
+        "message": "Chân điều khiển rơ-le phải nhận tín hiệu từ GPIO của ESP32, không nối với đường nguồn."
+      },
+      {
+        "nets": [
+          "sense",
+          "ctrl"
+        ],
+        "message": "Hai tín hiệu khác nhau bị nối chung nên ESP32 vừa đọc cảm biến vừa ra lệnh trên cùng một dây, kết quả lẫn lộn."
+      },
+      {
+        "nets": [
+          "pump",
+          "v33"
+        ],
+        "message": "Bơm cần dòng lớn, chân 3,3 V của ESP32 không đủ sức nuôi nó."
+      }
+    ],
+    "fallback": "Hai chân này không nên nối với nhau.",
+    "doneText": "Mạch đã đủ và đúng. Cảm biến báo độ ẩm về chân ADC, ESP32 ra lệnh qua GPIO cho rơ-le, rơ-le đóng ngắt điện 5 V cấp cho bơm. Hệ thống đã sẵn sàng."
+  },
+  "exercises": [
+    {
+      "title": "Đổi số đo ra điện áp",
+      "prompt": "ESP32 đọc được số {raw} từ cảm biến (ADC 12 bit, tối đa {adcMax}, tham chiếu {vref} V). Điện áp thực tế ở chân cảm biến là bao nhiêu volt?",
+      "inputs": [
+        {
+          "name": "raw",
+          "label": "Số đo",
+          "unit": "",
+          "min": 50,
+          "max": 4095,
+          "step": 50,
+          "default": 2000
+        }
+      ],
+      "constants": {
+        "adcMax": 4095,
+        "vref": 3.3,
+        "levels": 4096
+      },
+      "answer": "raw / adcMax * vref",
+      "tolerance": {
+        "rel": 0.1
+      },
+      "placeholder": "Điện áp (V)",
+      "okText": "Đúng. {raw} chia {adcMax} nhân {vref} V ≈ {answer:2} V. ADC 12 bit chia dải 0 đến {vref} V thành {levels} mức.",
+      "failText": "Chưa khớp. Số đo chia cho giá trị lớn nhất của ADC ({adcMax}), rồi nhân điện áp tham chiếu ({vref} V).",
+      "focus": "mcu"
+    },
+    {
+      "title": "Đổi số đo ra độ ẩm",
+      "prompt": "Cảm biến này đo {rawDry} khi đất khô hẳn (0%) và {rawWet} khi ngâm nước (100%). Số đo hiện tại là {raw}. Độ ẩm đất là bao nhiêu phần trăm?",
+      "inputs": [
+        {
+          "name": "raw",
+          "label": "Số đo",
+          "unit": "",
+          "min": 1300,
+          "max": 2900,
+          "step": 50,
+          "default": 2100
+        }
+      ],
+      "constants": {
+        "rawDry": 3000,
+        "rawWet": 1200
+      },
+      "answer": "max(0, min(100, (rawDry - raw) / (rawDry - rawWet) * 100))",
+      "tolerance": {
+        "abs": 3
+      },
+      "placeholder": "Độ ẩm (%)",
+      "okText": "Đúng. ({rawDry} − {raw}) / ({rawDry} − {rawWet}) × 100 ≈ {answer:0}%. Số đo càng cao thì đất càng khô, nên phải lấy mốc khô trừ đi số đo.",
+      "failText": "Chưa khớp (sai số cho phép 3%). Cảm biến đo {rawDry} khi khô (0%) và {rawWet} khi ngâm nước (100%). Hãy nội suy tuyến tính giữa hai mốc này.",
+      "focus": "sensor"
+    },
+    {
+      "title": "Tính thời gian bơm",
+      "prompt": "Mỗi lần tưới cần {ml} mL nước. Bơm có lưu lượng {flow} mL mỗi phút. Rơ-le phải giữ bơm chạy bao nhiêu giây?",
+      "inputs": [
+        {
+          "name": "ml",
+          "label": "Lượng nước",
+          "unit": " mL",
+          "min": 50,
+          "max": 300,
+          "step": 10,
+          "default": 150
+        }
+      ],
+      "constants": {
+        "flow": 60
+      },
+      "answer": "ml / flow * 60",
+      "tolerance": {
+        "rel": 0.1
+      },
+      "placeholder": "Thời gian (giây)",
+      "okText": "Đúng. {ml} mL chia {flow} mL mỗi phút, nhân 60 giây ≈ {answer:0} giây. Đây là thời gian rơ-le giữ đóng cho mỗi lần tưới.",
+      "failText": "Chưa khớp. Bơm {flow} mL mỗi phút, tức {flow} chia 60 mL mỗi giây. Thời gian = thể tích chia lưu lượng.",
+      "focus": "pump"
+    }
+  ],
+  "tune": {
+    "template": "iot-moisture"
+  },
+  "texts": {
+    "buildDone": "Hệ thống đã có cảm biến, ESP32, rơ-le, bơm, Wi-Fi và bảng điều khiển. Nhưng chúng chưa có điện và chưa nối với nhau: giờ bạn đi dây.",
+    "buildDoneLabel": "Sang bước đi dây"
+  }
+}
