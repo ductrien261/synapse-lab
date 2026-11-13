@@ -1,9 +1,11 @@
 from django.urls import path
 
 from . import views as v
+from .lab import LabExplainView
 
 urlpatterns = [
     path('quota/', v.MyQuotaView.as_view()),
+    path('lab/explain/', LabExplainView.as_view()),
     path('admin/overview/', v.OverviewView.as_view()),
     path('admin/requests/', v.RequestLogView.as_view()),
     path('admin/settings/', v.SettingsView.as_view()),
