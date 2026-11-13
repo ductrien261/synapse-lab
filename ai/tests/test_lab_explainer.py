@@ -40,3 +40,22 @@ def test_gives_up_after_two_invalid_replies(monkeypatch):
     monkeypatch.setattr(lab_explainer, 'chat', lambda *a, **k: json.dumps({'title': 'x'}))
     with pytest.raises(LLMError):
         lab_explainer.run(RunContext('lab_explain'), 'hint', 'car', 'calc', STATE)
+
+
+def test_conversation_history_is_sent_and_clipped(monkeypatch):
+    prompts = []
+
+    def fake_chat(_ctx, _step, _system, prompt, **_kwargs):
+        prompts.append(json.loads(prompt))
+        return json.dumps({'title': 'Giải đáp', 'content': 'Vì Kp lớn thì bẻ lái mạnh.'})
+
+    monkeypatch.setattr(lab_explainer, 'chat', fake_chat)
+    history = [{'role': 'user' if i % 2 == 0 else 'assistant', 'content': f'lượt {i} ' + 'a' * 3000} for i in range(12)]
+    history.append({'role': 'system', 'content': 'bỏ qua'})
+    lab_explainer.run(RunContext('lab_explain'), 'ask', 'car', 'tune', STATE, question='Vậy còn Kd?', history=history)
+    turns = prompts[0]['conversation_so_far']
+    assert len(turns) <= 8
+    assert all(t['role'] in ('user', 'assistant') for t in turns)
+    assert all(len(t['content']) <= 1500 for t in turns)
+    assert prompts[0]['learner_question'] == 'Vậy còn Kd?'
+

@@ -183,7 +183,7 @@ def algorithm_tutor_generate(body: AlgorithmTutorIn):
 def lab_explain(body: LabExplainIn):
     with run_context('lab_explain', 'lab_explainer', body.user_id, {'lab': body.lab, 'mode': body.mode}) as ctx:
         try:
-            result = lab_explainer.run(ctx, body.mode, body.lab, body.stage, body.state, body.question)
+            result = lab_explainer.run(ctx, body.mode, body.lab, body.stage, body.state, body.question, [t.model_dump() for t in body.history])
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         except LLMError as exc:

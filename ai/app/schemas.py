@@ -139,12 +139,19 @@ class AlgorithmTutorIn(Caller):
     code_selection: AlgorithmCodeSelection | None = None
 
 
+class LabTurn(BaseModel):
+    role: Literal['user', 'assistant']
+    content: str = Field(max_length=1500)
+
+
 class LabExplainIn(Caller):
     lab: Literal['arm', 'car', 'iot']
     mode: Literal['explain', 'ask', 'hint']
     stage: str = Field(default='', max_length=40)
     state: dict
     question: str = Field(default='', max_length=500)
+    # Các lượt hội thoại trước (cũ đến mới) để trợ lý trả lời nối tiếp
+    history: list[LabTurn] = Field(default_factory=list, max_length=8)
 
 
 class ClassroomCopilotIn(Caller):

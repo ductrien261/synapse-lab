@@ -6,6 +6,8 @@ from ..llm.chat import LLMError, chat, parse_json
 from ..prompts.lab_explainer import LABS, SYSTEMS, VERSION
 
 MAX_STATE_CHARS = 4000
+MAX_TURNS = 8
+MAX_TURN_CHARS = 1500
 
 
 def _validated(mode: str, data: dict) -> dict:
@@ -15,7 +17,7 @@ def _validated(mode: str, data: dict) -> dict:
     return {'mode': mode, 'title': title.strip()[:120], 'content': content.strip()[:2000], 'prompt_version': VERSION}
 
 
-def run(ctx, mode: str, lab: str, stage: str, state: dict, question: str = '') -> dict:
+def run(ctx, mode: str, lab: str, stage: str, state: dict, question: str = '', history: list[dict] | None = None) -> dict:
     if mode not in SYSTEMS:
         raise ValueError('Kiểu hỗ trợ không hợp lệ.')
     if lab not in LABS:
@@ -25,7 +27,9 @@ def run(ctx, mode: str, lab: str, stage: str, state: dict, question: str = '') -
         raise ValueError('Trạng thái mô phỏng quá lớn.')
     if mode == 'ask' and not question.strip():
         raise ValueError('Chưa có câu hỏi.')
-    prompt = json.dumps({'lab_description': LABS[lab], 'stage': stage, 'state': state,
+    turns = [{'role': t['role'], 'content': str(t['content'])[:MAX_TURN_CHARS]}
+             for t in (history or [])[-MAX_TURNS:] if t.get('role') in ('user', 'assistant') and str(t.get('content', '')).strip()]
+    prompt = json.dumps({'lab_description': LABS[lab], 'stage': stage, 'state': state, 'conversation_so_far': turns,
                          'learner_question': question if mode == 'ask' else ''}, ensure_ascii=False)
     error = ''
     for attempt in range(2):
