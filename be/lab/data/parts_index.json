@@ -1,0 +1,85 @@
+{
+ "wifi": [],
+ "esp32": [
+  "5v",
+  "gnd",
+  "gpio-out",
+  "gpio-in",
+  "adc",
+  "gpio-a",
+  "gpio-pwm2",
+  "3v3"
+ ],
+ "soil-sensor": [
+  "vcc",
+  "gnd",
+  "out"
+ ],
+ "relay": [
+  "vcc",
+  "gnd",
+  "in",
+  "com",
+  "no"
+ ],
+ "pump": [
+  "pos",
+  "neg"
+ ],
+ "tft": [
+  "vin",
+  "gnd",
+  "data"
+ ],
+ "tt-motor": [
+  "a",
+  "b"
+ ],
+ "driver": [
+  "vm",
+  "gnd",
+  "in",
+  "out"
+ ],
+ "line-sensor": [
+  "vcc",
+  "gnd",
+  "sig"
+ ],
+ "battery": [
+  "pos",
+  "neg"
+ ],
+ "switch": [
+  "in",
+  "out"
+ ],
+ "boost": [
+  "vin",
+  "gnd",
+  "out"
+ ],
+ "hc-sr04": [
+  "vcc",
+  "trig",
+  "echo",
+  "gnd"
+ ],
+ "sg90": [
+  "gnd",
+  "vcc",
+  "sig"
+ ],
+ "buzzer": [
+  "sig",
+  "gnd"
+ ],
+ "led": [
+  "anode",
+  "cathode"
+ ],
+ "gripper": [],
+ "chassis": [],
+ "wheel": [],
+ "caster": []
+}
