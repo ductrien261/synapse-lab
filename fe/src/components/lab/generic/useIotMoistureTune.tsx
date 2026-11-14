@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { DEFAULT_IOT_PARAMS, IOT, initialIot, iotSimulationState, stepIot, type IotParams, type IotState } from '@/lib/lab/iot-spec';
 import { TuneScene } from '../iot/IotScenes';
 import { Card, Notice, PrimaryButton, Row, Slider } from '../shared/LabUi';
+import { WiringGate, type TuneArgs, type TuneKit } from './tuneKit';
 
 const HORIZON = 720;
 const SPEEDS = [10, 30, 100];
@@ -15,26 +16,8 @@ const clock = (t: number) => {
   return `Ngày ${day}, ${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 };
 
-interface Args {
-  /** Đang ở bước thử tự do */
-  active: boolean;
-  /** Đã đi dây xong chưa (chưa thì không cho chạy) */
-  wired: boolean;
-  wiringProgress: string;
-  onGoWire: () => void;
-}
-
-export interface TuneKit {
-  viewport: ReactNode;
-  panel: ReactNode;
-  getState: () => Record<string, unknown>;
-  /** Gọi khi vào hoặc rời bước */
-  reset: () => void;
-  stop: () => void;
-}
-
 /** Mẫu thử tự do "độ ẩm đất": mô phỏng theo thời gian, chỉnh ngưỡng bật, độ trễ, chu kỳ lấy mẫu và nhiễu. */
-export function useIotMoistureTune({ active, wired, wiringProgress, onGoWire }: Args): TuneKit {
+export function useIotMoistureTune({ active, wired, wiringProgress, onGoWire }: TuneArgs): TuneKit {
   const [params, setParams] = useState<IotParams>(DEFAULT_IOT_PARAMS);
   const [sim, setSim] = useState<IotState>(initialIot);
   const [history, setHistory] = useState<number[]>([initialIot().moisture]);
@@ -89,10 +72,7 @@ export function useIotMoistureTune({ active, wired, wiringProgress, onGoWire }: 
   const viewport = <TuneScene params={params} sim={sim} history={history} />;
 
   const panel = !active ? null : !wired ? (
-    <Card tone="accent">
-      <Notice ok={false}>Hệ thống chưa có điện vì chưa đi dây xong ({wiringProgress}). Hãy đi dây rồi quay lại đây để chạy.</Notice>
-      <PrimaryButton onClick={onGoWire}>Đến bước đi dây</PrimaryButton>
-    </Card>
+    <WiringGate progress={wiringProgress} onGoWire={onGoWire} />
   ) : (
     <>
       <Card>

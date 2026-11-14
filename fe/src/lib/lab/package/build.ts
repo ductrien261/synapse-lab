@@ -1,18 +1,30 @@
 /** Từ gói bài thực hành suy ra các cấu trúc mà khung hiện có dùng (bộ phận, bộ máy đi dây, bài tính). */
 import type { AsmPart } from '@/components/lab/shared/assembly';
 import { createWiring, type NetDef, type Terminal } from '../wiring';
-import { getPart } from '../parts';
+import { getPart, pinPlacement } from '../parts';
 import { evaluate, fill } from './expr';
-import type { LabPackage, PkgExercise } from './types';
+import type { LabPackage, PkgExercise, PkgTerminal } from './types';
 
 export const toAsmParts = (pkg: LabPackage): AsmPart[] =>
   pkg.parts.map(({ id, name, role, color, goal, hint, facts, details }) => ({ id, name, role, color, goal, hint, facts, details }));
+
+/** Vị trí chấm của một chân đấu dây: khai báo tường minh trong bài, hoặc tính từ chân trong thư viện và vị trí đặt bộ phận. */
+export function terminalPlacement(pkg: LabPackage, t: PkgTerminal): { pos: [number, number, number]; base: number } {
+  if (t.pos && t.base !== undefined) return { pos: t.pos, base: t.base };
+  const part = pkg.parts.find((p) => p.id === t.part);
+  const pin = part && getPart(part.partId)?.pins.find((q) => q.id === t.pin);
+  if (!part || !pin) throw new Error(`Không tính được vị trí chân "${t.id}"`);
+  return pinPlacement(part.at, part.yaw, pin);
+}
 
 export function buildWiring(pkg: LabPackage) {
   const w = pkg.wiring;
   const nets: NetDef[] = w.nets.map(({ id, name, color, done }) => ({ id, name, color, done }));
   const nameOf = (id: string) => pkg.parts.find((p) => p.id === id)?.name ?? id;
-  const terminals: Terminal[] = w.terminals.map((t) => ({ id: t.id, part: t.part, partName: nameOf(t.part), label: t.label, desc: t.desc, net: t.net, pos: t.pos, base: t.base }));
+  const terminals: Terminal[] = w.terminals.map((t) => {
+    const { pos, base } = terminalPlacement(pkg, t);
+    return { id: t.id, part: t.part, partName: nameOf(t.part), label: t.label, desc: t.desc, net: t.net, pos, base };
+  });
   const mismatch = (a: Terminal, b: Terminal): string => {
     for (const r of w.rules) {
       const [x, y] = r.nets;

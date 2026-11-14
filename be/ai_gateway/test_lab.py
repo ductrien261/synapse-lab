@@ -54,3 +54,14 @@ class LabExplainViewTests(TestCase):
         self.assertEqual(self.client.post(URL, {**base, 'history': [{'role': 'user', 'content': 'x' * 1600}]}, format='json').status_code, 400)
         call_ai.assert_not_called()
 
+    @patch('ai_gateway.lab.call_ai')
+    def test_generic_lab_needs_and_forwards_context(self, call_ai):
+        call_ai.return_value = {'mode': 'explain', 'title': 'Giải thích', 'content': 'Ok.', 'meta': {}}
+        self.client.force_authenticate(self.user)
+        body = {'lab': 'generic', 'mode': 'explain', 'state': STATE}
+        self.assertEqual(self.client.post(URL, body, format='json').status_code, 400)
+        call_ai.assert_not_called()
+        response = self.client.post(URL, {**body, 'context': 'Bài thực hành: Cảnh báo khoảng cách.'}, format='json')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(call_ai.call_args.args[1]['context'], 'Bài thực hành: Cảnh báo khoảng cách.')
+

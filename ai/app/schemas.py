@@ -145,13 +145,15 @@ class LabTurn(BaseModel):
 
 
 class LabExplainIn(Caller):
-    lab: Literal['arm', 'car', 'iot']
+    lab: Literal['arm', 'car', 'iot', 'generic']
     mode: Literal['explain', 'ask', 'hint']
     stage: str = Field(default='', max_length=40)
     state: dict
     question: str = Field(default='', max_length=500)
     # Các lượt hội thoại trước (cũ đến mới) để trợ lý trả lời nối tiếp
     history: list[LabTurn] = Field(default_factory=list, max_length=8)
+    # Mô tả bài do người dùng hoặc AI tạo (bắt buộc khi lab='generic')
+    context: str = Field(default='', max_length=1500)
 
 
 class ClassroomCopilotIn(Caller):

@@ -74,9 +74,12 @@ export interface PkgTerminal {
   label: string;
   desc: string;
   net: string;
-  pos: V3;
-  /** Độ cao thân linh kiện tại chân này (m), để vẽ cọc nối xuống */
-  base: number;
+  /**
+   * Vị trí chấm trong cảnh (m) và độ cao thân tại chân. Bỏ trống cả hai thì mã tự tính từ vị trí chân
+   * trong thư viện và vị trí đặt bộ phận (nên bỏ trống, chỉ khai báo khi cần đặt chấm khác mặc định).
+   */
+  pos?: V3;
+  base?: number;
 }
 
 /** Lý do khi nối hai chân khác mạch. Luật đầu tiên khớp sẽ được dùng. `*` khớp mọi mạch. */
@@ -128,8 +131,54 @@ export interface PkgExercise {
   focus: string;
 }
 
+/** Một kết quả tính ra từ các đại lượng người học chỉnh */
+export interface FormulaOutput {
+  id: string;
+  label: string;
+  /** Biểu thức theo cú pháp của expr.ts, dùng tên đại lượng nhập, hằng số và các kết quả khai báo trước nó */
+  expr: string;
+  unit: string;
+  /** Số chữ số thập phân khi hiển thị */
+  digits: number;
+}
+
+/** Cảnh báo hiện ra khi một kết quả nằm ngoài khoảng cho phép */
+export interface FormulaLimit {
+  output: string;
+  min?: number;
+  max?: number;
+  text: string;
+}
+
+/**
+ * Mẫu "công thức": người học kéo thanh chỉnh các đại lượng, mã tính các kết quả bằng công thức và vẽ
+ * đường cong của một kết quả theo một đại lượng. Không cần viết code mô phỏng riêng.
+ */
+export interface FormulaTune {
+  template: 'formula';
+  title: string;
+  intro: string;
+  inputs: PkgInput[];
+  constants: Record<string, number>;
+  outputs: FormulaOutput[];
+  chart: { xInput: string; yOutput: string; xLabel: string; yLabel: string };
+  limits: FormulaLimit[];
+}
+
+/** Mẫu "xe trong sân": xe chạy thẳng, đo khoảng cách phía trước, gặp vật cản gần hơn ngưỡng thì quay để né. */
+export interface VehicleTune {
+  template: 'vehicle-arena';
+  title: string;
+  intro: string;
+}
+
+export interface IotMoistureTune {
+  template: 'iot-moisture';
+}
+
 /** Mẫu mô phỏng cho bước thử tự do: chỉ dùng các mẫu mã đã viết sẵn. */
-export type TuneTemplate = 'iot-moisture';
+export type TuneConfig = IotMoistureTune | FormulaTune | VehicleTune;
+export type TuneTemplate = TuneConfig['template'];
 
 export interface PkgTexts {
   buildDone: string;
@@ -151,6 +200,6 @@ export interface LabPackage {
   buildOrder: number[];
   wiring: PkgWiring;
   exercises: PkgExercise[];
-  tune: { template: TuneTemplate };
+  tune: TuneConfig;
   texts: PkgTexts;
 }

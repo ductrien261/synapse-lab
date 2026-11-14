@@ -398,13 +398,7 @@
         "pin": "vcc",
         "label": "VCC",
         "desc": "Chân cấp nguồn cho cảm biến. Cảm biến chịu 3,3 V đến 5 V.",
-        "net": "v33",
-        "pos": [
-          -0.144,
-          0.1085,
-          0
-        ],
-        "base": 0.1017
+        "net": "v33"
       },
       {
         "id": "soil-aout",
@@ -412,13 +406,7 @@
         "pin": "out",
         "label": "AOUT (tín hiệu)",
         "desc": "Điện áp analog thay đổi theo độ ẩm của đất.",
-        "net": "sense",
-        "pos": [
-          -0.132,
-          0.1085,
-          0
-        ],
-        "base": 0.1017
+        "net": "sense"
       },
       {
         "id": "soil-gnd",
@@ -426,13 +414,7 @@
         "pin": "gnd",
         "label": "GND",
         "desc": "Chân nối đất của cảm biến.",
-        "net": "gnd",
-        "pos": [
-          -0.12,
-          0.1085,
-          0
-        ],
-        "base": 0.1017
+        "net": "gnd"
       },
       {
         "id": "esp-3v3",
@@ -440,13 +422,7 @@
         "pin": "3v3",
         "label": "3V3",
         "desc": "Đầu ra 3,3 V do bo mạch tạo ra, dùng nuôi các cảm biến nhỏ.",
-        "net": "v33",
-        "pos": [
-          -0.019,
-          0.0154,
-          -0.006
-        ],
-        "base": 0.0094
+        "net": "v33"
       },
       {
         "id": "esp-gnd",
@@ -454,13 +430,7 @@
         "pin": "gnd",
         "label": "GND",
         "desc": "Chân nối đất của bo mạch.",
-        "net": "gnd",
-        "pos": [
-          -0.006,
-          0.0154,
-          -0.006
-        ],
-        "base": 0.0094
+        "net": "gnd"
       },
       {
         "id": "esp-5v",
@@ -468,13 +438,7 @@
         "pin": "5v",
         "label": "5V",
         "desc": "Đầu ra 5 V lấy từ cổng USB cấp nguồn cho bo mạch.",
-        "net": "v5",
-        "pos": [
-          0.008,
-          0.0154,
-          -0.006
-        ],
-        "base": 0.0094
+        "net": "v5"
       },
       {
         "id": "esp-adc",
@@ -482,13 +446,7 @@
         "pin": "adc",
         "label": "ADC (đọc analog)",
         "desc": "Chân đọc điện áp analog, chỉ chịu tối đa 3,3 V.",
-        "net": "sense",
-        "pos": [
-          -0.019,
-          0.0154,
-          0.006
-        ],
-        "base": 0.0094
+        "net": "sense"
       },
       {
         "id": "esp-gpio",
@@ -496,13 +454,7 @@
         "pin": "gpio-out",
         "label": "GPIO (xuất lệnh)",
         "desc": "Chân xuất tín hiệu bật tắt mức 3,3 V, chỉ cấp được dòng vài chục mA.",
-        "net": "ctrl",
-        "pos": [
-          0.008,
-          0.0154,
-          0.006
-        ],
-        "base": 0.0094
+        "net": "ctrl"
       },
       {
         "id": "rly-vcc",
@@ -510,13 +462,7 @@
         "pin": "vcc",
         "label": "VCC",
         "desc": "Cấp nguồn 5 V nuôi cuộn dây của rơ-le.",
-        "net": "v5",
-        "pos": [
-          -0.01,
-          0.0315,
-          0.056
-        ],
-        "base": 0.0255
+        "net": "v5"
       },
       {
         "id": "rly-gnd",
@@ -524,13 +470,7 @@
         "pin": "gnd",
         "label": "GND",
         "desc": "Chân nối đất của mạch rơ-le.",
-        "net": "gnd",
-        "pos": [
-          -0.01,
-          0.0315,
-          0.068
-        ],
-        "base": 0.0255
+        "net": "gnd"
       },
       {
         "id": "rly-in",
@@ -538,13 +478,7 @@
         "pin": "in",
         "label": "IN (lệnh)",
         "desc": "Nhận lệnh bật tắt từ vi điều khiển.",
-        "net": "ctrl",
-        "pos": [
-          -0.022,
-          0.0315,
-          0.062
-        ],
-        "base": 0.0255
+        "net": "ctrl"
       },
       {
         "id": "rly-com",
@@ -552,13 +486,7 @@
         "pin": "com",
         "label": "COM (chung)",
         "desc": "Đầu chung của tiếp điểm: nhận điện cần đóng ngắt (5 V).",
-        "net": "v5",
-        "pos": [
-          0.014,
-          0.0315,
-          0.056
-        ],
-        "base": 0.0255
+        "net": "v5"
       },
       {
         "id": "rly-no",
@@ -566,13 +494,7 @@
         "pin": "no",
         "label": "NO (thường hở)",
         "desc": "Tiếp điểm hở khi rơ-le nghỉ, nối với COM khi rơ-le được cấp lệnh.",
-        "net": "pump",
-        "pos": [
-          0.014,
-          0.0315,
-          0.068
-        ],
-        "base": 0.0255
+        "net": "pump"
       },
       {
         "id": "pump-pos",
@@ -580,13 +502,7 @@
         "pin": "pos",
         "label": "Dây dương (+)",
         "desc": "Nhận điện từ tiếp điểm của rơ-le.",
-        "net": "pump",
-        "pos": [
-          0.096,
-          0.0125,
-          0.079
-        ],
-        "base": 0.0045
+        "net": "pump"
       },
       {
         "id": "pump-neg",
@@ -594,13 +510,7 @@
         "pin": "neg",
         "label": "Dây âm (−)",
         "desc": "Đường về của dòng điện qua bơm, mức 0 V.",
-        "net": "gnd",
-        "pos": [
-          0.108,
-          0.0125,
-          0.079
-        ],
-        "base": 0.0045
+        "net": "gnd"
       }
     ],
     "rules": [

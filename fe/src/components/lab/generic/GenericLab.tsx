@@ -12,7 +12,9 @@ import { Card, NumberGuess, Notice, Slider, parseGuess } from '../shared/LabUi';
 import { OverviewBox } from '../shared/OverviewBox';
 import { TerminalList, WiringPanel, useWiring } from '../shared/WiringKit';
 import { GenericDiagram, GenericWiringDiagram } from './GenericScene';
+import { useFormulaTune } from './useFormulaTune';
 import { useIotMoistureTune } from './useIotMoistureTune';
+import { useVehicleTune } from './useVehicleTune';
 
 const STAGES: StageDef[] = [
   { key: 'learn', label: '1. Tìm hiểu' },
@@ -22,9 +24,6 @@ const STAGES: StageDef[] = [
   { key: 'design', label: '5. Tính toán' },
   { key: 'tune', label: '6. Thử tự do' },
 ];
-
-/** Trợ lý AI hiện chỉ biết ngữ cảnh của ba bài viết tay; gói bài dùng ngữ cảnh gần nhất theo mẫu mô phỏng. */
-const ASSISTANT_LAB = { 'iot-moisture': 'iot' } as const;
 
 /** Màn hình chung: dựng đủ sáu bước của một bài thực hành từ gói JSON. */
 export function GenericLab({ pkg }: { pkg: LabPackage }) {
@@ -60,7 +59,18 @@ function LabBody({ pkg }: { pkg: LabPackage }) {
   const [calcMsg, setCalcMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [calcOk, setCalcOk] = useState(false);
 
-  const tune = useIotMoistureTune({ active: stage === 'tune', wired, wiringProgress: `${wiring.status.netsDone}/${wiring.status.netsTotal} mạch`, onGoWire: () => goStage('wire') });
+  // Mọi mẫu mô phỏng đều được gọi (đúng thứ tự hook); chỉ mẫu mà bài chọn được dùng
+  const tuneArgs = {
+    active: stage === 'tune',
+    wired,
+    wiringProgress: `${wiring.status.netsDone}/${wiring.status.netsTotal} mạch`,
+    onGoWire: () => goStage('wire'),
+    scene: <GenericDiagram pkg={pkg} installed={pkg.parts.length} focus={null} guides={false} />,
+  };
+  const iotKit = useIotMoistureTune(tuneArgs);
+  const formulaKit = useFormulaTune(pkg.tune.template === 'formula' ? pkg.tune : null, tuneArgs);
+  const vehicleKit = useVehicleTune(pkg.tune.template === 'vehicle-arena' ? pkg.tune : null, tuneArgs);
+  const tune = pkg.tune.template === 'formula' ? formulaKit : pkg.tune.template === 'vehicle-arena' ? vehicleKit : iotKit;
 
   const startCalc = (step: number) => {
     setCalc(step);
@@ -161,7 +171,7 @@ function LabBody({ pkg }: { pkg: LabPackage }) {
       {stage === 'tune' && tune.panel}
 
       {(stage === 'wire' || stage === 'design' || stage === 'tune') && (
-        <LabAssistant lab={ASSISTANT_LAB[pkg.tune.template]} stage={stage === 'design' ? `calc-${calc + 1}` : stage} getState={getState} canHint={stage === 'design' || stage === 'wire'} />
+        <LabAssistant lab={pkg.tune.template === 'iot-moisture' ? 'iot' : 'generic'} stage={stage === 'design' ? `calc-${calc + 1}` : stage} getState={getState} context={pkg.tune.template === 'iot-moisture' ? undefined : labContext(pkg)} canHint={stage === 'design' || stage === 'wire'} />
       )}
     </>
   );
@@ -179,4 +189,11 @@ function LabBody({ pkg }: { pkg: LabPackage }) {
       overlay={stage === 'learn' ? (pos) => <OverviewBox className={pos} title={pkg.overview.title} what={pkg.overview.what} steps={pkg.overview.steps} /> : undefined}
     />
   );
+}
+
+/** Mô tả bài cho trợ lý AI khi bài không phải ba bài viết tay: tên, mục tiêu, bộ phận và cách bài vận hành */
+function labContext(pkg: LabPackage): string {
+  const parts = pkg.parts.map((p) => `${p.name} (${p.role})`).join('; ');
+  const how = pkg.overview.steps.join(' ');
+  return `Bài thực hành: ${pkg.title}. ${pkg.overview.what} Các bộ phận: ${parts}. Cách hoạt động: ${how}`;
 }

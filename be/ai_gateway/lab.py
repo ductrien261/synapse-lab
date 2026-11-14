@@ -33,12 +33,14 @@ class LabExplainView(APIView):
     throttle_classes = [LabExplainThrottle]
 
     class Input(serializers.Serializer):
-        lab = serializers.ChoiceField(choices=('arm', 'car', 'iot'))
+        lab = serializers.ChoiceField(choices=('arm', 'car', 'iot', 'generic'))
         mode = serializers.ChoiceField(choices=('explain', 'ask', 'hint'))
         stage = serializers.CharField(max_length=40, required=False, allow_blank=True)
         state = serializers.DictField()
         question = serializers.CharField(max_length=500, required=False, allow_blank=True)
         history = LabTurnSerializer(many=True, required=False)
+        # Mô tả bài do người dùng hoặc AI tạo (bắt buộc khi lab='generic')
+        context = serializers.CharField(max_length=1500, required=False, allow_blank=True)
 
         def validate_state(self, value):
             if len(json.dumps(value, ensure_ascii=False)) > MAX_STATE_CHARS:
@@ -51,6 +53,8 @@ class LabExplainView(APIView):
             return value
 
         def validate(self, attrs):
+            if attrs['lab'] == 'generic' and not attrs.get('context', '').strip():
+                raise serializers.ValidationError({'context': 'Thiếu mô tả bài.'})
             if attrs['mode'] == 'ask' and not attrs.get('question', '').strip():
                 raise serializers.ValidationError({'question': 'Hãy nhập câu hỏi trước khi gửi.'})
             return attrs
@@ -63,6 +67,7 @@ class LabExplainView(APIView):
             result = call_ai('/v1/lab/explain', {
                 'lab': v['lab'], 'mode': v['mode'], 'stage': v.get('stage', ''),
                 'state': v['state'], 'question': v.get('question', ''), 'history': [dict(t) for t in v.get('history', [])],
+                'context': v.get('context', ''),
             }, user=request.user, feature='lab_explain')
         except AIError as exc:
             return Response({'detail': str(exc)}, status=exc.status_code)

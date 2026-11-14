@@ -59,3 +59,19 @@ def test_conversation_history_is_sent_and_clipped(monkeypatch):
     assert all(len(t['content']) <= 1500 for t in turns)
     assert prompts[0]['learner_question'] == 'Vậy còn Kd?'
 
+
+def test_generic_lab_uses_context_and_requires_it(monkeypatch):
+    prompts = []
+
+    def fake_chat(ctx, name, system, prompt, **kw):
+        prompts.append(prompt)
+        return json.dumps({'title': 'Giải đáp', 'content': 'Còi kêu khi vật cản gần hơn ngưỡng.'})
+
+    monkeypatch.setattr(lab_explainer, 'chat', fake_chat)
+    ctx = RunContext('lab_explain')
+    with pytest.raises(ValueError):
+        lab_explainer.run(ctx, 'explain', 'generic', 'tune', STATE)
+    result = lab_explainer.run(ctx, 'explain', 'generic', 'tune', STATE, context='Bài thực hành: Cảnh báo khoảng cách. Dùng cảm biến siêu âm và còi.')
+    assert result['title'] == 'Giải đáp'
+    assert 'Cảnh báo khoảng cách' in prompts[0]
+
