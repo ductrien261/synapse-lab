@@ -1,85 +1,225 @@
 {
- "wifi": [],
- "esp32": [
-  "5v",
-  "gnd",
-  "gpio-out",
-  "gpio-in",
-  "adc",
-  "gpio-a",
-  "gpio-pwm2",
-  "3v3"
- ],
- "soil-sensor": [
-  "vcc",
-  "gnd",
-  "out"
- ],
- "relay": [
-  "vcc",
-  "gnd",
-  "in",
-  "com",
-  "no"
- ],
- "pump": [
-  "pos",
-  "neg"
- ],
- "tft": [
-  "vin",
-  "gnd",
-  "data"
- ],
- "tt-motor": [
-  "a",
-  "b"
- ],
- "driver": [
-  "vm",
-  "gnd",
-  "in",
-  "out"
- ],
- "line-sensor": [
-  "vcc",
-  "gnd",
-  "sig"
- ],
- "battery": [
-  "pos",
-  "neg"
- ],
- "switch": [
-  "in",
-  "out"
- ],
- "boost": [
-  "vin",
-  "gnd",
-  "out"
- ],
- "hc-sr04": [
-  "vcc",
-  "trig",
-  "echo",
-  "gnd"
- ],
- "sg90": [
-  "gnd",
-  "vcc",
-  "sig"
- ],
- "buzzer": [
-  "sig",
-  "gnd"
- ],
- "led": [
-  "anode",
-  "cathode"
- ],
- "gripper": [],
- "chassis": [],
- "wheel": [],
- "caster": []
+ "wifi": {
+  "sizeMm": [
+   60.0,
+   80.0,
+   40.0
+  ],
+  "pins": []
+ },
+ "esp32": {
+  "sizeMm": [
+   51.3,
+   22.9,
+   6.4
+  ],
+  "pins": [
+   "5v",
+   "gnd",
+   "gpio-out",
+   "gpio-in",
+   "adc",
+   "gpio-a",
+   "gpio-pwm2",
+   "3v3"
+  ]
+ },
+ "soil-sensor": {
+  "sizeMm": [
+   76.2,
+   14.0,
+   6.4
+  ],
+  "pins": [
+   "vcc",
+   "gnd",
+   "out"
+  ]
+ },
+ "relay": {
+  "sizeMm": [
+   50.8,
+   22.9,
+   22.5
+  ],
+  "pins": [
+   "vcc",
+   "gnd",
+   "in",
+   "com",
+   "no"
+  ]
+ },
+ "pump": {
+  "sizeMm": [
+   40.0,
+   25.0,
+   25.0
+  ],
+  "pins": [
+   "pos",
+   "neg"
+  ]
+ },
+ "tft": {
+  "sizeMm": [
+   62.5,
+   81.3,
+   7.0
+  ],
+  "pins": [
+   "vin",
+   "gnd",
+   "data"
+  ]
+ },
+ "tt-motor": {
+  "sizeMm": [
+   22.4,
+   36.6,
+   70.6
+  ],
+  "pins": [
+   "a",
+   "b"
+  ]
+ },
+ "driver": {
+  "sizeMm": [
+   20.3,
+   24.1,
+   10.1
+  ],
+  "pins": [
+   "vm",
+   "gnd",
+   "in",
+   "out"
+  ]
+ },
+ "line-sensor": {
+  "sizeMm": [
+   25.5,
+   17.8,
+   8.5
+  ],
+  "pins": [
+   "vcc",
+   "gnd",
+   "sig"
+  ]
+ },
+ "battery": {
+  "sizeMm": [
+   36.6,
+   18.0,
+   76.0
+  ],
+  "pins": [
+   "pos",
+   "neg"
+  ]
+ },
+ "switch": {
+  "sizeMm": [
+   10.0,
+   13.2,
+   33.3
+  ],
+  "pins": [
+   "in",
+   "out"
+  ]
+ },
+ "boost": {
+  "sizeMm": [
+   11.4,
+   17.8,
+   5.1
+  ],
+  "pins": [
+   "vin",
+   "gnd",
+   "out"
+  ]
+ },
+ "hc-sr04": {
+  "sizeMm": [
+   45.0,
+   20.0,
+   16.0
+  ],
+  "pins": [
+   "vcc",
+   "trig",
+   "echo",
+   "gnd"
+  ]
+ },
+ "sg90": {
+  "sizeMm": [
+   32.5,
+   27.0,
+   12.0
+  ],
+  "pins": [
+   "gnd",
+   "vcc",
+   "sig"
+  ]
+ },
+ "buzzer": {
+  "sizeMm": [
+   12.0,
+   9.5,
+   12.0
+  ],
+  "pins": [
+   "sig",
+   "gnd"
+  ]
+ },
+ "led": {
+  "sizeMm": [
+   6.0,
+   9.5,
+   6.0
+  ],
+  "pins": [
+   "anode",
+   "cathode"
+  ]
+ },
+ "gripper": {
+  "sizeMm": [
+   60.0,
+   18.0,
+   28.0
+  ],
+  "pins": []
+ },
+ "chassis": {
+  "sizeMm": [
+   210.0,
+   3.0,
+   130.0
+  ],
+  "pins": []
+ },
+ "wheel": {
+  "sizeMm": [
+   65.0,
+   65.0,
+   20.0
+  ],
+  "pins": []
+ },
+ "caster": {
+  "sizeMm": [
+   24.0,
+   40.0,
+   24.0
+  ],
+  "pins": []
+ }
 }

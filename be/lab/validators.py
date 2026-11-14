@@ -26,7 +26,7 @@ _FUNCS = {'min': min, 'max': max, 'abs': abs, 'sqrt': math.sqrt, 'pow': math.pow
 
 
 @lru_cache(maxsize=1)
-def parts_index() -> dict[str, list[str]]:
+def parts_index() -> dict[str, dict]:
     path = Path(__file__).resolve().parent / 'data' / 'parts_index.json'
     return json.loads(path.read_text(encoding='utf-8'))
 
@@ -214,7 +214,7 @@ def _validate_wiring(w, part_ids, index, e):
             per_net[t['net']] = per_net.get(t['net'], 0) + 1
         if t.get('part') not in part_ids:
             e.append(f'{at}: bộ phận "{t.get("part")}" không có trong bài')
-        elif t.get('pin') not in index.get(part_ids[t['part']], []):
+        elif t.get('pin') not in index.get(part_ids[t['part']], {}).get('pins', []):
             e.append(f'{at}: linh kiện "{part_ids[t["part"]]}" không có chân "{t.get("pin")}"')
     for nid in net_ids:
         if per_net.get(nid, 0) < 2:

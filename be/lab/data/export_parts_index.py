@@ -13,12 +13,17 @@ HERE = Path(__file__).resolve().parent
 CATALOG = HERE.parents[2] / 'fe' / 'src' / 'lib' / 'lab' / 'parts' / 'catalog.ts'
 
 
-def build_index(text: str) -> dict[str, list[str]]:
+def build_index(text: str) -> dict[str, dict]:
     starts = [m for m in re.finditer(r"^    id: '([a-z0-9-]+)',", text, re.M)]
     index = {}
     for i, m in enumerate(starts):
         end = starts[i + 1].start() if i + 1 < len(starts) else len(text)
-        index[m.group(1)] = re.findall(r"pin\('([a-z0-9-]+)',", text[m.end():end])
+        block = text[m.end():end]
+        size = re.search(r"sizeMm: \[([0-9.]+), ([0-9.]+), ([0-9.]+)\]", block)
+        index[m.group(1)] = {
+            'sizeMm': [float(x) for x in size.groups()] if size else [20.0, 20.0, 20.0],
+            'pins': re.findall(r"pin\('([a-z0-9-]+)',", block),
+        }
     return index
 
 

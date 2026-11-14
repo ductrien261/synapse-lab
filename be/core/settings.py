@@ -223,3 +223,13 @@ SPECTACULAR_SETTINGS = {
 # CORS settings
 CORS_ALLOW_ALL_ORIGINS = env('CORS_ALLOW_ALL_ORIGINS')
 CORS_ALLOW_CREDENTIALS = True
+
+
+# Sinh bài thực hành bằng AI (app lab). Xem docs/lab/AGENTS.md
+LAB_GEN_AGENTS = env('LAB_GEN_AGENTS', default='off')  # 'off' (tắt), 'fake' (không gọi model, để thử) hoặc 'ai'
+LAB_GEN_DAILY_LIMIT = env.int('LAB_GEN_DAILY_LIMIT', default=5)  # số lần sinh mỗi người mỗi ngày (admin không giới hạn)
+LAB_GEN_MAX_REPAIRS = env.int('LAB_GEN_MAX_REPAIRS', default=3)
+LAB_GEN_TOKEN_CAP = env.int('LAB_GEN_TOKEN_CAP', default=60000)
+LAB_GEN_MAX_CALLS = env.int('LAB_GEN_MAX_CALLS', default=14)
+LAB_GEN_STALE_SECONDS = env.int('LAB_GEN_STALE_SECONDS', default=180)
+LAB_GEN_INLINE = False  # True chỉ để chạy đồng bộ trong test

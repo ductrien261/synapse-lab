@@ -49,3 +49,20 @@ Chưa kiểm chứng:
 Chưa kiểm chứng:
 - Chưa chạy trên Postgres trong Docker và chưa chạy toàn bộ test của các app khác (một app khác dùng cú pháp chỉ có ở Postgres nên không chạy được trên SQLite).
 - Chưa có giao diện tạo, quản lý, duyệt bài (thuộc bước sau); chưa có agent sinh bài.
+
+## Issue 4: nền chạy sinh bài (agent giả)
+Đã làm:
+- Bảng `lab_generation` ghi từng bước, kết quả trung gian, token, vòng sửa; migration `0002_generation`.
+- Pipeline các bước: kế hoạch, chọn linh kiện, xếp vị trí (mã), nội dung, đi dây, đề tính, kiểm tra, đánh giá, lưu; lỗi định tuyến về đúng agent, tối đa 3 vòng sửa, trần token và số lệnh gọi, dừng sớm khi thiếu mẫu hoặc linh kiện hoặc không an toàn.
+- Chạy nền không cần Celery, tải lại trang không mất, chạy tiếp được sau khi backend bị khởi động lại, không bao giờ chạy trùng một lần sinh.
+- Bộ xếp vị trí linh kiện bằng mã; `parts_index.json` có thêm kích thước.
+- API tạo, xem tiến trình kèm bản xem trước, hủy; hạn mức 5 lần mỗi ngày (admin không giới hạn), cùng yêu cầu trong ngày dùng lại kết quả, mỗi người chỉ một lần sinh đang chạy.
+- Công tắc `LAB_GEN_AGENTS` (`off` mặc định, `fake` để thử, `ai` sẽ nối ở bước sau).
+
+Đã kiểm chứng:
+- 42 test của app `lab` qua trên SQLite (có test xếp vị trí không chồng nhau, vòng sửa chỉ sinh lại đúng phần lỗi, hết vòng sửa, hết token, hủy giữa chừng, chạy tiếp sau khi bị bỏ dở không làm lại bước đã xong, giành quyền chạy loại trừ nhau).
+- Dựng thử 4 linh kiện bằng vị trí do mã xếp, hiển thị đúng và camera tự khung.
+
+Chưa kiểm chứng:
+- Chưa chạy trên Postgres trong Docker; chưa thử thread nền thật trong server (test chạy đồng bộ).
+- Chưa gọi model thật; chưa có giao diện tiến trình.

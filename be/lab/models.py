@@ -62,3 +62,46 @@ class Lesson(TimeStampedModel):
         self.deleted_at = None
         self.deleted_by = None
         self.save(update_fields=['is_deleted', 'deleted_at', 'deleted_by', 'updated_at'])
+
+
+class Generation(TimeStampedModel):
+    """Một lần AI sinh bài từ yêu cầu của người dùng. Ghi lại sau mỗi bước để xem tiến trình và chạy tiếp được."""
+
+    class Status(models.TextChoices):
+        QUEUED = 'queued', 'Đang chờ'
+        RUNNING = 'running', 'Đang chạy'
+        SUCCEEDED = 'succeeded', 'Đã tạo bài'
+        STOPPED = 'stopped', 'Dừng sớm'  # thiếu mẫu, thiếu linh kiện hoặc không an toàn
+        NEEDS_WORK = 'needs_work', 'Chưa đạt'  # hết vòng sửa hoặc hết ngân sách
+        FAILED = 'failed', 'Lỗi'
+        CANCELLED = 'cancelled', 'Đã hủy'
+
+    ACTIVE = (Status.QUEUED, Status.RUNNING)
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name='lab_generations')
+    request = models.CharField(max_length=500)
+    request_hash = models.CharField(max_length=64, db_index=True)
+    status = models.CharField(max_length=12, choices=Status.choices, default=Status.QUEUED, db_index=True)
+    steps = models.JSONField(default=list)  # nhật ký từng bước (khóa, trạng thái, tóm tắt, token)
+    state = models.JSONField(default=dict)  # kết quả trung gian: kế hoạch, linh kiện, nội dung, gói bài đang ghép
+    stage = models.CharField(max_length=20, blank=True)  # bước logic sẽ chạy tiếp (để tiếp tục sau khi bị bỏ dở)
+    repair_rounds = models.PositiveSmallIntegerField(default=0)
+    tokens_used = models.PositiveIntegerField(default=0)
+    message = models.TextField(blank=True)  # lý do khi dừng, chưa đạt hoặc lỗi
+    errors = models.JSONField(default=list)  # lỗi còn lại khi chưa đạt
+    lesson = models.ForeignKey(Lesson, null=True, blank=True, on_delete=models.SET_NULL, related_name='generations')
+    heartbeat_at = models.DateTimeField(null=True, blank=True)
+    cancel_requested = models.BooleanField(default=False)
+
+    class Meta:
+        db_table = 'lab_generation'
+        ordering = ['-created_at']
+        verbose_name = 'Lần sinh bài'
+        verbose_name_plural = 'Lần sinh bài'
+
+    def __str__(self):
+        return f'#{self.pk} {self.request[:50]} ({self.status})'
+
+    @property
+    def is_active(self) -> bool:
+        return self.status in self.ACTIVE

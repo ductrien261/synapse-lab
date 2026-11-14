@@ -11,10 +11,20 @@ POST   /api/lab/lessons/<slug>/submit/             gửi đóng góp để admin
 POST   /api/lab/lessons/<slug>/withdraw/           rút lại bài đang chờ duyệt
 GET    /api/lab/admin/lessons/?visibility=pending  danh sách chờ duyệt (admin)
 POST   /api/lab/admin/lessons/<slug>/review/       {action: approve|reject, note?} (admin)
+
+POST   /api/lab/generations/                       {request} bắt đầu sinh bài (chạy nền); trả về lần sinh
+GET    /api/lab/generations/                       các lần sinh gần đây của mình
+GET    /api/lab/generations/<id>/                  tiến trình từng bước + bản xem trước; hỏi lại định kỳ
+POST   /api/lab/generations/<id>/cancel/           hủy lần sinh đang chạy
 """
 
+import hashlib
+from datetime import timedelta
+
+from django.conf import settings
 from django.db import IntegrityError, transaction
 from django.http import Http404
+from django.utils import timezone
 from django.shortcuts import get_object_or_404
 from rest_framework import serializers, status
 from rest_framework.response import Response
@@ -24,7 +34,8 @@ from rest_framework.views import APIView
 from users.permissions import IsAdminRole, is_admin
 
 from . import services
-from .models import Lesson
+from .generation import runner
+from .models import Generation, Lesson
 from .validators import validate_package
 
 
@@ -210,3 +221,98 @@ class AdminLessonReviewView(APIView):
         except services.SubmitError as err:
             return _error(str(err))
         return Response(_summary(lesson, request.user))
+
+
+# ------------------------------------------------------------------ Sinh bài bằng AI
+
+def _gen_summary(g: Generation) -> dict:
+    return {
+        'id': g.id, 'request': g.request, 'status': g.status, 'is_active': g.is_active, 'stage': g.stage,
+        'tokens_used': g.tokens_used, 'message': g.message, 'lesson_slug': g.lesson.slug if g.lesson_id else None,
+        'created_at': g.created_at, 'updated_at': g.updated_at,
+    }
+
+
+def _gen_detail(g: Generation) -> dict:
+    st = g.state or {}
+    layout = st.get('layout') or {}
+    return {
+        **_gen_summary(g), 'steps': g.steps, 'repair_rounds': g.repair_rounds, 'errors': g.errors,
+        'limits': {'max_repairs': getattr(settings, 'LAB_GEN_MAX_REPAIRS', 3), 'token_cap': getattr(settings, 'LAB_GEN_TOKEN_CAP', 60000)},
+        # Bản xem trước theo từng bước đã xong, để giao diện hiện bài được dựng dần
+        'preview': {'plan': st.get('plan'), 'parts': (st.get('parts') or {}).get('parts'), 'layout': layout.get('positions'), 'scene': layout.get('scene'),
+                    'wiring': st.get('wiring'), 'exercises': (st.get('exercises') or {}).get('exercises'), 'package': st.get('package')},
+    }
+
+
+def _norm_request(text: str) -> str:
+    return ' '.join(text.lower().split())
+
+
+class GenerationListCreateView(APIView):
+    throttle_classes = [LabWriteThrottle]
+
+    class Input(serializers.Serializer):
+        request = serializers.CharField(min_length=5, max_length=500, trim_whitespace=True)
+
+    def get_throttles(self):
+        return super().get_throttles() if self.request.method == 'POST' else []
+
+    def get(self, request):
+        qs = Generation.objects.filter(user=request.user).select_related('lesson')[:30]
+        return Response([_gen_summary(g) for g in qs])
+
+    def post(self, request):
+        if getattr(settings, 'LAB_GEN_AGENTS', 'off') not in ('fake', 'ai'):
+            return _error('Tính năng sinh bài chưa được bật.', status.HTTP_503_SERVICE_UNAVAILABLE)
+        data = self.Input(data=request.data)
+        data.is_valid(raise_exception=True)
+        text = data.validated_data['request']
+        digest = hashlib.sha256(_norm_request(text).encode('utf-8')).hexdigest()
+        today = timezone.localtime().replace(hour=0, minute=0, second=0, microsecond=0)
+        mine = Generation.objects.filter(user=request.user).select_related('lesson')
+
+        active = mine.filter(status__in=Generation.ACTIVE).first()
+        if active:
+            if active.request_hash == digest:
+                return Response(_gen_detail(active))
+            return Response({'detail': 'Bạn đang có một lần sinh đang chạy. Hãy đợi hoặc hủy nó trước.', 'generation_id': active.id}, status=status.HTTP_409_CONFLICT)
+        same = mine.filter(request_hash=digest, created_at__gte=today, status=Generation.Status.SUCCEEDED).first()
+        if same:  # cùng yêu cầu trong ngày: dùng lại kết quả, không tốn thêm lượt
+            return Response(_gen_detail(same))
+        limit = getattr(settings, 'LAB_GEN_DAILY_LIMIT', 5)
+        if not is_admin(request.user) and mine.filter(created_at__gte=today).exclude(status=Generation.Status.CANCELLED).count() >= limit:
+            return _error(f'Bạn đã dùng hết {limit} lần sinh bài hôm nay. Hạn mức làm mới lúc 0h.', status.HTTP_429_TOO_MANY_REQUESTS)
+
+        gen = Generation.objects.create(user=request.user, request=text, request_hash=digest, stage='plan')
+        runner.start(gen.id)
+        gen.refresh_from_db()
+        return Response(_gen_detail(gen), status=status.HTTP_201_CREATED)
+
+
+class GenerationDetailView(APIView):
+    def _get(self, request, pk) -> Generation:
+        gen = get_object_or_404(Generation.objects.select_related('lesson'), pk=pk)
+        if gen.user_id != request.user.id and not is_admin(request.user):
+            raise Http404
+        return gen
+
+    def get(self, request, pk):
+        gen = self._get(request, pk)
+        runner.ensure_running(gen)  # bị bỏ dở (ví dụ backend khởi động lại) thì chạy tiếp
+        gen.refresh_from_db()
+        return Response(_gen_detail(gen))
+
+
+class GenerationCancelView(_OwnerAction):
+    def post(self, request, pk):
+        gen = get_object_or_404(Generation, pk=pk, user=request.user)
+        if not gen.is_active:
+            return _error('Lần sinh này đã kết thúc.')
+        gen.cancel_requested = True
+        gen.save(update_fields=['cancel_requested', 'updated_at'])
+        stale = gen.heartbeat_at is None or timezone.now() - gen.heartbeat_at > timedelta(seconds=runner.stale_seconds())
+        if stale:  # không có ai đang chạy: hủy luôn
+            gen.status, gen.message = Generation.Status.CANCELLED, 'Bạn đã hủy lần sinh này.'
+            gen.save(update_fields=['status', 'message', 'updated_at'])
+        return Response(_gen_summary(gen))
