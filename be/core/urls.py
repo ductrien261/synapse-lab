@@ -44,6 +44,7 @@ urlpatterns = [
     path('api/tutor/', include('tutor.urls')),
     path('api/learner/', include('learner.urls')),
     path('api/feedback/', include('feedback.urls')),
+    path('api/lab/', include('lab.urls')),
     path('api/classrooms/', include('classroom.urls')),
 
     # Health Check Endpoint

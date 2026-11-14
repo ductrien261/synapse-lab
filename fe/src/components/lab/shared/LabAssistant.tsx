@@ -7,6 +7,8 @@ import { Card } from './LabUi';
 
 interface Props {
   lab: LabAiLab;
+  /** Mô tả bài (chỉ cần khi lab là 'generic', tức bài không phải ba bài viết tay) */
+  context?: string;
   /** Giai đoạn hiện tại (gửi kèm để trợ lý hiểu ngữ cảnh) */
   stage: string;
   /** Lấy số liệu mô phỏng đã tính sẵn tại thời điểm bấm hỏi */
@@ -29,7 +31,7 @@ const chats = new Map<string, Msg[]>();
  * Trợ lý giải thích dạng trò chuyện. Nhớ các lượt trước trong cùng bài, nhưng chỉ đọc số liệu mô phỏng
  * hiện tại và giải thích, không tự tính vật lý.
  */
-export function LabAssistant({ lab, stage, getState, canHint = false }: Props) {
+export function LabAssistant({ lab, context, stage, getState, canHint = false }: Props) {
   const [msgs, setMsgsState] = useState<Msg[]>(() => chats.get(lab) ?? []);
   const [question, setQuestion] = useState('');
   const [busy, setBusy] = useState(false);
@@ -58,7 +60,7 @@ export function LabAssistant({ lab, stage, getState, canHint = false }: Props) {
     if (mode === 'ask') setQuestion('');
     setBusy(true);
     try {
-      const r = await labAiApi.explain({ lab, mode, stage, state: getState(), question: mode === 'ask' ? text : '', history });
+      const r = await labAiApi.explain({ lab, mode, stage, state: getState(), question: mode === 'ask' ? text : '', history, context });
       setMsgs([...withUser, { role: 'assistant', text: r.content }]);
     } catch (e) {
       setMsgs([...withUser, { role: 'error', text: e instanceof ApiError ? e.message : 'Không gọi được trợ lý. Hãy thử lại sau.' }]);

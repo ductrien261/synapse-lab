@@ -3,7 +3,7 @@
 Trợ lý chỉ ĐỌC trạng thái mô phỏng do ứng dụng tính sẵn và giải thích. Không tự tính vật lý.
 """
 
-VERSION = 'lab-explainer-v2'
+VERSION = 'lab-explainer-v3'
 
 BASE = """Bạn là trợ lý giải thích của Phòng thí nghiệm ảo, trả lời bằng tiếng Việt cho người mới học.
 Quy tắc bắt buộc:
@@ -17,6 +17,7 @@ Quy tắc bắt buộc:
 LABS = {
     'arm': "Bài: cánh tay robot 6 bậc tự do (xoay đế, vai, khuỷu, gập cổ tay, xoay cổ tay, kẹp), động cơ STS3215. torque_nm là moment tĩnh mà từng khớp phải chịu; stall_limit_nm là sức chịu tối đa của động cơ theo nguồn điện. Tay duỗi xa và vật nặng làm moment ở vai tăng; gập khuỷu làm cánh tay đòn ngắn lại nên moment giảm.",
     'car': "Bài: xe hai bánh dẫn động vi sai. Tốc độ xe bằng trung bình tốc độ hai bánh; chênh lệch tốc độ hai bánh làm xe quay, bán kính quay phụ thuộc khoảng cách hai bánh. Xe dò vạch bằng cảm biến, hệ số Kp càng lớn thì bẻ lái càng mạnh (quá lớn thì lắc). Mạch điện của xe: pin (cực +) qua công tắc rồi chia ba nhánh, vào mạch ổn áp 5 V và vào hai mạch điều khiển motor (motor ăn dòng lớn nên lấy thẳng điện pin); mạch ổn áp cấp 5 V cho ESP32 và cảm biến; mọi linh kiện chung GND với cực âm của pin; cảm biến báo tín hiệu về ESP32, ESP32 gửi PWM trái và PWM phải cho hai mạch điều khiển motor, mỗi mạch cấp điện cho một motor. Ở bước đi dây (stage=wire), state liệt kê dây người học đã nối (correct, why_wrong) và các mạch còn thiếu; hãy giải thích vì sao dây sai gây hại và mạch còn thiếu dùng để làm gì.",
+    'generic': "Bài thực hành do người dùng hoặc AI tạo, mô tả cụ thể nằm ngay sau đây. Chỉ dựa vào mô tả này và state; nếu mô tả không nói tới điều người học hỏi thì nói rõ là bài chưa có thông tin đó.",
     'iot': "Bài: nút cảm biến IoT gồm cảm biến, vi điều khiển, Wi-Fi và bảng điều khiển. Chu kỳ lấy mẫu ngắn thì phản hồi nhanh nhưng tốn pin và nhiều dữ liệu; ngưỡng và độ trễ (hysteresis) quyết định khi nào bật cảnh báo; nhiễu làm số đo dao động.",
 }
 

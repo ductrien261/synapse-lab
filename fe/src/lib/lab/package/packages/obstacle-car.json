@@ -1,0 +1,553 @@
+{
+  "schemaVersion": 1,
+  "slug": "obstacle-car",
+  "title": "Xe tự né vật cản",
+  "subtitle": "Xe đo khoảng cách phía trước bằng sóng siêu âm và tự quay để né khi gặp vật cản.",
+  "overview": {
+    "title": "Xe né vật cản hoạt động thế nào?",
+    "what": "Xe chạy thẳng, liên tục đo khoảng cách tới vật phía trước; gần hơn ngưỡng an toàn thì quay sang hướng khác rồi chạy tiếp.",
+    "steps": [
+      "Cảm biến siêu âm phát một chùm sóng và đo thời gian sóng dội lại từ vật cản.",
+      "ESP32 đổi thời gian đó ra khoảng cách (cm) bằng vận tốc âm thanh trong không khí.",
+      "Nếu khoảng cách nhỏ hơn ngưỡng, ESP32 ra lệnh cho mạch điều khiển motor quay xe sang hướng mới.",
+      "Mạch điều khiển motor lấy điện từ pin để cấp dòng lớn cho motor, vì chân ESP32 không đủ dòng.",
+      "Ngưỡng càng lớn xe né càng sớm nhưng càng dễ quay lung tung; ngưỡng nhỏ thì dễ đâm."
+    ]
+  },
+  "scene": {
+    "camera": {
+      "pos": [
+        0.22,
+        0.26,
+        0.3
+      ],
+      "target": [
+        0,
+        0.01,
+        0
+      ],
+      "min": 0.15,
+      "max": 1.2
+    },
+    "wireCamera": {
+      "pos": [
+        0.05,
+        0.22,
+        0.16
+      ],
+      "target": [
+        0.01,
+        0.01,
+        0.01
+      ],
+      "min": 0.1,
+      "max": 1
+    },
+    "grid": 0.8,
+    "ground": "#E3E8EF",
+    "decor": []
+  },
+  "parts": [
+    {
+      "id": "chassis",
+      "partId": "chassis",
+      "name": "Khung xe",
+      "role": "Tấm nền mang mọi bộ phận khác của xe.",
+      "color": "#64748B",
+      "goal": "Bắt đầu từ tấm nền chịu lực để gắn các bộ phận lên.",
+      "hint": "Tấm phẳng dài có nhiều lỗ bắt vít.",
+      "facts": [
+        {
+          "k": "Kích thước",
+          "v": "21 × 13 cm"
+        }
+      ],
+      "details": [
+        "Khung nhựa nhẹ nhưng đủ cứng cho xe nhỏ.",
+        "Lưới lỗ giúp bố trí linh kiện linh hoạt."
+      ],
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "node": [
+        0,
+        0.02,
+        0
+      ]
+    },
+    {
+      "id": "battery",
+      "partId": "battery",
+      "name": "Pin",
+      "role": "Cấp năng lượng cho motor.",
+      "color": "#B45309",
+      "goal": "Gắn nguồn năng lượng cho xe.",
+      "hint": "Khối hình trụ dài, có hai cực.",
+      "facts": [
+        {
+          "k": "Điện áp một cell",
+          "v": "3,7 V"
+        }
+      ],
+      "details": [
+        "Motor cần dòng lớn nên lấy điện trực tiếp từ pin, không lấy từ chân ESP32."
+      ],
+      "at": [
+        -0.07,
+        0.003,
+        0.03
+      ],
+      "node": [
+        -0.07,
+        0.023,
+        0.03
+      ]
+    },
+    {
+      "id": "mcu",
+      "partId": "esp32",
+      "name": "Vi điều khiển ESP32",
+      "role": "Bộ não: đo khoảng cách, so với ngưỡng và ra lệnh quay.",
+      "color": "#1E3F82",
+      "goal": "Gắn bộ não nhận số đo và ra quyết định.",
+      "hint": "Tấm mạch có chip và ăng-ten.",
+      "facts": [
+        {
+          "k": "Mức logic",
+          "v": "3,3 V"
+        }
+      ],
+      "details": [
+        "Chân vào của ESP32 chỉ chịu được 3,3 V.",
+        "Có chân PWM để điều chỉnh tốc độ motor."
+      ],
+      "at": [
+        -0.01,
+        0.003,
+        0.035
+      ],
+      "node": [
+        -0.01,
+        0.023,
+        0.035
+      ]
+    },
+    {
+      "id": "driver",
+      "partId": "driver",
+      "name": "Mạch điều khiển motor",
+      "role": "Nhận tín hiệu PWM nhỏ, cấp dòng lớn cho motor.",
+      "color": "#7C3AED",
+      "goal": "Gắn mạch trung gian giữa ESP32 và motor.",
+      "hint": "Tấm mạch nhỏ có chân VM và OUT.",
+      "facts": [
+        {
+          "k": "Mức điều khiển",
+          "v": "PWM 3,3 V"
+        }
+      ],
+      "details": [
+        "Là công tắc điện tử công suất do ESP32 điều khiển."
+      ],
+      "at": [
+        0.035,
+        0.003,
+        0.035
+      ],
+      "node": [
+        0.035,
+        0.023,
+        0.035
+      ]
+    },
+    {
+      "id": "motor",
+      "partId": "tt-motor",
+      "name": "Motor giảm tốc TT",
+      "role": "Quay bánh xe để xe di chuyển.",
+      "color": "#0F8A6B",
+      "goal": "Gắn bộ phận biến điện thành chuyển động.",
+      "hint": "Hộp số vàng với trục ra hai bên.",
+      "facts": [
+        {
+          "k": "Dòng khi chạy",
+          "v": "0,35 A"
+        }
+      ],
+      "details": [
+        "Có hộp số giảm tốc nên có lực kéo nhưng quay chậm."
+      ],
+      "at": [
+        0.04,
+        0.003,
+        -0.03
+      ],
+      "node": [
+        0.04,
+        0.023,
+        -0.03
+      ]
+    },
+    {
+      "id": "sonar",
+      "partId": "hc-sr04",
+      "name": "Cảm biến siêu âm HC-SR04",
+      "role": "Đo khoảng cách tới vật cản phía trước.",
+      "color": "#0EA5E9",
+      "goal": "Gắn \"con mắt\" nhìn phía trước của xe.",
+      "hint": "Bo mạch có hai mắt tròn như mắt ếch.",
+      "facts": [
+        {
+          "k": "Tầm đo",
+          "v": "2 cm đến 400 cm"
+        }
+      ],
+      "details": [
+        "Phát sóng siêu âm rồi đo thời gian sóng dội lại.",
+        "Chân ECHO ra mức 5 V."
+      ],
+      "at": [
+        0.095,
+        0.003,
+        0
+      ],
+      "node": [
+        0.095,
+        0.023,
+        0
+      ],
+      "yaw": 1.5708
+    }
+  ],
+  "links": [
+    [
+      "sonar",
+      "mcu"
+    ],
+    [
+      "mcu",
+      "driver"
+    ],
+    [
+      "battery",
+      "driver"
+    ],
+    [
+      "driver",
+      "motor"
+    ]
+  ],
+  "buildOrder": [
+    3,
+    0,
+    5,
+    2,
+    4,
+    1
+  ],
+  "wiring": {
+    "exercise": "Đi dây cho xe né vật cản",
+    "nets": [
+      {
+        "id": "v5",
+        "name": "Nguồn 5 V cho cảm biến",
+        "color": "#D97706",
+        "done": "Chân 5 V của ESP32 nuôi cảm biến siêu âm."
+      },
+      {
+        "id": "vm",
+        "name": "Nguồn pin cho motor",
+        "color": "#DC2626",
+        "done": "Cực dương của pin cấp điện cho mạch điều khiển motor, nơi dòng lớn đi qua."
+      },
+      {
+        "id": "gnd",
+        "name": "Đường nối đất (GND) chung",
+        "color": "#1F2937",
+        "done": "Mọi linh kiện dùng chung mức 0 V để tín hiệu có mốc so sánh."
+      },
+      {
+        "id": "trig",
+        "name": "Lệnh đo khoảng cách",
+        "color": "#2563EB",
+        "done": "ESP32 gửi một xung ngắn tới TRIG để cảm biến phát sóng siêu âm."
+      },
+      {
+        "id": "echo",
+        "name": "Thời gian phản hồi",
+        "color": "#059669",
+        "done": "Chân ECHO báo về độ dài xung tỉ lệ với khoảng cách; ESP32 đo độ dài này."
+      },
+      {
+        "id": "pwm",
+        "name": "Lệnh điều khiển motor",
+        "color": "#7C3AED",
+        "done": "Tín hiệu PWM của ESP32 tới mạch điều khiển để chỉnh tốc độ motor."
+      },
+      {
+        "id": "mot",
+        "name": "Dây tới motor",
+        "color": "#DB2777",
+        "done": "Mạch điều khiển cấp điện cho hai dây của motor làm bánh xe quay."
+      }
+    ],
+    "terminals": [
+      {
+        "id": "bat-pos",
+        "part": "battery",
+        "pin": "pos",
+        "label": "Cực dương (+)",
+        "desc": "Cực dương của pin.",
+        "net": "vm"
+      },
+      {
+        "id": "bat-neg",
+        "part": "battery",
+        "pin": "neg",
+        "label": "Cực âm (−)",
+        "desc": "Cực âm của pin.",
+        "net": "gnd"
+      },
+      {
+        "id": "esp-5v",
+        "part": "mcu",
+        "pin": "5v",
+        "label": "5V",
+        "desc": "Nguồn 5 V lấy từ cổng USB.",
+        "net": "v5"
+      },
+      {
+        "id": "esp-gnd",
+        "part": "mcu",
+        "pin": "gnd",
+        "label": "GND",
+        "desc": "Chân nối đất.",
+        "net": "gnd"
+      },
+      {
+        "id": "esp-trig",
+        "part": "mcu",
+        "pin": "gpio-a",
+        "label": "Chân xuất số",
+        "desc": "Chân gửi xung đo tới cảm biến.",
+        "net": "trig"
+      },
+      {
+        "id": "esp-echo",
+        "part": "mcu",
+        "pin": "gpio-in",
+        "label": "Chân vào số",
+        "desc": "Chân đo độ dài xung phản hồi.",
+        "net": "echo"
+      },
+      {
+        "id": "esp-pwm",
+        "part": "mcu",
+        "pin": "gpio-out",
+        "label": "Chân PWM",
+        "desc": "Chân xuất tín hiệu điều khiển motor.",
+        "net": "pwm"
+      },
+      {
+        "id": "drv-vm",
+        "part": "driver",
+        "pin": "vm",
+        "label": "VM",
+        "desc": "Chân nhận điện từ pin cho motor.",
+        "net": "vm"
+      },
+      {
+        "id": "drv-gnd",
+        "part": "driver",
+        "pin": "gnd",
+        "label": "GND",
+        "desc": "Chân nối đất của mạch điều khiển.",
+        "net": "gnd"
+      },
+      {
+        "id": "drv-in",
+        "part": "driver",
+        "pin": "in",
+        "label": "IN",
+        "desc": "Chân nhận tín hiệu PWM.",
+        "net": "pwm"
+      },
+      {
+        "id": "drv-out",
+        "part": "driver",
+        "pin": "out",
+        "label": "OUT",
+        "desc": "Chân ra tới motor.",
+        "net": "mot"
+      },
+      {
+        "id": "mot-a",
+        "part": "motor",
+        "pin": "a",
+        "label": "Dây A",
+        "desc": "Dây motor A.",
+        "net": "mot"
+      },
+      {
+        "id": "mot-b",
+        "part": "motor",
+        "pin": "b",
+        "label": "Dây B",
+        "desc": "Dây motor B.",
+        "net": "mot"
+      },
+      {
+        "id": "son-vcc",
+        "part": "sonar",
+        "pin": "vcc",
+        "label": "VCC",
+        "desc": "Nguồn 5 V của cảm biến.",
+        "net": "v5"
+      },
+      {
+        "id": "son-trig",
+        "part": "sonar",
+        "pin": "trig",
+        "label": "TRIG",
+        "desc": "Chân nhận lệnh đo.",
+        "net": "trig"
+      },
+      {
+        "id": "son-echo",
+        "part": "sonar",
+        "pin": "echo",
+        "label": "ECHO",
+        "desc": "Chân trả về xung phản hồi.",
+        "net": "echo"
+      },
+      {
+        "id": "son-gnd",
+        "part": "sonar",
+        "pin": "gnd",
+        "label": "GND",
+        "desc": "Chân nối đất của cảm biến.",
+        "net": "gnd"
+      }
+    ],
+    "rules": [
+      {
+        "nets": [
+          "vm",
+          "v5"
+        ],
+        "message": "Nối pin với nguồn 5 V của ESP32 làm hai nguồn khác mức đẩy dòng vào nhau và có thể hỏng bo mạch."
+      },
+      {
+        "nets": [
+          "pwm",
+          "mot"
+        ],
+        "message": "Chân PWM của ESP32 chỉ cấp được dòng rất nhỏ nên không thể nuôi motor trực tiếp. Phải đi qua mạch điều khiển motor."
+      },
+      {
+        "nets": [
+          "pwm",
+          "vm"
+        ],
+        "message": "Đưa điện áp pin vào chân PWM của ESP32 sẽ vượt mức 3,3 V mà chân chịu được và làm hỏng chip."
+      },
+      {
+        "nets": [
+          "trig",
+          "echo"
+        ],
+        "message": "TRIG và ECHO là hai tín hiệu khác nhau, nối chúng với nhau làm cảm biến không đo được."
+      },
+      {
+        "nets": [
+          "echo",
+          "v5"
+        ],
+        "message": "ECHO là chân tín hiệu, nối vào nguồn 5 V làm ESP32 đọc sai và có thể hỏng chân vào."
+      },
+      {
+        "nets": [
+          "gnd",
+          "*"
+        ],
+        "message": "Nối đường điện hoặc tín hiệu với GND là chập mạch: nguồn bị nối tắt, linh kiện có thể nóng lên."
+      }
+    ],
+    "fallback": "Hai chân này thuộc hai mạch khác nhau nên không nối được với nhau.",
+    "doneText": "Xe đã có nguồn, cảm biến và đường điều khiển motor. Giờ xem xe chạy trong sân và chỉnh ngưỡng né."
+  },
+  "exercises": [
+    {
+      "title": "Đổi thời gian phản hồi ra khoảng cách",
+      "prompt": "Cảm biến báo sóng siêu âm đi và về mất {t} µs. Vận tốc âm thanh khoảng {vSound} m/s. Vật cản cách xe bao nhiêu cm?",
+      "inputs": [
+        {
+          "name": "t",
+          "label": "Thời gian phản hồi",
+          "unit": "µs",
+          "min": 200,
+          "max": 20000,
+          "step": 100,
+          "default": 5000
+        }
+      ],
+      "constants": {
+        "vSound": 343
+      },
+      "answer": "t * vSound / 20000",
+      "tolerance": {
+        "rel": 0.05
+      },
+      "placeholder": "Khoảng cách (cm)",
+      "okText": "Đúng. Sóng đi và về nên chia đôi: {t} µs × {vSound} m/s ÷ 2 ≈ {answer:1} cm.",
+      "failText": "Chưa khớp. Đổi µs ra giây, nhân vận tốc âm thanh rồi chia đôi vì sóng đi một lần và về một lần, rồi đổi sang cm.",
+      "focus": "sonar"
+    },
+    {
+      "title": "Ngưỡng né tối thiểu",
+      "prompt": "Xe chạy {speed} cm/s và vòng điều khiển mất {delay} ms mới ra lệnh quay. Cộng thêm {margin} cm để dư. Ngưỡng né tối thiểu là bao nhiêu cm?",
+      "inputs": [
+        {
+          "name": "speed",
+          "label": "Tốc độ xe",
+          "unit": "cm/s",
+          "min": 10,
+          "max": 60,
+          "step": 5,
+          "default": 30
+        },
+        {
+          "name": "delay",
+          "label": "Độ trễ điều khiển",
+          "unit": "ms",
+          "min": 50,
+          "max": 500,
+          "step": 50,
+          "default": 200
+        }
+      ],
+      "constants": {
+        "margin": 10
+      },
+      "answer": "speed * delay / 1000 + margin",
+      "tolerance": {
+        "rel": 0.1
+      },
+      "placeholder": "Ngưỡng (cm)",
+      "okText": "Đúng. Trong {delay} ms xe đi thêm {speed} × {delay} ÷ 1000 cm, cộng {margin} cm dư nên ngưỡng ≈ {answer:1} cm.",
+      "failText": "Chưa khớp. Tính quãng xe đi thêm trong lúc chờ: tốc độ nhân thời gian (đổi ms ra giây), rồi cộng phần dư.",
+      "focus": "mcu"
+    }
+  ],
+  "tune": {
+    "template": "vehicle-arena",
+    "title": "Thử cho xe chạy trong sân",
+    "intro": "Xe chạy thẳng, gặp vật cản gần hơn ngưỡng thì quay để né. Thử đổi ngưỡng và tốc độ xem xe né tốt hay đâm."
+  },
+  "texts": {
+    "buildDone": "Xe đã đủ khung, pin, ESP32, mạch điều khiển, motor và cảm biến. Chúng chưa có điện và chưa nối với nhau: giờ bạn đi dây.",
+    "buildDoneLabel": "Sang bước đi dây"
+  }
+}

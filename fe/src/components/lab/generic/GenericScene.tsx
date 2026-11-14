@@ -4,7 +4,7 @@ import { Line } from '@react-three/drei';
 import { getPart, type ShapeDef, type V3 } from '@/lib/lab/parts';
 import type { LabPackage, PkgPart } from '@/lib/lab/package/types';
 import type { Terminal, WiringApi, Wire } from '@/lib/lab/wiring';
-import { Arc, Blk, Cyl, PartGroup, PartMesh, Stage3D } from '../shared/Scene3D';
+import { Arc, Ball, Blk, Cyl, PartGroup, PartMesh, Plate, Stage3D } from '../shared/Scene3D';
 import { WiringLayer, type Placement } from '../shared/WiringLayer';
 
 const add = (a: V3, b: V3): V3 => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
@@ -17,6 +17,8 @@ function Shapes({ shapes, origin, color }: { shapes: ShapeDef[]; origin: V3; col
         const c = s.color ?? color;
         const pos = add(s.pos, origin);
         if (s.t === 'blk') return <Blk key={i} pos={pos} size={s.size} color={c} rot={s.rot} />;
+        if (s.t === 'ball') return <Ball key={i} pos={pos} r={s.r} color={c} scale={s.scale} />;
+        if (s.t === 'plate') return <Plate key={i} pos={pos} w={s.w} d={s.d} t={s.th} radius={s.radius} holes={s.holes ?? []} color={c} />;
         if (s.t === 'cyl') return <Cyl key={i} pos={pos} r={s.r} rBottom={s.rBottom} h={s.h} color={c} rot={s.rot} />;
         return <Arc key={i} pos={pos} r={s.r} tube={s.tube} arc={s.arc} rot={s.rot} color={c} />;
       })}

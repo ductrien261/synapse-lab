@@ -1,6 +1,6 @@
 import { request } from './api';
 
-export type LabAiLab = 'arm' | 'car' | 'iot';
+export type LabAiLab = 'arm' | 'car' | 'iot' | 'generic';
 export type LabAiMode = 'explain' | 'ask' | 'hint';
 
 export interface LabAiTurn {
@@ -20,6 +20,6 @@ export interface LabAiResult {
  * AI đọc và giải thích, không tự tính vật lý.
  */
 export const labAiApi = {
-  explain: (body: { lab: LabAiLab; mode: LabAiMode; stage?: string; state: Record<string, unknown>; question?: string; history?: LabAiTurn[] }) =>
+  explain: (body: { lab: LabAiLab; mode: LabAiMode; stage?: string; state: Record<string, unknown>; question?: string; history?: LabAiTurn[]; context?: string }) =>
     request<LabAiResult>('/ai/lab/explain/', { method: 'POST', body: JSON.stringify(body) }),
 };

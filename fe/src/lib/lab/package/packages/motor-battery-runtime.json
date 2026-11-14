@@ -1,0 +1,449 @@
+{
+  "schemaVersion": 1,
+  "slug": "motor-battery-runtime",
+  "title": "Motor chạy được bao lâu trên một bộ pin",
+  "subtitle": "Hiểu tốc độ PWM ảnh hưởng thế nào tới dòng điện và thời gian chạy của motor.",
+  "overview": {
+    "title": "Motor, mạch điều khiển và pin phối hợp thế nào?",
+    "what": "ESP32 chỉnh độ rộng xung PWM để đổi tốc độ motor; pin cấp điện qua mạch điều khiển; tốc độ càng cao thì dòng càng lớn và pin càng nhanh hết.",
+    "steps": [
+      "ESP32 xuất tín hiệu PWM: bật tắt rất nhanh, tỉ lệ bật gọi là duty.",
+      "Mạch điều khiển motor đóng cắt dòng lớn từ pin theo đúng nhịp đó.",
+      "Duty càng cao thì dòng trung bình qua motor và tốc độ càng lớn.",
+      "Thời gian chạy ≈ dung lượng pin chia dòng trung bình."
+    ]
+  },
+  "scene": {
+    "camera": {
+      "pos": [
+        0.18,
+        0.2,
+        0.22
+      ],
+      "target": [
+        0,
+        0.01,
+        0
+      ],
+      "min": 0.12,
+      "max": 1
+    },
+    "wireCamera": {
+      "pos": [
+        0.04,
+        0.18,
+        0.12
+      ],
+      "target": [
+        0,
+        0.01,
+        0.01
+      ],
+      "min": 0.1,
+      "max": 0.8
+    },
+    "grid": 0.6,
+    "ground": "#DDE6F0",
+    "decor": []
+  },
+  "parts": [
+    {
+      "id": "battery",
+      "partId": "battery",
+      "name": "Pin",
+      "role": "Cấp năng lượng cho motor.",
+      "color": "#B45309",
+      "goal": "Gắn nguồn năng lượng.",
+      "hint": "Khối hình trụ dài có hai cực.",
+      "facts": [
+        {
+          "k": "Dung lượng một cell",
+          "v": "2600 mAh"
+        }
+      ],
+      "details": [
+        "Dung lượng càng lớn chạy càng lâu."
+      ],
+      "at": [
+        -0.06,
+        0,
+        0.03
+      ],
+      "node": [
+        -0.06,
+        0.02,
+        0.03
+      ]
+    },
+    {
+      "id": "mcu",
+      "partId": "esp32",
+      "name": "Vi điều khiển ESP32",
+      "role": "Xuất PWM để đổi tốc độ motor.",
+      "color": "#1E3F82",
+      "goal": "Gắn bộ não quyết định tốc độ.",
+      "hint": "Tấm mạch có chip và ăng-ten.",
+      "facts": [
+        {
+          "k": "Mức logic",
+          "v": "3,3 V"
+        }
+      ],
+      "details": [
+        "Chân PWM chỉ cấp dòng rất nhỏ, chỉ dùng làm lệnh."
+      ],
+      "at": [
+        0,
+        0,
+        0.035
+      ],
+      "node": [
+        0,
+        0.02,
+        0.035
+      ]
+    },
+    {
+      "id": "driver",
+      "partId": "driver",
+      "name": "Mạch điều khiển motor",
+      "role": "Đóng cắt dòng lớn theo tín hiệu PWM.",
+      "color": "#7C3AED",
+      "goal": "Gắn mạch trung gian giữa ESP32 và motor.",
+      "hint": "Tấm mạch nhỏ có chân VM và OUT.",
+      "facts": [
+        {
+          "k": "Mức điều khiển",
+          "v": "PWM 3,3 V"
+        }
+      ],
+      "details": [
+        "Là công tắc điện tử công suất."
+      ],
+      "at": [
+        0.04,
+        0,
+        0.03
+      ],
+      "node": [
+        0.04,
+        0.02,
+        0.03
+      ]
+    },
+    {
+      "id": "motor",
+      "partId": "tt-motor",
+      "name": "Motor giảm tốc TT",
+      "role": "Quay khi có điện.",
+      "color": "#0F8A6B",
+      "goal": "Gắn bộ phận tạo chuyển động.",
+      "hint": "Hộp số vàng.",
+      "facts": [
+        {
+          "k": "Dòng khi chạy",
+          "v": "0,35 A"
+        }
+      ],
+      "details": [
+        "Dòng trung bình tỉ lệ với duty PWM."
+      ],
+      "at": [
+        0.02,
+        0,
+        -0.03
+      ],
+      "node": [
+        0.02,
+        0.02,
+        -0.03
+      ]
+    }
+  ],
+  "links": [
+    [
+      "mcu",
+      "driver"
+    ],
+    [
+      "battery",
+      "driver"
+    ],
+    [
+      "driver",
+      "motor"
+    ]
+  ],
+  "buildOrder": [
+    2,
+    0,
+    3,
+    1
+  ],
+  "wiring": {
+    "exercise": "Đi dây cho motor chạy bằng pin",
+    "nets": [
+      {
+        "id": "vm",
+        "name": "Nguồn pin cho motor",
+        "color": "#DC2626",
+        "done": "Cực dương của pin cấp điện cho mạch điều khiển motor."
+      },
+      {
+        "id": "gnd",
+        "name": "Đường nối đất (GND) chung",
+        "color": "#1F2937",
+        "done": "Mọi linh kiện dùng chung mức 0 V."
+      },
+      {
+        "id": "pwm",
+        "name": "Lệnh PWM",
+        "color": "#7C3AED",
+        "done": "ESP32 gửi tín hiệu PWM tới mạch điều khiển."
+      },
+      {
+        "id": "mot",
+        "name": "Dây tới motor",
+        "color": "#DB2777",
+        "done": "Mạch điều khiển cấp điện cho hai dây motor."
+      }
+    ],
+    "terminals": [
+      {
+        "id": "bat-pos",
+        "part": "battery",
+        "pin": "pos",
+        "label": "Cực dương (+)",
+        "desc": "Cực dương của pin.",
+        "net": "vm"
+      },
+      {
+        "id": "bat-neg",
+        "part": "battery",
+        "pin": "neg",
+        "label": "Cực âm (−)",
+        "desc": "Cực âm của pin.",
+        "net": "gnd"
+      },
+      {
+        "id": "esp-gnd",
+        "part": "mcu",
+        "pin": "gnd",
+        "label": "GND",
+        "desc": "Chân nối đất.",
+        "net": "gnd"
+      },
+      {
+        "id": "esp-pwm",
+        "part": "mcu",
+        "pin": "gpio-out",
+        "label": "Chân PWM",
+        "desc": "Chân xuất tín hiệu PWM.",
+        "net": "pwm"
+      },
+      {
+        "id": "drv-vm",
+        "part": "driver",
+        "pin": "vm",
+        "label": "VM",
+        "desc": "Nhận điện từ pin.",
+        "net": "vm"
+      },
+      {
+        "id": "drv-gnd",
+        "part": "driver",
+        "pin": "gnd",
+        "label": "GND",
+        "desc": "Chân nối đất.",
+        "net": "gnd"
+      },
+      {
+        "id": "drv-in",
+        "part": "driver",
+        "pin": "in",
+        "label": "IN",
+        "desc": "Nhận tín hiệu PWM.",
+        "net": "pwm"
+      },
+      {
+        "id": "drv-out",
+        "part": "driver",
+        "pin": "out",
+        "label": "OUT",
+        "desc": "Ra tới motor.",
+        "net": "mot"
+      },
+      {
+        "id": "mot-a",
+        "part": "motor",
+        "pin": "a",
+        "label": "Dây A",
+        "desc": "Dây motor A.",
+        "net": "mot"
+      },
+      {
+        "id": "mot-b",
+        "part": "motor",
+        "pin": "b",
+        "label": "Dây B",
+        "desc": "Dây motor B.",
+        "net": "mot"
+      }
+    ],
+    "rules": [
+      {
+        "nets": [
+          "pwm",
+          "mot"
+        ],
+        "message": "Chân PWM của ESP32 không đủ dòng để nuôi motor trực tiếp. Phải đi qua mạch điều khiển."
+      },
+      {
+        "nets": [
+          "pwm",
+          "vm"
+        ],
+        "message": "Đưa điện áp pin vào chân PWM của ESP32 làm hỏng chip vì vượt 3,3 V."
+      },
+      {
+        "nets": [
+          "gnd",
+          "*"
+        ],
+        "message": "Nối đường điện hoặc tín hiệu với GND là chập mạch."
+      }
+    ],
+    "fallback": "Hai chân này thuộc hai mạch khác nhau nên không nối được với nhau.",
+    "doneText": "Mạch đã đủ nguồn, lệnh điều khiển và dây motor. Giờ chỉnh duty và số cell để xem dòng và thời gian chạy."
+  },
+  "exercises": [
+    {
+      "title": "Dòng trung bình theo duty",
+      "prompt": "Motor chạy hết cỡ cần {full} A. Với duty {duty}%, dòng trung bình qua motor là bao nhiêu A?",
+      "inputs": [
+        {
+          "name": "duty",
+          "label": "Duty PWM",
+          "unit": "%",
+          "min": 10,
+          "max": 100,
+          "step": 5,
+          "default": 60
+        }
+      ],
+      "constants": {
+        "full": 0.35
+      },
+      "answer": "full * duty / 100",
+      "tolerance": {
+        "rel": 0.1
+      },
+      "placeholder": "Dòng (A)",
+      "okText": "Đúng. {full} A × {duty}% ≈ {answer:3} A.",
+      "failText": "Chưa khớp. Nhân dòng khi chạy hết cỡ với tỉ lệ duty (duty chia 100).",
+      "focus": "driver"
+    },
+    {
+      "title": "Thời gian chạy trên pin",
+      "prompt": "Pin 1 cell có dung lượng {cap} mAh. Motor chạy ở duty {duty}% (dòng hết cỡ {full} A). Chạy được khoảng bao nhiêu giờ?",
+      "inputs": [
+        {
+          "name": "duty",
+          "label": "Duty PWM",
+          "unit": "%",
+          "min": 10,
+          "max": 100,
+          "step": 5,
+          "default": 60
+        }
+      ],
+      "constants": {
+        "cap": 2600,
+        "full": 0.35
+      },
+      "answer": "cap / 1000 / (full * duty / 100)",
+      "tolerance": {
+        "rel": 0.1
+      },
+      "placeholder": "Thời gian (giờ)",
+      "okText": "Đúng. {cap} mAh = {cap} ÷ 1000 Ah, chia dòng {duty}% của {full} A ≈ {answer:1} giờ.",
+      "failText": "Chưa khớp. Đổi mAh ra Ah (chia 1000), rồi chia cho dòng trung bình.",
+      "focus": "battery"
+    }
+  ],
+  "tune": {
+    "template": "formula",
+    "title": "Chỉnh duty và số cell pin",
+    "intro": "Kéo thanh để xem dòng, công suất và thời gian chạy thay đổi thế nào.",
+    "inputs": [
+      {
+        "name": "duty",
+        "label": "Duty PWM",
+        "unit": "%",
+        "min": 10,
+        "max": 100,
+        "step": 5,
+        "default": 60
+      },
+      {
+        "name": "cells",
+        "label": "Số cell pin nối tiếp",
+        "unit": "cell",
+        "min": 1,
+        "max": 3,
+        "step": 1,
+        "default": 1
+      }
+    ],
+    "constants": {
+      "full": 0.35,
+      "cap": 2600,
+      "cellV": 3.7
+    },
+    "outputs": [
+      {
+        "id": "volt",
+        "label": "Điện áp pin",
+        "expr": "cells * cellV",
+        "unit": "V",
+        "digits": 1
+      },
+      {
+        "id": "amp",
+        "label": "Dòng trung bình",
+        "expr": "full * duty / 100",
+        "unit": "A",
+        "digits": 2
+      },
+      {
+        "id": "hours",
+        "label": "Thời gian chạy",
+        "expr": "cap / 1000 / amp",
+        "unit": "giờ",
+        "digits": 1
+      }
+    ],
+    "chart": {
+      "xInput": "duty",
+      "yOutput": "hours",
+      "xLabel": "Duty PWM (%)",
+      "yLabel": "Thời gian chạy (giờ)"
+    },
+    "limits": [
+      {
+        "output": "volt",
+        "max": 6,
+        "text": "Motor TT chỉ nên dùng tới khoảng 6 V, cao hơn sẽ nóng và nhanh hỏng."
+      },
+      {
+        "output": "hours",
+        "min": 1,
+        "text": "Chạy chưa tới 1 giờ: giảm duty hoặc dùng pin lớn hơn."
+      }
+    ]
+  },
+  "texts": {
+    "buildDone": "Đã có pin, ESP32, mạch điều khiển và motor. Chúng chưa nối với nhau: giờ bạn đi dây.",
+    "buildDoneLabel": "Sang bước đi dây"
+  }
+}
