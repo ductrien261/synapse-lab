@@ -23,3 +23,10 @@ Changes made: the larger meshes (ESP32, relay, TFT, line sensor, motor driver, t
 to 8,000 to 22,000 triangles, and each model was re-centred so its base sits at
 the origin (the TT motor is centred on all axes). Units are millimetres, as in
 the originals. Adafruit does not endorse this project.
+
+## Parts built in code
+
+The following parts have no model file; they are built from simple shapes in `fe/src/lib/lab/parts/catalog.ts`
+and are original work of this project. Dimensions follow commonly published datasheet figures:
+`pump`, `wifi`, `hc-sr04`, `sg90`, `buzzer`, `led`, `gripper`, `chassis`, `wheel`, `caster`.
+

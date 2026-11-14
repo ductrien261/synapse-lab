@@ -1,6 +1,12 @@
-import type { PartDef, PartOrient } from './types';
+import type { PartDef, PartOrient, PartPin, PinSignal, V3 } from './types';
 
 const ADAFRUIT = { source: 'Adafruit_CAD_Parts', license: 'MIT' } as const;
+/** Tạo một chân: vị trí chấm (m, theo hệ linh kiện), độ cao thân tại chân, loại tín hiệu và điện áp */
+const pin = (id: string, labelVi: string, signal: PinSignal, pos: V3, base: number, volts?: number): PartPin => ({ id, labelVi, signal, pos, base, ...(volts !== undefined ? { volts } : {}) });
+
+/** Lỗ bắt vít trên khung xe: lưới đều */
+const CHASSIS_HOLES: [number, number, number][] = [-0.09, -0.06, -0.03, 0, 0.03, 0.06, 0.09].flatMap((x) => [-0.05, 0.05].map((y): [number, number, number] => [x, y, 0.0025]));
+
 const stl = (file: string, orient: PartOrient) => ({ kind: 'stl' as const, file, orient, ...ADAFRUIT });
 
 /** Linh kiện đang dùng ở cánh tay, xe dò vạch và tưới cây. Thêm linh kiện mới: xem docs/lab/PARTS.md. */
@@ -34,12 +40,14 @@ export const PARTS: PartDef[] = [
     model: stl('esp32', 'flat'),
     sizeMm: [51.3, 22.9, 6.4],
     pins: [
-      { id: '5v', labelVi: '5V', signal: 'power-in', volts: 5 },
-      { id: 'gnd', labelVi: 'GND', signal: 'ground', volts: 0 },
-      { id: 'gpio-out', labelVi: 'Chân xuất số / PWM', signal: 'pwm', volts: 3.3 },
-      { id: 'gpio-in', labelVi: 'Chân vào số', signal: 'digital', volts: 3.3 },
-      { id: 'adc', labelVi: 'Chân vào analog (ADC)', signal: 'analog', volts: 3.3 },
-      { id: '3v3', labelVi: '3V3', signal: 'power-out', volts: 3.3 },
+      pin('5v', '5V', 'power-in', [0.008, 0.0124, -0.006], 0.0064, 5),
+      pin('gnd', 'GND', 'ground', [-0.006, 0.0124, -0.006], 0.0064, 0),
+      pin('gpio-out', 'Chân xuất số / PWM', 'pwm', [0.008, 0.0124, 0.006], 0.0064, 3.3),
+      pin('gpio-in', 'Chân vào số', 'digital', [-0.006, 0.0124, 0.006], 0.0064, 3.3),
+      pin('adc', 'Chân vào analog (ADC)', 'analog', [-0.019, 0.0124, 0.006], 0.0064, 3.3),
+      pin('gpio-a', 'Chân xuất số thứ hai', 'digital', [0.019, 0.0124, -0.006], 0.0064, 3.3),
+      pin('gpio-pwm2', 'Chân PWM thứ hai', 'pwm', [0.019, 0.0124, 0.006], 0.0064, 3.3),
+      pin('3v3', '3V3', 'power-out', [-0.019, 0.0124, -0.006], 0.0064, 3.3),
     ],
     specs: [
       { label: 'ADC', value: '12 bit (0 đến 4095)', num: 12, unit: 'bit' },
@@ -56,9 +64,9 @@ export const PARTS: PartDef[] = [
     model: stl('soil-sensor', 'probe'),
     sizeMm: [76.2, 14.0, 6.4],
     pins: [
-      { id: 'vcc', labelVi: 'VCC', signal: 'power-in', volts: 3.3 },
-      { id: 'gnd', labelVi: 'GND', signal: 'ground', volts: 0 },
-      { id: 'out', labelVi: 'Ngõ ra analog', signal: 'analog', volts: 3.3 },
+      pin('vcc', 'VCC', 'power-in', [-0.012, 0.083, 0], 0.0762, 3.3),
+      pin('gnd', 'GND', 'ground', [0.012, 0.083, 0], 0.0762, 0),
+      pin('out', 'Ngõ ra analog', 'analog', [0, 0.083, 0], 0.0762, 3.3),
     ],
     specs: [
       { label: 'Loại', value: 'Điện dung, ngõ ra analog' },
@@ -74,11 +82,11 @@ export const PARTS: PartDef[] = [
     model: stl('relay', 'flat'),
     sizeMm: [50.8, 22.9, 22.5],
     pins: [
-      { id: 'vcc', labelVi: 'VCC (nuôi cuộn dây)', signal: 'power-in', volts: 5 },
-      { id: 'gnd', labelVi: 'GND', signal: 'ground', volts: 0 },
-      { id: 'in', labelVi: 'IN (lệnh)', signal: 'digital', volts: 3.3 },
-      { id: 'com', labelVi: 'Chân chung (COM)', signal: 'switched' },
-      { id: 'no', labelVi: 'Thường hở (NO)', signal: 'switched' },
+      pin('vcc', 'VCC (nuôi cuộn dây)', 'power-in', [-0.01, 0.0285, -0.006], 0.0225, 5),
+      pin('gnd', 'GND', 'ground', [-0.01, 0.0285, 0.006], 0.0225, 0),
+      pin('in', 'IN (lệnh)', 'digital', [-0.022, 0.0285, 0], 0.0225, 3.3),
+      pin('com', 'Chân chung (COM)', 'switched', [0.014, 0.0285, -0.006], 0.0225),
+      pin('no', 'Thường hở (NO)', 'switched', [0.014, 0.0285, 0.006], 0.0225),
     ],
     specs: [
       { label: 'Điều khiển', value: 'Tín hiệu 3,3 V', num: 3.3, unit: 'V' },
@@ -105,8 +113,8 @@ export const PARTS: PartDef[] = [
     },
     sizeMm: [40, 25, 25],
     pins: [
-      { id: 'pos', labelVi: 'Dây dương (+)', signal: 'power-in', volts: 5 },
-      { id: 'neg', labelVi: 'Dây âm (−)', signal: 'ground', volts: 0 },
+      pin('pos', 'Dây dương (+)', 'power-in', [-0.004, 0.0095, 0.017], 0.0015, 5),
+      pin('neg', 'Dây âm (−)', 'ground', [0.008, 0.0095, 0.017], 0.0015, 0),
     ],
     specs: [
       { label: 'Nguồn', value: '5 V', num: 5, unit: 'V' },
@@ -122,9 +130,9 @@ export const PARTS: PartDef[] = [
     model: stl('tft', 'upright'),
     sizeMm: [62.5, 81.3, 7.0],
     pins: [
-      { id: 'vin', labelVi: 'VIN', signal: 'power-in', volts: 3.3 },
-      { id: 'gnd', labelVi: 'GND', signal: 'ground', volts: 0 },
-      { id: 'data', labelVi: 'Dữ liệu (SPI)', signal: 'digital', volts: 3.3 },
+      pin('vin', 'VIN', 'power-in', [-0.015, 0.0877, 0], 0.0813, 3.3),
+      pin('gnd', 'GND', 'ground', [0, 0.0877, 0], 0.0813, 0),
+      pin('data', 'Dữ liệu (SPI)', 'digital', [0.015, 0.0877, 0], 0.0813, 3.3),
     ],
     specs: [{ label: 'Kích thước màn', value: '2,8 inch', num: 2.8, unit: 'inch' }],
   },
@@ -137,8 +145,8 @@ export const PARTS: PartDef[] = [
     model: stl('tt-motor', 'motor'),
     sizeMm: [22.4, 36.6, 70.6],
     pins: [
-      { id: 'a', labelVi: 'Dây motor A', signal: 'motor' },
-      { id: 'b', labelVi: 'Dây motor B', signal: 'motor' },
+      pin('a', 'Dây motor A', 'motor', [-0.025, 0.0322, -0.006], 0.0224),
+      pin('b', 'Dây motor B', 'motor', [-0.025, 0.0322, 0.006], 0.0224),
     ],
     specs: [
       { label: 'Tốc độ không tải', value: '200 vòng/phút', num: 200, unit: 'vòng/phút' },
@@ -154,10 +162,10 @@ export const PARTS: PartDef[] = [
     model: stl('driver', 'flat'),
     sizeMm: [20.3, 24.1, 10.1],
     pins: [
-      { id: 'vm', labelVi: 'VM (nguồn motor)', signal: 'power-in' },
-      { id: 'gnd', labelVi: 'GND', signal: 'ground', volts: 0 },
-      { id: 'in', labelVi: 'IN (tín hiệu PWM)', signal: 'pwm', volts: 3.3 },
-      { id: 'out', labelVi: 'OUT (ra motor)', signal: 'motor' },
+      pin('vm', 'VM (nguồn motor)', 'power-in', [-0.0055, 0.0161, 0.0055], 0.0101),
+      pin('gnd', 'GND', 'ground', [-0.0055, 0.0161, -0.0055], 0.0101, 0),
+      pin('in', 'IN (tín hiệu PWM)', 'pwm', [0.0055, 0.0161, 0.0055], 0.0101, 3.3),
+      pin('out', 'OUT (ra motor)', 'motor', [0.0055, 0.0161, -0.0055], 0.0101),
     ],
     specs: [{ label: 'Mức điều khiển', value: 'PWM 3,3 V', num: 3.3, unit: 'V' }],
   },
@@ -170,9 +178,9 @@ export const PARTS: PartDef[] = [
     model: stl('line-sensor', 'flat'),
     sizeMm: [25.5, 17.8, 8.5],
     pins: [
-      { id: 'vcc', labelVi: 'VCC', signal: 'power-in', volts: 5 },
-      { id: 'gnd', labelVi: 'GND', signal: 'ground', volts: 0 },
-      { id: 'sig', labelVi: 'Tín hiệu', signal: 'digital', volts: 3.3 },
+      pin('vcc', 'VCC', 'power-in', [-0.006, 0.0149, -0.005], 0.0085, 5),
+      pin('gnd', 'GND', 'ground', [-0.006, 0.0149, 0.005], 0.0085, 0),
+      pin('sig', 'Tín hiệu', 'digital', [0.004, 0.0149, 0], 0.0085, 3.3),
     ],
     specs: [{ label: 'Nguồn', value: '5 V', num: 5, unit: 'V' }],
   },
@@ -185,8 +193,8 @@ export const PARTS: PartDef[] = [
     model: stl('battery', 'lying'),
     sizeMm: [36.6, 18.0, 76.0],
     pins: [
-      { id: 'pos', labelVi: 'Cực dương (+)', signal: 'power-out', volts: 3.7 },
-      { id: 'neg', labelVi: 'Cực âm (−)', signal: 'ground', volts: 0 },
+      pin('pos', 'Cực dương (+)', 'power-out', [-0.02, 0.024, -0.01], 0.018, 3.7),
+      pin('neg', 'Cực âm (−)', 'ground', [-0.02, 0.024, 0.01], 0.018, 0),
     ],
     specs: [
       { label: 'Điện áp một cell', value: '3,7 V', num: 3.7, unit: 'V' },
@@ -202,8 +210,8 @@ export const PARTS: PartDef[] = [
     model: stl('switch', 'flat'),
     sizeMm: [10.0, 13.2, 33.3],
     pins: [
-      { id: 'in', labelVi: 'Vào', signal: 'power-in' },
-      { id: 'out', labelVi: 'Ra', signal: 'switched' },
+      pin('in', 'Vào', 'power-in', [0, 0.012, 0.0115], 0.004),
+      pin('out', 'Ra', 'switched', [0, 0.012, -0.0115], 0.004),
     ],
     specs: [],
   },
@@ -216,10 +224,173 @@ export const PARTS: PartDef[] = [
     model: stl('boost', 'flat'),
     sizeMm: [11.4, 17.8, 5.1],
     pins: [
-      { id: 'vin', labelVi: 'VIN (vào)', signal: 'power-in' },
-      { id: 'gnd', labelVi: 'GND', signal: 'ground', volts: 0 },
-      { id: 'out', labelVi: '5 V (ra)', signal: 'power-out', volts: 5 },
+      pin('vin', 'VIN (vào)', 'power-in', [-0.0095, 0.0111, 0], 0.0051),
+      pin('gnd', 'GND', 'ground', [0, 0.0111, -0.0125], 0.0051, 0),
+      pin('out', '5 V (ra)', 'power-out', [0.0095, 0.0111, 0], 0.0051, 5),
     ],
     specs: [{ label: 'Điện áp ra', value: '5 V', num: 5, unit: 'V' }],
+  },
+  {
+    id: 'hc-sr04',
+    nameVi: 'Cảm biến siêu âm HC-SR04',
+    nameEn: 'HC-SR04 ultrasonic sensor',
+    category: 'sensor',
+    summaryVi: 'Phát sóng siêu âm và đo thời gian sóng phản xạ để biết khoảng cách tới vật cản phía trước.',
+    model: {
+      kind: 'procedural',
+      note: 'Bo mạch đứng với hai mắt thu phát; kích thước theo datasheet phổ biến (45 × 20 mm)',
+      shapes: [
+        { t: 'blk', pos: [0, 0.01, 0], size: [0.045, 0.02, 0.0015], color: '#1D4ED8' },
+        { t: 'cyl', pos: [-0.0105, 0.01, 0.0075], r: 0.008, h: 0.012, color: '#CBD5E1', rot: [Math.PI / 2, 0, 0] },
+        { t: 'cyl', pos: [0.0105, 0.01, 0.0075], r: 0.008, h: 0.012, color: '#CBD5E1', rot: [Math.PI / 2, 0, 0] },
+      ],
+    },
+    sizeMm: [45, 20, 16],
+    pins: [
+      pin('vcc', 'VCC', 'power-in', [-0.0075, 0.0265, 0], 0.02, 5),
+      pin('trig', 'TRIG (lệnh đo)', 'digital', [-0.0025, 0.0265, 0], 0.02, 3.3),
+      pin('echo', 'ECHO (thời gian phản hồi)', 'digital', [0.0025, 0.0265, 0], 0.02, 5),
+      pin('gnd', 'GND', 'ground', [0.0075, 0.0265, 0], 0.02, 0),
+    ],
+    specs: [
+      { label: 'Nguồn', value: '5 V', num: 5, unit: 'V' },
+      { label: 'Tầm đo', value: '2 đến 400 cm', num: 400, unit: 'cm' },
+      { label: 'Vận tốc âm thanh dùng để tính', value: '343 m/s', num: 343, unit: 'm/s' },
+    ],
+  },
+  {
+    id: 'sg90',
+    nameVi: 'Servo SG90',
+    nameEn: 'SG90 micro servo',
+    category: 'actuator',
+    summaryVi: 'Động cơ xoay đến đúng góc theo tín hiệu PWM, dùng cho tay gắp, nắp mở, khớp nhỏ.',
+    model: {
+      kind: 'procedural',
+      note: 'Thân, tai bắt vít, trục và cần xoay; kích thước theo datasheet phổ biến (22,5 × 12 × 23 mm)',
+      shapes: [
+        { t: 'blk', pos: [0, 0.01135, 0], size: [0.0225, 0.0227, 0.012], color: '#2563EB' },
+        { t: 'blk', pos: [0, 0.0165, 0], size: [0.0325, 0.002, 0.012], color: '#2563EB' },
+        { t: 'cyl', pos: [0.006, 0.0247, 0], r: 0.005, h: 0.004, color: '#F1F5F9' },
+        { t: 'blk', pos: [0.012, 0.0262, 0], size: [0.024, 0.002, 0.004], color: '#F1F5F9' },
+      ],
+    },
+    sizeMm: [32.5, 27, 12],
+    pins: [
+      pin('gnd', 'GND (dây nâu)', 'ground', [-0.007, 0.0292, -0.004], 0.0227, 0),
+      pin('vcc', 'VCC (dây đỏ)', 'power-in', [-0.007, 0.0292, 0], 0.0227, 5),
+      pin('sig', 'Tín hiệu (dây cam)', 'pwm', [-0.007, 0.0292, 0.004], 0.0227, 3.3),
+    ],
+    specs: [
+      { label: 'Nguồn', value: '4,8 đến 6 V', num: 5, unit: 'V' },
+      { label: 'Góc xoay', value: '0 đến 180°', num: 180, unit: 'độ' },
+      { label: 'Moment giữ', value: '1,8 kg·cm', num: 1.8, unit: 'kg·cm' },
+    ],
+  },
+  {
+    id: 'buzzer',
+    nameVi: 'Còi buzzer',
+    nameEn: 'Buzzer',
+    category: 'actuator',
+    summaryVi: 'Phát âm thanh để báo hiệu khi có tín hiệu.',
+    model: {
+      kind: 'procedural',
+      note: 'Hình trụ đen đường kính 12 mm',
+      shapes: [{ t: 'cyl', pos: [0, 0.00475, 0], r: 0.006, h: 0.0095, color: '#1F2937' }],
+    },
+    sizeMm: [12, 9.5, 12],
+    pins: [pin('sig', 'Tín hiệu (+)', 'digital', [-0.0025, 0.0159, 0], 0.0095, 3.3), pin('gnd', 'GND (−)', 'ground', [0.0025, 0.0159, 0], 0.0095, 0)],
+    specs: [{ label: 'Loại', value: 'Còi chủ động, kêu khi có điện' }],
+  },
+  {
+    id: 'led',
+    nameVi: 'LED',
+    nameEn: 'LED',
+    category: 'display',
+    summaryVi: 'Đèn báo trạng thái; cần nối qua điện trở để giới hạn dòng.',
+    model: {
+      kind: 'procedural',
+      note: 'LED 5 mm',
+      shapes: [
+        { t: 'cyl', pos: [0, 0.0005, 0], r: 0.003, h: 0.001, color: '#E2E8F0' },
+        { t: 'cyl', pos: [0, 0.004, 0], r: 0.0025, h: 0.006 },
+        { t: 'ball', pos: [0, 0.007, 0], r: 0.0025 },
+      ],
+    },
+    sizeMm: [6, 9.5, 6],
+    pins: [pin('anode', 'Chân dài, anode (+)', 'digital', [-0.0015, 0.0155, 0], 0.0095, 3.3), pin('cathode', 'Chân ngắn, cathode (−)', 'ground', [0.0015, 0.0155, 0], 0.0095, 0)],
+    specs: [
+      { label: 'Điện áp thuận', value: 'khoảng 2 V', num: 2, unit: 'V' },
+      { label: 'Dòng khuyến nghị', value: '10 đến 20 mA', num: 0.015, unit: 'A' },
+    ],
+  },
+  {
+    id: 'gripper',
+    nameVi: 'Tay gắp',
+    nameEn: 'Gripper',
+    category: 'structure',
+    summaryVi: 'Hai ngàm kẹp vật, thường gắn servo để đóng mở.',
+    model: {
+      kind: 'procedural',
+      note: 'Đế và hai ngàm kẹp đơn giản',
+      shapes: [
+        { t: 'blk', pos: [0, 0.005, 0], size: [0.04, 0.01, 0.025] },
+        { t: 'blk', pos: [0.03, 0.014, -0.012], size: [0.03, 0.008, 0.004] },
+        { t: 'blk', pos: [0.03, 0.014, 0.012], size: [0.03, 0.008, 0.004] },
+      ],
+    },
+    sizeMm: [60, 18, 28],
+    pins: [],
+    specs: [{ label: 'Độ mở tối đa', value: '24 mm', num: 24, unit: 'mm' }],
+  },
+  {
+    id: 'chassis',
+    nameVi: 'Khung xe',
+    nameEn: 'Car chassis plate',
+    category: 'structure',
+    summaryVi: 'Tấm nền chịu lực, mọi bộ phận khác của xe được gắn lên nó.',
+    model: {
+      kind: 'procedural',
+      note: 'Tấm nhựa 21 × 13 cm, dày 3 mm, có lưới lỗ bắt vít',
+      shapes: [{ t: 'plate', pos: [0, 0, 0], w: 0.21, d: 0.13, th: 0.003, radius: 0.012, holes: CHASSIS_HOLES, color: '#CBD5E7' }],
+    },
+    sizeMm: [210, 3, 130],
+    pins: [],
+    specs: [{ label: 'Kích thước', value: '21 × 13 cm' }],
+  },
+  {
+    id: 'wheel',
+    nameVi: 'Bánh xe',
+    nameEn: 'Wheel',
+    category: 'structure',
+    summaryVi: 'Bánh dẫn động gắn vào trục motor.',
+    model: {
+      kind: 'procedural',
+      note: 'Bánh đường kính 65 mm',
+      shapes: [
+        { t: 'cyl', pos: [0, 0.0325, 0], r: 0.0325, h: 0.02, rot: [Math.PI / 2, 0, 0] },
+        { t: 'cyl', pos: [0, 0.0325, 0], r: 0.021, h: 0.0216, color: '#CBD5E1', rot: [Math.PI / 2, 0, 0] },
+      ],
+    },
+    sizeMm: [65, 65, 20],
+    pins: [],
+    specs: [{ label: 'Đường kính', value: '65 mm', num: 65, unit: 'mm' }],
+  },
+  {
+    id: 'caster',
+    nameVi: 'Bánh đa hướng',
+    nameEn: 'Ball caster',
+    category: 'structure',
+    summaryVi: 'Bi tròn đỡ phần đầu xe và xoay theo mọi hướng.',
+    model: {
+      kind: 'procedural',
+      note: 'Trụ đỡ và viên bi',
+      shapes: [
+        { t: 'cyl', pos: [0, 0.0285, 0], r: 0.004, h: 0.033, color: '#94A3B8' },
+        { t: 'ball', pos: [0, 0.012, 0], r: 0.012 },
+      ],
+    },
+    sizeMm: [24, 40, 24],
+    pins: [],
+    specs: [],
   },
 ];
